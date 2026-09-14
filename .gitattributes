@@ -1,0 +1,8 @@
+# Keep every text file LF on every platform.  The explorers are compared by
+# checksum between the browser and the python twin; a CRLF conversion on one
+# machine would make identical files look different.
+*.html  text eol=lf
+*.py    text eol=lf
+*.md    text eol=lf
+.gitignore     text eol=lf
+.gitattributes text eol=lf

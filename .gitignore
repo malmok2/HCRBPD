@@ -1,0 +1,16 @@
+# Generated meshes - every one is reproducible from the explorer or its python
+# twin in seconds, and together they run to ~230 MB.
+*.msh
+*.vtu
+*.stl
+*_foam/
+*.zip
+*.skill
+
+# python
+__pycache__/
+*.pyc
+
+# editors / os
+.DS_Store
+Thumbs.db
