@@ -1,4 +1,4 @@
-<title>Helical Coil Bundle — Staggered</title>
+<title>Bundle Mesh Explorer</title>
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
@@ -256,6 +256,14 @@
   }
   #bigview{display:block; width:100%; height:100%}
 
+  /* --- geometry selector : four choices, two per line ------------------- */
+  .seg.two{flex-wrap:wrap}
+  .seg.two button{flex:1 1 46%; padding:7px 4px; line-height:1.25}
+  .grp.geo{padding-bottom:14px}
+  .grp.geo .note{margin-top:9px}
+  /* a control that belongs to another geometry is removed from the flow */
+  [data-geo].off{display:none!important}
+
   @media (max-width:900px){
     .main{flex-direction:column}
     aside{width:100%; max-height:44dvh}
@@ -266,29 +274,45 @@
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
+
 <div class="app">
   <header>
-    <h1>Helical Coil Bundle</h1>
-    <span class="tag">Staggered &middot; Parametric CAD + Mesh</span>
+    <h1 id="title">In-line Rod Bundle</h1>
+    <span class="tag" id="tag">Parametric CAD + Mesh</span>
     <button class="btn lang" id="langBtn" type="button">EN</button>
-    <p>SALOME 지오메트리·격자 파라미터를 조절하면 즉시 갱신됩니다 · 드래그 회전 · 휠 확대</p>
+    <p>파라미터를 조절하면 형상과 격자가 즉시 갱신됩니다 · 드래그 회전 · 휠 확대</p>
   </header>
   <div class="main">
     <aside>
+      <div class="grp geo">
+        <h2 data-h2="geom">형상</h2>
+        <div class="seg two" id="geomSeg">
+          <button data-geom="rod-inline" class="on">직선 rod · 정렬</button>
+          <button data-geom="rod-staggered">직선 rod · 엇갈림</button>
+          <button data-geom="helical-inline">나선 코일 · 정렬</button>
+          <button data-geom="helical-staggered">나선 코일 · 엇갈림</button>
+        </div>
+        <div class="note" id="geomNote"></div>
+      </div>
+
       <div class="grp">
-        <h2>Rod</h2>
+        <h2 data-h2="rod">Rod</h2>
         <div class="ctrl">
           <div class="row"><label for="D">직경 D</label><output id="DV"></output></div>
           <input type="range" id="D" min="2" max="30" step="0.5" value="10">
         </div>
-        <div class="ctrl">
+        <div class="ctrl" data-geo="rod">
+          <div class="row"><label for="H">채널 높이 H</label><output id="HV"></output></div>
+          <input type="range" id="H" min="5" max="200" step="5" value="40">
+        </div>
+        <div class="ctrl" data-geo="helical">
           <div class="row"><label for="sector">방위각 범위 θ</label><output id="sectorV"></output></div>
           <input type="range" id="sector" min="1" max="120" step="0.5" value="12">
         </div>
       </div>
 
       <div class="grp">
-        <h2>배열 (helical, unrolled)</h2>
+        <h2 data-h2="array">배열</h2>
         <div class="ctrl">
           <div class="row"><label for="ST">횡피치 S<sub>T</sub></label><output id="STV"></output></div>
           <input type="range" id="ST" min="5" max="80" step="1" value="20">
@@ -297,11 +321,11 @@
           <div class="row"><label for="SL">종피치 S<sub>L</sub></label><output id="SLV"></output></div>
           <input type="range" id="SL" min="5" max="80" step="0.5" value="20">
         </div>
-        <div class="ctrl">
+        <div class="ctrl" data-geo="helical">
           <div class="row"><label for="helix">나선각 α</label><output id="helixV"></output></div>
           <input type="range" id="helix" min="0" max="45" step="0.5" value="15">
         </div>
-        <div class="ctrl">
+        <div class="ctrl" data-geo="helical">
           <div class="row"><label for="rMid">코일 중심반경 R</label><output id="rMidV"></output></div>
           <input type="range" id="rMid" min="60" max="1200" step="5" value="200">
         </div>
@@ -317,7 +341,7 @@
       </div>
 
       <div class="grp">
-        <h2>입·출구 박스</h2>
+        <h2 data-h2="boxes">입·출구 박스</h2>
         <div class="ctrl">
           <div class="row"><label for="lIn">입구 길이 L<sub>in</sub></label><output id="lInV"></output></div>
           <input type="range" id="lIn" min="0" max="400" step="5" value="60">
@@ -329,7 +353,7 @@
       </div>
 
       <div class="grp">
-        <h2>격자 (B 영역 O-grid)</h2>
+        <h2 data-h2="mesh">격자 (B 영역 O-grid)</h2>
         <div class="ctrl">
           <div class="row"><label for="nAz">Rod 원주 격자</label><output id="nAzV"></output></div>
           <input type="range" id="nAz" min="12" max="96" step="6" value="36">
@@ -343,7 +367,7 @@
           <input type="range" id="firstLayer" min="0.01" max="1.5" step="0.01" value="0.15">
         </div>
         <div class="ctrl">
-          <div class="row"><label for="nZ">H 방향 층 (호)</label><output id="nZV"></output></div>
+          <div class="row"><label for="nZ">z 방향 층</label><output id="nZV"></output></div>
           <input type="range" id="nZ" min="1" max="60" step="1" value="10">
         </div>
         <div class="ctrl">
@@ -354,11 +378,11 @@
           <div class="row"><label for="nxOut">C 영역 격자</label><output id="nxOutV"></output></div>
           <input type="range" id="nxOut" min="2" max="160" step="1" value="40">
         </div>
-        <div class="note">원주 격자는 사각 셀 한 변당 ⌈n/4⌉개로 올림되므로 항상 4의 배수가 됩니다.</div>
+        <div class="note" id="azNote"></div>
       </div>
 
       <div class="grp">
-        <h2 id="h2flow">유동 조건 (y+ 환산)</h2>
+        <h2 data-h2="flow">유동 조건 (y+ · 압력 추정)</h2>
         <div class="ctrl">
           <div class="row"><label for="vel">유입 속도 U</label><output id="velV"></output></div>
           <input type="range" id="vel" min="0.05" max="30" step="0.05" value="2">
@@ -373,41 +397,53 @@
           <input type="range" id="nu" min="0.2" max="20" step="0.01" value="1.004">
         </div>
         <div class="ctrl">
+          <div class="row"><label for="rho">밀도 ρ</label><output id="rhoV"></output></div>
+          <input type="range" id="rho" min="0.5" max="1600" step="0.5" value="998.2">
+        </div>
+        <div class="ctrl">
           <div class="row"><label for="ypl">목표 y+</label><output id="yplV"></output></div>
           <input type="range" id="ypl" min="0.2" max="300" step="0.1" value="30">
         </div>
         <div class="phys" id="physOut"></div>
         <button class="btn" id="applyY">첫 층에 적용</button>
+        <div class="phys" id="flowOut"></div>
       </div>
 
       <div class="grp">
-        <h2>격자 표시 · 품질</h2>
+        <h2 data-h2="display">격자 표시 · 품질</h2>
         <div class="seg" id="modeSeg">
           <button data-mode="grid" class="on">격자선</button>
           <button data-mode="skew">왜곡각</button>
           <button data-mode="ar">종횡비</button>
           <button data-mode="size">셀 크기</button>
+          <button data-mode="vel">속도 (추정)</button>
+          <button data-mode="pres">압력 (추정)</button>
         </div>
         <div class="note" id="modeNote"></div>
+        <div class="ctrl" style="margin-top:13px">
+          <div class="row"><label for="zCut">단면 위치 z/H</label><output id="zCutV">0.50</output></div>
+          <input type="range" id="zCut" min="0" max="1" step="0.02" value="0.5">
+        </div>
       </div>
 
       <div class="grp">
-        <h2>옵션</h2>
+        <h2 data-h2="options">옵션</h2>
         <div class="toggles">
-          <label class="chk"><input type="checkbox" id="wrap" checked><span class="box"></span>실제 코일로 감기</label>
-          <label class="chk"><input type="checkbox" id="coilCtx" checked><span class="box"></span>코일 전체 맥락 보기</label>
+          <label class="chk" data-geo="helical"><input type="checkbox" id="wrap" checked><span class="box"></span>실제 코일로 감기</label>
+          <label class="chk" data-geo="helical"><input type="checkbox" id="coilCtx" checked><span class="box"></span>코일 전체 맥락 보기</label>
           <label class="chk"><input type="checkbox" id="halfRods" checked><span class="box"></span>측벽에 반쪽 rod (주기 배열)</label>
-          <label class="chk"><input type="checkbox" id="firstRowOffset"><span class="box"></span>첫 행을 어긋난 행으로</label>
+          <label class="chk" data-geo="staggered"><input type="checkbox" id="firstOffset"><span class="box"></span>첫 행을 어긋난 행으로</label>
           <label class="chk"><input type="checkbox" id="showMesh" checked><span class="box"></span>격자 미리보기</label>
           <label class="chk"><input type="checkbox" id="mesh3d" checked><span class="box"></span>3D에 격자 그리기</label>
           <label class="chk"><input type="checkbox" id="showBox" checked><span class="box"></span>유동 영역 표시</label>
           <label class="chk"><input type="checkbox" id="showFlow" checked><span class="box"></span>유동 방향 화살표</label>
+          <label class="chk"><input type="checkbox" id="stream" checked><span class="box"></span>추정 유선 (속도·압력 보기)</label>
           <label class="chk"><input type="checkbox" id="autoRotate"><span class="box"></span>자동 회전</label>
         </div>
       </div>
 
       <div class="grp">
-        <h2>시점</h2>
+        <h2 data-h2="view">시점</h2>
         <div class="seg">
           <button data-view="iso" class="on">ISO</button>
           <button data-view="top">Top</button>
@@ -434,7 +470,7 @@
           <button class="btn" data-fmt="vtu"><span>ParaView (.vtu)</span></button>
           <button class="btn" data-fmt="stl"><span>형상 표면 (.stl)</span></button>
         </div>
-        <div class="note" id="dlNote">버튼을 누르면 브라우저에서 격자를 직접 생성합니다. SALOME이나 파이썬 없이 바로 솔버에 넣을 수 있습니다.</div>
+        <div class="note" id="dlNote">버튼을 누르면 브라우저에서 격자를 직접 생성합니다.</div>
         <div style="display:flex; gap:7px; margin-top:10px">
           <button class="btn" id="shareBtn" style="flex:1">링크 복사</button>
           <button class="btn" id="fitBtn" style="flex:1">화면 맞춤</button>
@@ -487,30 +523,46 @@
 </div>
 
 
-
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
 const TAU = Math.PI*2;
-const X_SCALE = 4.0;            // matches X_SCALE_IN / X_SCALE_OUT in the script
+const X_SCALE = 4.0;            // matches X_SCALE_IN / X_SCALE_OUT in the python twin
 
-/* ============================ localisation ================================ */
+/* ============================ localisation ================================
+   Every visible string lives here.  Headings, checkbox labels and parameter
+   labels are keyed by element id rather than by position: a geometry can add
+   or remove a control, and a positional array would then silently shift the
+   whole panel by one.                                                      */
 const STR = {
   ko:{
     sub:"파라미터를 조절하면 형상과 격자가 즉시 갱신됩니다 · 드래그 회전 · 휠 확대",
-    h2:["Rod","배열 (helical, unrolled)","입·출구 박스","격자 (B 영역 O-grid)",
-        "유동 조건 (y+ 환산)","격자 표시 · 품질","옵션","시점"],
-    lab:{D:"관 직경 D",sector:"방위각 범위 θ",ST:"횡피치 S<sub>T</sub>",SL:"종피치 S<sub>L</sub>",helix:"나선각 α",rMid:"코일 중심반경 R",
+    h2:{geom:"형상", rod:"Rod", array:"배열", boxes:"입·출구 박스",
+        mesh:"격자 (B 영역 O-grid)", flow:"유동 조건 (y+ · 압력 추정)",
+        display:"격자 표시 · 품질", options:"옵션", view:"시점"},
+    lab:{D:"직경 D",H:"채널 높이 H",sector:"방위각 범위 θ",
+         ST:"횡피치 S<sub>T</sub>",SL:"종피치 S<sub>L</sub>",
+         helix:"나선각 α",rMid:"코일 중심반경 R",
          nRows:"행 수 (유동방향)",nCols:"열 수 (폭방향)",
          lIn:"입구 길이 L<sub>in</sub>",lOut:"출구 길이 L<sub>out</sub>",
-         nAz:"Rod 원주 격자",nRad:"반경 격자",firstLayer:"첫 층 두께",nZ:"H 방향 층 (호)",
+         nAz:"Rod 원주 격자",nRad:"반경 격자",firstLayer:"첫 층 두께",nZ:"z 방향 층",
          nxIn:"A 영역 격자",nxOut:"C 영역 격자",
-         vel:"유입 속도 U",nu:"동점성 ν ×10⁻⁶",ypl:"목표 y+"},
-    chk:{wrap:"실제 코일로 감기",coilCtx:"코일 전체 맥락 보기",halfRods:"측벽에 반쪽 rod (주기 배열)",
-         firstRowOffset:"첫 행을 어긋난 행으로",
+         vel:"유입 속도 U",nu:"동점성 ν ×10⁻⁶",rho:"밀도 ρ",ypl:"목표 y+",
+         zCut:"단면 위치 z/H"},
+    labArc:"H 방향 층 (호)",                       // nZ, once the patch is a coil
+    chk:{wrap:"실제 코일로 감기",coilCtx:"코일 전체 맥락 보기",
+         halfRods:"측벽에 반쪽 rod (주기 배열)",firstOffset:"첫 행을 어긋난 행으로",
          showMesh:"격자 미리보기",mesh3d:"3D에 격자 그리기",showBox:"유동 영역 표시",
-         showFlow:"입구 유동 화살표",autoRotate:"자동 회전"},
-    modes:["격자선","왜곡각","종횡비","셀 크기"],
+         showFlow:"입구 유동 화살표",stream:"추정 유선 (속도·압력 보기)",autoRotate:"자동 회전"},
+    geom:{"rod-inline":  {name:"직선 rod · 정렬",  btn:"직선 rod · 정렬",  arr:"in-line lattice"},
+          "rod-staggered":{name:"직선 rod · 엇갈림", btn:"직선 rod · 엇갈림", arr:"staggered"},
+          "helical-inline":{name:"나선 코일 · 정렬", btn:"나선 코일 · 정렬", arr:"helical, unrolled"},
+          "helical-staggered":{name:"나선 코일 · 엇갈림", btn:"나선 코일 · 엇갈림", arr:"helical, staggered"}},
+    g_rod:"곧은 원형 rod 다발. 채널 높이 H를 직접 지정합니다.",
+    g_hel:"경사진 관을 펼쳐서 메시를 만든 뒤 실제 코일로 되감습니다. 단면은 타원이 되고, H는 중심반경 × 방위각으로 정해집니다.",
+    g_inl:" 행마다 같은 y에 놓이는 정렬 배열입니다.",
+    g_stg:" 행마다 횡피치의 절반씩 어긋나는 엇갈림 배열입니다.",
+    modes:["격자선","왜곡각","종횡비","셀 크기","속도 (추정)","압력 (추정)"],
     legend:["입구 유동 (inlet)","Rod (고체)","격자 셀 / O-grid","A 입구 박스",
             "B 번들","C 출구 박스"],
     stats:["rod 수","폭 W","전체 길이","P/D","벽면 여유","격자 수","최대 왜곡각","최대 AR"],
@@ -522,52 +574,76 @@ const STR = {
     needFirst:"필요한 첫 층", nowYplus:"현재 y+",
     unitNote:u=>`내보내는 좌표는 미터로 환산됩니다 (입력 ${u} × ${u==="mm"?"0.001":"1"}). OpenFOAM은 미터를 가정하므로 그대로 넣으면 됩니다.`,
     azNote:"한 변당 분할 수는 짝수로 올림됩니다. 벽면에서 반으로 잘린 변은 그 절반을 받아 셀 크기가 균일하게 유지됩니다.",
+    azNoteStg:"육각 셀의 평평한 변과 비스듬한 변은 길이가 다르므로, 분할 수는 변 길이에 비례해 배분됩니다.",
     dlNote:"버튼을 누르면 브라우저에서 격자를 직접 생성합니다. 별도 프로그램 없이 바로 솔버에 넣을 수 있습니다.",
     cap:"단면 격자 (x–y)",
     mn_grid:"블록별 정렬격자 선. rod 벽면 쪽이 조밀해지는 inflation 분포가 그대로 보입니다.",
     mn_skew:"셀 네 모서리 각도의 90°에서의 최대 이탈. 20° 이하 녹색이면 양호합니다.",
     mn_ar:"셀 종횡비 (Δz 포함, 3D 기준). 벽면 첫 층이 얇을수록 커집니다.",
     mn_size:"셀 크기(최대 변장) 분포. A·C 영역의 등비 확대와 O-grid 확대가 보입니다.",
-    perSide:"변당", growth:"성장률", gap:"여유", quasi2d:"준2D", lean:"기울어짐", arc:"호 길이",
+    mn_vel:"CFD 전 추정 속도장 — 이 격자 위에서 퍼텐셜 유동(∇²φ=0)을 풀어 |u|/U를 칠합니다. 후류·박리는 없습니다.",
+    mn_pres:"CFD 전 추정 압력장 — 베르누이 항에 관계식 기반 유동방향 손실을 더한 값입니다. 절대값은 참고용입니다.",
+    perSide:"변당", growth:"성장률", gap:"여유", quasi2d:"준2D", lean:"기울어짐", arc:"호 길이", layer:"층",
+    f_head:"추정 유동장 (CFD 아님)",
+    f_hint:"‘속도’ 또는 ‘압력’ 보기를 누르면 이 격자 위에서 추정 유동장을 계산합니다.",
+    f_big:"격자가 커서 추정을 건너뜁니다 (단면 셀 > 80k).",
+    f_bad:"형상이 유효하지 않아 추정할 수 없습니다.",
+    f_busy:"추정 계산 중…",
+    f_dp:"번들 Δp", f_eu:"열당 Eu", f_umax:"u<sub>max</sub> (해)", f_ubar:"u<sub>max</sub> (1-D)",
+    f_dt:"Δt (CFL=1)", f_res:"질량 수지 오차", f_iter:"반복", f_stop:"수렴 전 중단",
+    f_warn:"퍼텐셜 유동 + 경험식 손실. 박리·후류·난류는 표현되지 않으므로 격자·경계조건 점검과 스케일 확인용으로만 쓰세요.",
     qSkew:n=>`  ▸ 왜곡각 30° 미만 ${n[0]}, 45° 미만 ${n[1]}, 최대 ${n[2]}°`,
     qAr:n=>`  ▸ AR<10 ${n[0]}, 최대 ${n[1]}`,
     w_st:(a,b)=>`같은 행의 rod가 겹칩니다 — S<sub>T</sub> <b>${a}</b> ≤ D <b>${b}</b>.`,
     w_sl:(a,b)=>`유동방향으로 rod가 겹칩니다 — S<sub>L</sub> <b>${a}</b> ≤ D <b>${b}</b>.`,
+    w_slstg:(a,b)=>`종피치가 작아 육각 셀이 접힙니다 — S<sub>L</sub> <b>${a}</b> ≤ S<sub>T</sub>/2 <b>${b}</b>.`,
+    w_fit:(a)=>`관이 자기 셀 안에 들어가지 않습니다 — 벽면 여유 <b>${a}</b>. 피치를 늘리거나 D·나선각을 줄이세요.`,
     w_lay:(n,f,t,c)=>`첫 층이 두껍습니다 — ${n}층 × ${f} = <b>${t}</b> > 벽면 여유 <b>${c}</b>. 바깥으로 갈수록 셀이 작아집니다.`,
     w_out:(a,b)=>`출구 박스가 짧습니다 — L<sub>out</sub> <b>${a}</b> &lt; 4D <b>${b}</b>. 후류가 출구면에 걸릴 수 있습니다.`,
     w_in:(a,b)=>`입구 박스가 짧습니다 — L<sub>in</sub> <b>${a}</b> &lt; 2D <b>${b}</b>.`,
-    w_coil:()=>`코일 반경이 유효하지 않습니다 — R − W/2 가 0보다 커야 하고, 섹터가 한 바퀴를 넘으면 안 됩니다.`,
-    w_arc:(a,b)=>`층당 각도가 큽니다 — <b>${a}°</b>/층이라 호가 <b>${b}%</b> 만큼 현으로 잘립니다. <b>H 방향 층 (호)</b> 수를 늘리세요.`,
-    w_lean:(a,b)=>`기울어짐이 박스보다 깁니다 — 기울어짐 <b>${a}</b> ≥ L<sub>in</sub>/L<sub>out</sub> <b>${b}</b>.`,
+    w_coil:()=>`코일 반경이 유효하지 않습니다 — R − W/2 가 양수여야 하고 방위각은 한 바퀴 미만이어야 합니다.`,
+    w_arc:(a,b)=>`층당 각도가 큽니다 — <b>${a}°</b>/층이면 호를 <b>${b}%</b> 만큼 잘라냅니다. <b>H 방향 층</b>을 늘리세요.`,
     d_busy:c=>`격자 생성 중… ${c} 셀`,
-    d_ok:(l,c,sz,t,e)=>`<b>${l}</b> 저장 · ${c} 셀 · ${sz} · ${t}초<br>검사 통과 — 균열 0, 절점 불일치 0, 체적 오차 ${e}`,
+    d_ok:(l,c,sz,t,e)=>`<b>${l}</b> 저장 · ${c} 셀 · ${sz} · ${t}초<br>검사 통과 — 균열 0, 절점 불일치 0, 면적 오차 ${e}`,
     d_err:m=>"생성 실패: "+m,
     e_crack:n=>"격자가 닫히지 않았습니다 (균열 "+n+")",
     e_join:v=>"블록 접합 불일치 "+v,
     e_area:()=>"면적이 0 이하인 셀이 있습니다",
-    d_vol:(n,e,st)=>`셀 체적 검사 통과 — 음/영 체적 ${n}개, 총 체적 오차 ${e}${st?"":" (감긴 형상: 참고값)"}`,
+    d_vol:(n,e)=>`셀 체적 검사 통과 — 음/영 체적 ${n}개, 총 체적 오차 ${e}`,
     e_vol:n=>"체적이 0 이하인 셀 "+n+"개 — 면 방향이 뒤집혔습니다",
     e_volsum:e=>"셀 체적 합이 해석적 체적과 다릅니다 (오차 "+e+")",
-    e_fit:()=>"관이 셀 안에 들어가지 않습니다 — 위 경고를 먼저 해결하세요",
-    e_lean:()=>"기울어짐이 입·출구 박스보다 깁니다 — 박스를 늘리거나 나선각을 줄이세요",
+    e_fit:()=>"rod가 셀 안에 들어가지 않습니다 — 위 경고를 먼저 해결하세요",
     e_coil:()=>"코일 반경이 번들 폭의 절반보다 작거나 한 바퀴를 넘습니다"
   },
   en:{
     sub:"Change a parameter and the model and mesh update at once · drag to rotate · wheel to zoom",
-    h2:["Rod","Array (helical, unrolled)","Inlet & outlet boxes","Mesh (O-grid in zone B)",
-        "Flow conditions (y+)","Mesh display · quality","Options","View"],
-    lab:{D:"Tube diameter D",sector:"Azimuthal sector θ",helix:"Helix angle α",rMid:"Coil mid radius R",ST:"Transverse pitch S<sub>T</sub>",
-         SL:"Longitudinal pitch S<sub>L</sub>",nRows:"Rows (streamwise)",
-         nCols:"Columns (spanwise)",lIn:"Inlet length L<sub>in</sub>",
-         lOut:"Outlet length L<sub>out</sub>",nAz:"Cells around rod",nRad:"Radial cells",
-         firstLayer:"First layer height",nZ:"Layers along the arc H",nxIn:"Cells in zone A",
-         nxOut:"Cells in zone C",vel:"Inlet velocity U",nu:"Kinematic ν ×10⁻⁶",
-         ypl:"Target y+"},
-    chk:{wrap:"Roll onto the coil",coilCtx:"Show the coil beyond the patch",halfRods:"Half rods on the side walls (periodic)",
-         firstRowOffset:"Offset the first row",
+    h2:{geom:"Geometry", rod:"Rod", array:"Array", boxes:"Inlet & outlet boxes",
+        mesh:"Mesh (O-grid in zone B)", flow:"Flow conditions (y+ · pressure estimate)",
+        display:"Mesh display · quality", options:"Options", view:"View"},
+    lab:{D:"Diameter D",H:"Channel height H",sector:"Azimuthal sector θ",
+         ST:"Transverse pitch S<sub>T</sub>",SL:"Longitudinal pitch S<sub>L</sub>",
+         helix:"Helix angle α",rMid:"Coil mid radius R",
+         nRows:"Rows (streamwise)",nCols:"Columns (spanwise)",
+         lIn:"Inlet length L<sub>in</sub>",lOut:"Outlet length L<sub>out</sub>",
+         nAz:"Cells around rod",nRad:"Radial cells",firstLayer:"First layer height",
+         nZ:"Layers in z",nxIn:"Cells in zone A",nxOut:"Cells in zone C",
+         vel:"Inlet velocity U",nu:"Kinematic ν ×10⁻⁶",rho:"Density ρ",ypl:"Target y+",
+         zCut:"Section plane z/H"},
+    labArc:"Layers along the arc H",
+    chk:{wrap:"Roll onto the coil",coilCtx:"Show the coil beyond the patch",
+         halfRods:"Half rods on the side walls (periodic)",firstOffset:"Offset the first row",
          showMesh:"Mesh preview",mesh3d:"Draw the mesh in 3D",showBox:"Show the flow domain",
-         showFlow:"Inlet flow arrows",autoRotate:"Auto-rotate"},
-    modes:["Grid","Skew","Aspect","Size"],
+         showFlow:"Inlet flow arrows",stream:"Estimated streamlines (velocity · pressure)",
+         autoRotate:"Auto-rotate"},
+    geom:{"rod-inline":  {name:"In-line Rod Bundle", btn:"Rod · in-line",  arr:"in-line lattice"},
+          "rod-staggered":{name:"Staggered Rod Bundle", btn:"Rod · staggered", arr:"staggered"},
+          "helical-inline":{name:"Helical Coil Bundle", btn:"Helical · in-line", arr:"helical, unrolled"},
+          "helical-staggered":{name:"Helical Coil Bundle — Staggered", btn:"Helical · staggered", arr:"helical, staggered"}},
+    g_rod:"Straight circular rods. The channel height H is set directly.",
+    g_hel:"Inclined tubes meshed flat and then rolled back onto the coil. The section becomes elliptical and H follows from the mid radius times the sector angle.",
+    g_inl:" Rows share the same y — an in-line lattice.",
+    g_stg:" Consecutive rows are offset by half a transverse pitch.",
+    modes:["Grid","Skew","Aspect","Size","Velocity (est.)","Pressure (est.)"],
     legend:["Inlet flow","Rod (solid)","Lattice cell / O-grid","A inlet box",
             "B bundle","C outlet box"],
     stats:["Rods","Width W","Length","P/D","Wall gap","Cells","Max skew","Max AR"],
@@ -579,99 +655,106 @@ const STR = {
     needFirst:"Required first layer", nowYplus:"current y+",
     unitNote:u=>`Exported coordinates are converted to metres (input ${u} × ${u==="mm"?"0.001":"1"}). OpenFOAM assumes metres, so the files drop straight in.`,
     azNote:"Divisions per cell side are rounded up to an even number; a side halved by a wall takes half of them, so cell size stays uniform.",
+    azNoteStg:"A hexagon's flat and slanted sides differ in length, so the divisions are shared out in proportion to each side.",
     dlNote:"Each button builds the mesh right here in the browser. No other software is needed before the solver.",
     cap:"Section mesh (x–y)",
     mn_grid:"Block-structured grid lines. The inflation towards the rod wall is drawn as it will be built.",
     mn_skew:"Largest deviation of a cell corner from 90°. Green below 20° is comfortable.",
     mn_ar:"Cell aspect ratio in 3D (Δz included). It grows as the first wall layer gets thinner.",
     mn_size:"Cell size (longest edge). Shows the geometric growth in zones A and C and in the O-grid.",
-    perSide:"per side", growth:"growth", gap:"gap", quasi2d:"quasi-2D", lean:"lean", arc:"arc",
+    mn_vel:"Pre-CFD velocity estimate — potential flow (∇²φ=0) solved on this very mesh, coloured by |u|/U. No wake, no separation.",
+    mn_pres:"Pre-CFD pressure estimate — the Bernoulli term plus a correlation-based streamwise loss. Treat the absolute level as indicative.",
+    perSide:"per side", growth:"growth", gap:"gap", quasi2d:"quasi-2D", lean:"lean", arc:"arc", layer:"layer",
+    f_head:"Estimated field (not CFD)",
+    f_hint:"Pick the velocity or pressure view to solve the estimate on this mesh.",
+    f_big:"Mesh too large for the estimate (section cells > 80k).",
+    f_bad:"The geometry is not valid, so no estimate is possible.",
+    f_busy:"Solving the estimate…",
+    f_dp:"Bundle Δp", f_eu:"Eu per row", f_umax:"u<sub>max</sub> (solved)", f_ubar:"u<sub>max</sub> (1-D)",
+    f_dt:"Δt (CFL=1)", f_res:"Mass balance error", f_iter:"iterations", f_stop:"stopped short of convergence",
+    f_warn:"Potential flow plus an empirical loss. Separation, wake and turbulence are absent — use it to check the mesh and boundary conditions and to get the scale, nothing more.",
     qSkew:n=>`  ▸ skew below 30° ${n[0]}, below 45° ${n[1]}, max ${n[2]}°`,
     qAr:n=>`  ▸ AR<10 ${n[0]}, max ${n[1]}`,
     w_st:(a,b)=>`Rods in a row overlap — S<sub>T</sub> <b>${a}</b> ≤ D <b>${b}</b>.`,
     w_sl:(a,b)=>`Rods overlap along the flow — S<sub>L</sub> <b>${a}</b> ≤ D <b>${b}</b>.`,
+    w_slstg:(a,b)=>`The longitudinal pitch is too small and the hexagonal cell folds — S<sub>L</sub> <b>${a}</b> ≤ S<sub>T</sub>/2 <b>${b}</b>.`,
+    w_fit:(a)=>`The tube does not fit in its cell — wall gap <b>${a}</b>. Open the pitch, or reduce D or the helix angle.`,
     w_lay:(n,f,t,c)=>`The first layer is thick — ${n} × ${f} = <b>${t}</b> &gt; wall gap <b>${c}</b>. Cells will shrink outwards.`,
     w_out:(a,b)=>`The outlet box is short — L<sub>out</sub> <b>${a}</b> &lt; 4D <b>${b}</b>. The wake may reach the outlet.`,
     w_in:(a,b)=>`The inlet box is short — L<sub>in</sub> <b>${a}</b> &lt; 2D <b>${b}</b>.`,
     w_coil:()=>`The coil radius is invalid — R − W/2 must be positive and the sector must stay under a full turn.`,
     w_arc:(a,b)=>`The layer angle is coarse — <b>${a}°</b> per layer chords the arc by <b>${b}%</b>. Raise <b>Layers along the arc H</b>.`,
-    w_lean:(a,b)=>`The lean is longer than the box — lean <b>${a}</b> ≥ L<sub>in</sub>/L<sub>out</sub> <b>${b}</b>.`,
     d_busy:c=>`Building the mesh… ${c} cells`,
-    d_ok:(l,c,sz,t,e)=>`<b>${l}</b> saved · ${c} cells · ${sz} · ${t} s<br>checks passed — 0 cracks, 0 node mismatch, volume error ${e}`,
+    d_ok:(l,c,sz,t,e)=>`<b>${l}</b> saved · ${c} cells · ${sz} · ${t} s<br>checks passed — 0 cracks, 0 node mismatch, area error ${e}`,
     d_err:m=>"Could not build: "+m,
     e_crack:n=>"the mesh is not closed ("+n+" cracks)",
     e_join:v=>"blocks disagree on a shared node by "+v,
     e_area:()=>"a cell has non-positive area",
-    d_vol:(n,e,st)=>`cell volumes verified — ${n} non-positive, total volume error ${e}${st?"":" (wrapped: indicative)"}`,
+    d_vol:(n,e)=>`cell volumes verified — ${n} non-positive, total volume error ${e}`,
     e_vol:n=>n+" cells have non-positive volume - the face orientation is inverted",
     e_volsum:e=>"the cell volumes do not sum to the analytic volume (error "+e+")",
-    e_fit:()=>"the tube does not fit in its cell — resolve the warning above first",
-    e_lean:()=>"the lean is longer than the inlet/outlet box — lengthen it or reduce the helix angle",
+    e_fit:()=>"the rod does not fit in its cell — resolve the warning above first",
     e_coil:()=>"the coil radius is below half the bundle width, or the sector exceeds a full turn"
   }
 };
 let LANG = "ko";
-try{ LANG = localStorage.getItem("rbLang") || "ko"; }catch(e){}
+try{ LANG = localStorage.getItem("bmLang") || "ko"; }catch(e){}
 const T = k => STR[LANG][k];
 function uiFont(){ return getComputedStyle(document.body).fontFamily; }
 
-function setLang(l){
-  LANG = l;
-  try{ localStorage.setItem("rbLang", l); }catch(e){}
-  const s = STR[l];
-  document.documentElement.lang = (l === "ko" ? "ko" : "en");
-  $("langBtn").textContent = (l === "ko" ? "EN" : "한국어");
-  const set = (el, html) => { if(el) el.innerHTML = html; };
-  set(document.querySelector("header p"), s.sub);
-  document.querySelectorAll("aside .grp h2").forEach((h,i)=>set(h, s.h2[i]));
-  for(const k in s.lab) set(document.querySelector('label[for="'+k+'"]'), s.lab[k]);
-  for(const k in s.chk){
-    const inp=$(k); if(!inp) continue;
-    const node=inp.parentElement.lastChild;
-    if(node && node.nodeType===3) node.nodeValue=s.chk[k];
-  }
-  document.querySelectorAll("#modeSeg button").forEach((b,i)=>b.textContent=s.modes[i]);
-  document.querySelectorAll(".legend .li").forEach((li,i)=>{
-    const t=li.lastChild; if(t && t.nodeType===3) t.nodeValue=s.legend[i];
-  });
-  document.querySelectorAll(".stats .k").forEach((k,i)=>k.textContent=s.stats[i]);
-  document.querySelectorAll(".dl .btn span").forEach((b,i)=>b.textContent=s.dl[i]);
-  set($("equi"), s.equi);
-  set($("reset"), s.reset);
-  document.querySelectorAll(".inset .cap, .zoomwrap .cap").forEach(c=>c.textContent=s.cap);
-  const notes=document.querySelectorAll("aside .note");
-  if(notes[0]) notes[0].textContent=s.azNote;
-  set($("unitLab"), s.unitLab);
-  set($("applyY"), s.applyY);
-  set($("shareBtn"), s.share);
-  set($("fitBtn"), s.fit);
-  document.querySelectorAll("#fluidSeg button").forEach((b,i)=>b.textContent=s.fluids[i]);
-  if($("unitNote")) $("unitNote").textContent=s.unitNote(P.unit);
-  physNote();
-  renderNote();
-  modeNote(); syncLabels(); updateStats();
-}
-
-/* ---------- parameters (defaults match the standalone generator) ---------- */
-const DEFAULTS = {
-  D:10, ST:20, SL:20, helix:15, rMid:200, sector:12, wrap:true,
-  nRows:5, nCols:4, lIn:60, lOut:120, H:40,
-  nAz:36, nRad:12, firstLayer:0.15, nZ:10, nxIn:24, nxOut:40,
-  halfRods:true, firstRowOffset:false, coilCtx:true, showMesh:true, mesh3d:true,
-  showBox:true, showFlow:true, autoRotate:false
+/* ========================= the geometry registry ==========================
+   Four geometries, two independent traits.  `family` decides whether the
+   patch is straight (rod) or an unrolled helix that is rolled back onto a
+   coil; `stagger` decides whether consecutive rows share a y or are offset by
+   half a transverse pitch.  Everything else in this file - layout, camera,
+   export, i18n, persistence - is shared and must not learn which geometry is
+   active.  Geometry knowledge lives in exactly five places: derived(),
+   lattice(), cellPolygon(), sideDiv() and warp3().                         */
+const GEOM = {
+  "rod-inline":       {family:"rod",     stagger:false, prefix:"rod_inline",
+                       def:{SL:20}},
+  "rod-staggered":    {family:"rod",     stagger:true,  prefix:"rod_stg",
+                       def:{SL:17.32, firstOffset:true}},   // equilateral by default
+  "helical-inline":   {family:"helical", stagger:false, prefix:"helical_inline",
+                       def:{SL:20}},
+  "helical-staggered":{family:"helical", stagger:true,  prefix:"helical_stg",
+                       def:{SL:20, firstOffset:false}}
 };
-DEFAULTS.unit="mm"; DEFAULTS.vel=2; DEFAULTS.nu=1.004; DEFAULTS.ypl=30; DEFAULTS.fluid="water";
-const P = Object.assign({}, DEFAULTS);
-const RANGES = ["D","ST","SL","helix","rMid","sector","nRows","nCols","lIn","lOut",
-                "nAz","nRad","firstLayer","nZ","nxIn","nxOut","vel","nu","ypl"];
+let GK = "rod-inline";                       // active geometry key
+const isHel = () => GEOM[GK].family === "helical";
+const isStg = () => GEOM[GK].stagger;
+/* which [data-geo] controls belong to the active geometry */
+const geoTags = () => [GEOM[GK].family, GEOM[GK].stagger ? "staggered" : "inline"];
+
+/* ---------- parameters (defaults match the standalone generator) ----------
+   One parameter set covers all four geometries.  A parameter another geometry
+   does not use simply has no visible control; its value is carried along so
+   that switching back and forth does not lose it.                          */
+const DEFAULTS = {
+  D:10, ST:20, SL:20, nRows:5, nCols:4, lIn:60, lOut:120, H:40,
+  helix:15, rMid:200, sector:12,
+  nAz:36, nRad:12, firstLayer:0.15, nZ:10, nxIn:24, nxOut:40,
+  wrap:true, coilCtx:true, halfRods:true, firstOffset:false,
+  showMesh:true, mesh3d:true, showBox:true, showFlow:true, stream:true, autoRotate:false
+};
+DEFAULTS.zCut=0.5;                 // section plane, as a fraction of H
+DEFAULTS.unit="mm"; DEFAULTS.vel=2; DEFAULTS.nu=1.004; DEFAULTS.rho=998.2;
+DEFAULTS.ypl=30; DEFAULTS.fluid="water";
+const P = Object.assign({}, DEFAULTS, GEOM[GK].def);
+const RANGES = ["D","H","sector","ST","SL","helix","rMid","nRows","nCols","lIn","lOut",
+                "nAz","nRad","firstLayer","nZ","nxIn","nxOut","vel","nu","rho","ypl"];
 /* model units -> metres, applied when a file is written */
 const UNIT = {mm:0.001, m:1};
 const toM = () => UNIT[P.unit];
-const CHECKS = ["wrap","coilCtx","halfRods","firstRowOffset","showMesh","mesh3d",
-                "showBox","showFlow","autoRotate"];
+const CHECKS = ["wrap","coilCtx","halfRods","firstOffset","showMesh","mesh3d",
+                "showBox","showFlow","stream","autoRotate"];
 const MAX_PREVIEW = 200000;     // 2-D cells above which the preview is skipped
-let MODE = "grid";              // grid | skew | ar | size
+let MODE = "grid";              // grid | skew | ar | size | vel | pres
 let interacting = false;        // simplified drawing while dragging
+/* H is a free parameter for a rod bundle and a derived one for a coil, where
+   derived() overwrites it.  Remember what the user last chose so that coming
+   back from a coil does not leave the rod bundle at the coil's arc length. */
+let H_ROD = DEFAULTS.H;
 
 /* ---------- palette ---------- */
 /* canvas palette - tuned for a white ground, no fluorescent hues */
@@ -688,46 +771,138 @@ const pal = {
   qEdge:"rgba(0,0,0,.20)"
 };
 
-/* ================== geometry — mirrors the python exactly ================== */
+/* ---------------------- language + geometry on the page ------------------ */
+function setLang(l){
+  LANG = l;
+  try{ localStorage.setItem("bmLang", l); }catch(e){}
+  const s = STR[l];
+  document.documentElement.lang = (l === "ko" ? "ko" : "en");
+  $("langBtn").textContent = (l === "ko" ? "EN" : "한국어");
+  const set = (el, html) => { if(el) el.innerHTML = html; };
+  set(document.querySelector("header p"), s.sub);
+  document.querySelectorAll("aside .grp h2").forEach(h=>{
+    const k=h.dataset.h2;
+    if(k) set(h, k==="array" ? s.h2.array+" ("+s.geom[GK].arr+")" : s.h2[k]);
+  });
+  for(const k in s.lab) set(document.querySelector('label[for="'+k+'"]'), s.lab[k]);
+  set(document.querySelector('label[for="nZ"]'), isHel() ? s.labArc : s.lab.nZ);
+  for(const k in s.chk){
+    const inp=$(k); if(!inp) continue;
+    const node=inp.parentElement.lastChild;
+    if(node && node.nodeType===3) node.nodeValue=s.chk[k];
+  }
+  document.querySelectorAll("#geomSeg button").forEach(b=>{
+    b.textContent = s.geom[b.dataset.geom].btn;
+  });
+  set($("title"), s.geom[GK].name);
+  $("tag").textContent = s.geom[GK].arr;
+  set($("geomNote"), (isHel()? s.g_hel : s.g_rod) + (isStg()? s.g_stg : s.g_inl));
+  document.querySelectorAll("#modeSeg button").forEach((b,i)=>b.textContent=s.modes[i]);
+  document.querySelectorAll(".legend .li").forEach((li,i)=>{
+    const t=li.lastChild; if(t && t.nodeType===3) t.nodeValue=s.legend[i];
+  });
+  document.querySelectorAll(".stats .k").forEach((k,i)=>k.textContent=s.stats[i]);
+  document.querySelectorAll(".dl .btn span").forEach((b,i)=>b.textContent=s.dl[i]);
+  set($("equi"), s.equi);
+  set($("reset"), s.reset);
+  document.querySelectorAll(".inset .cap, .zoomwrap .cap").forEach(c=>c.textContent=s.cap);
+  set($("azNote"), isStg() ? s.azNoteStg : s.azNote);
+  set($("unitLab"), s.unitLab);
+  set($("applyY"), s.applyY);
+  set($("shareBtn"), s.share);
+  set($("fitBtn"), s.fit);
+  document.querySelectorAll("#fluidSeg button").forEach((b,i)=>b.textContent=s.fluids[i]);
+  if($("unitNote")) $("unitNote").textContent=s.unitNote(P.unit);
+  document.title = s.geom[GK].name;
+  physNote();
+  flowNote();
+  renderNote();
+  modeNote(); syncLabels(); updateStats();
+}
+
+/* Switch geometry.  Only the panel and the five geometry functions change;
+   the parameter values carry over, so the same case can be compared in-line
+   against staggered, or flat against rolled, without retyping it.          */
+function applyGeometry(key, opts){
+  if(!GEOM[key]) return;
+  const wasHel = isHel();
+  GK = key;
+  if(wasHel && !isHel()) P.H = H_ROD;          // coil arc length is not a channel height
+  document.querySelectorAll("#geomSeg button").forEach(b=>
+    b.classList.toggle("on", b.dataset.geom===key));
+  const tags=geoTags();
+  document.querySelectorAll("[data-geo]").forEach(el=>{
+    const want=el.dataset.geo.split(/\s+/);
+    el.classList.toggle("off", !want.some(w=>tags.includes(w)));
+  });
+  if(!(opts && opts.quiet)){
+    setLang(LANG);
+    rebuild();
+    saveState();
+  }
+}
+
+/* ================== geometry — mirrors the python exactly ==================
+   Geometry function 1 of 5: the derived quantities.  A straight rod has a
+   circular footprint; a tube inclined by alpha cuts the section as an ellipse
+   stretched along the flow by 1/cos(alpha), and setting alpha = 0 collapses
+   every helical term back to the rod case, which is why one function serves
+   both families.                                                           */
 function derived(){
-  P.H = P.sector*Math.PI/180*P.rMid;          // arc length at the mid radius
+  if(isHel()) P.H = P.sector*Math.PI/180*P.rMid;   // arc length at the mid radius
   const R=P.D/2, W=P.nCols*P.ST, lB=P.nRows*P.SL, lTot=P.lIn+lB+P.lOut;
   const X0=P.lIn, X1=P.lIn+lB;
-  const HH=P.ST/2;                            // cell half height
-  const XV=P.SL/2 + P.ST*P.ST/(8*P.SL);       // half length on  y = cy
-  const XE=P.SL/2 - P.ST*P.ST/(8*P.SL);       // half length at y = cy +- HH
-  const SD=Math.hypot(P.SL,P.ST/2);           // diagonal neighbour distance
-  const al=P.helix*Math.PI/180, tana=Math.tan(al);
-  const aE=R/Math.cos(al), bE=R;             // z-section of an inclined tube
-  const rIn=P.rMid-W/2, theta=P.sector*Math.PI/180;
-  /* Distance from the elliptical footprint to the Voronoi side facing the
-     neighbour at centre offset (vx,vy). That side is the perpendicular
-     bisector - |v|/2 away, normal v/|v| - and an ellipse reaches
-     sqrt(A^2 nx^2 + B^2 ny^2) in direction n, so this is exact. For a circle it
-     collapses to the familiar |v|/2 - R. A staggered cell has six sides, and
-     which one is tightest depends on the pitch ratio AND on the inclination,
-     so both directions are measured rather than assumed. */
-  const gap=(vx,vy)=>{ const dd=Math.hypot(vx,vy);
-                       return dd/2 - Math.hypot(aE*vx,bE*vy)/dd; };
-  const gapT=gap(0,P.ST), gapD=gap(P.SL,P.ST/2);
-  const nAzS=Math.max(1,Math.ceil(P.nAz/6));  // divisions on a slanted side
-  return {R,W,lB,lTot,X0,X1,HH,XV,XE,SD,al,tana,aE,bE,shift:P.H*tana,
-          rIn, rOut:P.rMid+W/2, theta, wrapOK:(rIn>0 && theta<2*Math.PI),
-          gapT, gapD, clearance:Math.min(gapT,gapD),
-          nAzS, azStep:Math.hypot(XV-XE,HH)/nAzS};
+  const al = isHel() ? P.helix*Math.PI/180 : 0, tana = Math.tan(al);
+  const aE = R/Math.cos(al), bE = R;               // z-section of an inclined tube
+  const rIn = P.rMid-W/2, theta = P.sector*Math.PI/180;
+  const hel = {al, tana, aE, bE, shift:P.H*tana, rIn, rOut:P.rMid+W/2, theta,
+               wrapOK: isHel() && rIn>0 && theta<TAU};
+  const HH=P.ST/2;                                 // cell half height
+  if(isStg()){
+    const XV=P.SL/2 + P.ST*P.ST/(8*P.SL);          // half length on  y = cy
+    const XE=P.SL/2 - P.ST*P.ST/(8*P.SL);          // half length at y = cy +- HH
+    const SD=Math.hypot(P.SL,P.ST/2);              // nearest diagonal neighbour
+    /* Distance from the elliptical footprint to the Voronoi side facing the
+       neighbour at centre offset (vx,vy).  That side is the perpendicular
+       bisector - |v|/2 away, normal v/|v| - and an ellipse reaches
+       sqrt(A^2 nx^2 + B^2 ny^2) in direction n, so this is exact.  For a
+       circle it collapses to the familiar |v|/2 - R.  A staggered cell has six
+       sides, and which one is tightest depends on the pitch ratio AND on the
+       inclination, so both directions are measured rather than assumed. */
+    const gap=(vx,vy)=>{ const dd=Math.hypot(vx,vy);
+                         return dd/2 - Math.hypot(aE*vx,bE*vy)/dd; };
+    const gapT=gap(0,P.ST), gapD=gap(P.SL,P.ST/2);
+    const nAzS=Math.max(1,Math.ceil(P.nAz/6));     // divisions on a slanted side
+    return Object.assign({R,W,lB,lTot,X0,X1,HH,XV,XE,SD,gapT,gapD,
+            clearance:Math.min(gapT,gapD),
+            nAzS, azStep:Math.hypot(XV-XE,HH)/nAzS}, hel);
+  }
+  const HL=P.SL/2;
+  const SD=Math.hypot(P.SL,P.ST);                  // diagonal neighbour, never binding
+  return Object.assign({R,W,lB,lTot,X0,X1,HH,HL,SD,
+          clearance:Math.min(P.ST/2-bE, P.SL/2-aE),
+          nAzS:2*Math.max(1,Math.ceil(P.nAz/8))}, hel);  // even: halved sides split exactly
 }
-/* Staggered: consecutive rows are offset by half a transverse pitch. A full row
-   carries nCols+1 rods, the outermost two sitting on the walls and halved by
-   them; an offset row carries nCols whole rods at mid-pitch. */
+/* Geometry function 2 of 5: where the rods sit.
+   In-line - every row shares the same y.
+   Staggered - consecutive rows are offset by half a transverse pitch.  A full
+   row carries nCols+1 rods, the outermost two sitting on the walls and halved
+   by them; an offset row carries nCols whole rods at mid-pitch.            */
 function lattice(d){
   const cells=[];
   for(let i=0;i<P.nRows;i++){
     const x=P.lIn+0.5*P.SL+i*P.SL;
-    const off = P.firstRowOffset ? (i%2===0) : (i%2===1);
-    if(off) for(let j=0;j<P.nCols;j++) cells.push({x, y:(j+0.5)*P.ST, rod:true, row:i});
-    else    for(let j=0;j<=P.nCols;j++){
-      const wall = (j===0 || j===P.nCols);
-      cells.push({x, y:j*P.ST, rod:(P.halfRods || !wall), row:i});
+    if(isStg()){
+      const off = P.firstOffset ? (i%2===0) : (i%2===1);
+      if(off) for(let j=0;j<P.nCols;j++) cells.push({x, y:(j+0.5)*P.ST, rod:true, row:i});
+      else    for(let j=0;j<=P.nCols;j++){
+        const wall=(j===0 || j===P.nCols);
+        cells.push({x, y:j*P.ST, rod:(P.halfRods || !wall), row:i});
+      }
+    }else if(P.halfRods){
+      for(let j=0;j<=P.nCols;j++) cells.push({x, y:j*P.ST, rod:true, row:i});
+    }else{
+      for(let j=0;j<P.nCols;j++)  cells.push({x, y:(j+0.5)*P.ST, rod:true, row:i});
     }
   }
   return cells;
@@ -751,24 +926,31 @@ function dedupe(poly, tol){
                   && Math.abs(out[0][1]-out[out.length-1][1])<tol) out.pop();
   return out;
 }
-/* Voronoi cell of a staggered lattice: the hexagon cut by the six nearest
-   neighbours. The first and last rows are squared off against the A|B and B|C
-   planes - a hexagon corner would otherwise stick through an interface that has
-   to stay flat for the box blocks to butt against it. */
+/* Geometry function 3 of 5: the Voronoi cell that encloses one rod.
+   In-line - the SL x ST rectangle.  Its left and right sides already lie on
+   the A|B and B|C planes, so it needs no squaring-off at the bundle ends.
+   Staggered - the hexagon cut by the six nearest neighbours.  The first and
+   last rows are squared off against the A|B and B|C planes; a hexagon corner
+   would otherwise stick through an interface that has to stay flat for the
+   box blocks to butt against it.                                           */
 function cellPolygon(c, d, tol){
   let pts=[];
-  if(c.row===P.nRows-1) pts.push([d.X1,c.y-d.HH],[d.X1,c.y],[d.X1,c.y+d.HH]);
-  else pts.push([c.x+d.XE,c.y-d.HH],[c.x+d.XV,c.y],[c.x+d.XE,c.y+d.HH]);
-  if(c.row===0) pts.push([d.X0,c.y+d.HH],[d.X0,c.y],[d.X0,c.y-d.HH]);
-  else pts.push([c.x-d.XE,c.y+d.HH],[c.x-d.XV,c.y],[c.x-d.XE,c.y-d.HH]);
+  if(isStg()){
+    if(c.row===P.nRows-1) pts.push([d.X1,c.y-d.HH],[d.X1,c.y],[d.X1,c.y+d.HH]);
+    else pts.push([c.x+d.XE,c.y-d.HH],[c.x+d.XV,c.y],[c.x+d.XE,c.y+d.HH]);
+    if(c.row===0) pts.push([d.X0,c.y+d.HH],[d.X0,c.y],[d.X0,c.y-d.HH]);
+    else pts.push([c.x-d.XE,c.y+d.HH],[c.x-d.XV,c.y],[c.x-d.XE,c.y-d.HH]);
+  }else{
+    pts=[[c.x+d.HL,c.y-d.HH],[c.x+d.HL,c.y+d.HH],
+         [c.x-d.HL,c.y+d.HH],[c.x-d.HL,c.y-d.HH]];
+  }
   pts=clipY(pts,0,true,tol); pts=clipY(pts,d.W,false,tol);
   return dedupe(pts,tol);
 }
 /* rod cross-section, clipped by the side walls (drawing only) */
 const SEG=20;
-function rodPolygon(cx,cy,R,W,tol,aE,bE){
+function rodPolygon(cx,cy,W,tol,aE,bE){
   let p=[];
-  aE=aE||R; bE=bE||R;
   for(let k=0;k<SEG;k++){ const a=k/SEG*TAU; p.push([cx+aE*Math.cos(a), cy+bE*Math.sin(a)]); }
   p=clipY(p,0,true,tol); if(p.length) p=clipY(p,W,false,tol);
   return dedupe(p,tol);
@@ -783,12 +965,20 @@ function growthRatio(L, first, n){
   for(let i=0;i<60;i++){ const m=(lo+hi)/2; if(f(m)<L) lo=m; else hi=m; }
   return (lo+hi)/2;
 }
-function nodes(L, q, n){          // cumulative positions 0..L, ratio q per step
+/* Cumulative positions 0..L, ratio q per step.
+   The last entry is set to L outright.  Accumulating n terms that are designed
+   to sum to L lands a few ulp either side of it, and this list is fed to
+   lerp2 as the parameter t: t = 0.9999999999999998 instead of 1 puts the outer
+   radial node a hair off the cell side, and the two O-grids sharing that side
+   then disagree about where it is - which is a crack.  The same reasoning as
+   lerp2's own endpoint rule, one level up. */
+function nodes(L, q, n){
   const out=[0];
-  if(Math.abs(q-1)<1e-9){ for(let i=1;i<=n;i++) out.push(L*i/n); return out; }
+  if(Math.abs(q-1)<1e-9){ for(let i=1;i<n;i++) out.push(L*i/n); out.push(L); return out; }
   const first=L*(q-1)/(Math.pow(q,n)-1);
   let s=0, dv=first;
-  for(let i=1;i<=n;i++){ s+=dv; out.push(Math.min(L,s)); dv*=q; }
+  for(let i=1;i<n;i++){ s+=dv; out.push(s); dv*=q; }
+  out.push(L);
   return out;
 }
 
@@ -803,16 +993,35 @@ function build(){
   const vert=mergeVertices(cells, tol);          // canonical corners, shared by id
   for(const c of cells) c.pg=c.vid.map(id=>vert[id]);
   const rods=cells.filter(c=>c.rod)
-                  .map(c=>({x:c.x, y:c.y, pg:rodPolygon(c.x,c.y,d.R,d.W,tol,d.aE,d.bE)}))
+                  .map(c=>({x:c.x, y:c.y, pg:rodPolygon(c.x,c.y,d.W,tol,d.aE,d.bE)}))
                   .filter(r=>r.pg.length>2);
   //  A rod-free wall cell is one transfinite block, and a block's opposite
   //  sides must carry equal counts - which its four different lengths cannot
-  //  give. Its presence forces a fixed count per side everywhere (see sideDiv).
-  const uniformDiv=cells.some(c=>!c.rod);
+  //  give.  Its presence forces a fixed count per side everywhere (see sideDiv).
+  const uniformDiv = isStg() && cells.some(c=>!c.rod);
   G=Object.assign({}, d, {cells, vert, rods, tol, core:null, uniformDiv,
       zx:[0,d.X0,d.X1,d.lTot],
       centre:[d.lTot/2+0.5*d.shift, d.W/2, P.H/2],
       radius:0.58*Math.hypot(d.lTot,d.W,P.H)||1});   // room for the dimension lines
+  if(wrapped()){                                    // refit around the sector
+    let lo=[1e30,1e30,1e30], hi=[-1e30,-1e30,-1e30];
+    for(const x of [0,G.lTot]) for(const y of [0,G.W])
+      for(let k=0;k<=8;k++){
+        const q=warp3([x,y,P.H*k/8]);
+        for(let t=0;t<3;t++){ if(q[t]<lo[t])lo[t]=q[t]; if(q[t]>hi[t])hi[t]=q[t]; }
+      }
+    if(P.coilCtx){                                  // include the drawn-out helix
+      const R=P.rMid;
+      for(const th of [-CTX_EXTRA, G.theta+CTX_EXTRA]) for(const y of [0,G.W])
+        for(const x of [0,G.lTot]){
+          const r=G.rIn+y;
+          const q=[x+R*th*G.tana, r*Math.cos(th), r*Math.sin(th)];
+          for(let t=0;t<3;t++){ if(q[t]<lo[t])lo[t]=q[t]; if(q[t]>hi[t])hi[t]=q[t]; }
+        }
+    }
+    G.centre=[(lo[0]+hi[0])/2,(lo[1]+hi[1])/2,(lo[2]+hi[2])/2];
+    G.radius=0.56*Math.hypot(hi[0]-lo[0],hi[1]-lo[1],hi[2]-lo[2])||1;
+  }
   //  what a whole tube actually gets around it; wall rods are halved, so they
   //  would understate the azimuthal resolution
   let azLo=1e9, azHi=0;
@@ -824,25 +1033,6 @@ function build(){
     if(t>azHi) azHi=t;
   }
   G.azFull = azHi ? [azLo,azHi] : [0,0];
-  if(P.wrap && G.wrapOK){                            // refit around the sector
-    let lo=[1e30,1e30,1e30], hi=[-1e30,-1e30,-1e30];
-    for(const x of [0,G.lTot]) for(const y of [0,G.W])
-      for(let k=0;k<=8;k++){
-        const q=warp3([x,y,P.H*k/8]);
-        for(let t=0;t<3;t++){ if(q[t]<lo[t])lo[t]=q[t]; if(q[t]>hi[t])hi[t]=q[t]; }
-      }
-    if(P.coilCtx){                                   // include the drawn-out helix
-      const ex=100*Math.PI/180, R=P.rMid;
-      for(const th of [-ex, G.theta+ex]) for(const y of [0,G.W])
-        for(const x of [0,G.lTot]){
-          const r=G.rIn+y;
-          const q=[x+R*th*G.tana, r*Math.cos(th), r*Math.sin(th)];
-          for(let t=0;t<3;t++){ if(q[t]<lo[t])lo[t]=q[t]; if(q[t]>hi[t])hi[t]=q[t]; }
-        }
-    }
-    G.centre=[(lo[0]+hi[0])/2,(lo[1]+hi[1])/2,(lo[2]+hi[2])/2];
-    G.radius=0.56*Math.hypot(hi[0]-lo[0],hi[1]-lo[1],hi[2]-lo[2])||1;
-  }
   G.qRad = growthRatio(Math.max(1e-6,G.clearance), P.firstLayer, P.nRad);
   G.qRadFirst = nodes(1, G.qRad, P.nRad)[1];        // first layer as a fraction
   const est = cellCount2D();
@@ -876,13 +1066,16 @@ function rotate(x,y,z){
   const x1=x*cy - y*sy, y1=x*sy + y*cy;
   return [x1, y1*cp - z*sp, y1*sp + z*cp];
 }
-/* Lean the bundle downstream with height while the inlet and outlet planes
+/* Geometry function 5 of 5: the map from the meshed patch into the world.
+   For a rod bundle it is the identity.  For a coil it is two steps.
+   Lean the bundle downstream with height while the inlet and outlet planes
    stay flat: B shears by z*tan(alpha), A stretches and C compresses by the
-   same amount, so every z-slice still spans the full length. */
-/* The whole patch leans together, boxes included: every z-slice is the same
-   section pushed along the shell axis. The boxes therefore keep a constant
-   thickness, their outer faces stay parallel to the tubes, and the map has unit
-   determinant so no volume changes. */
+   same amount, so every z-slice still spans the full length.  The whole patch
+   leans together, boxes included: every z-slice is the same section pushed
+   along the shell axis.  The boxes therefore keep a constant thickness, their
+   outer faces stay parallel to the tubes, and the map has unit determinant so
+   no volume changes.                                                        */
+function wrapped(){ return !!(G && P.wrap && G.wrapOK); }
 function shear3(p){
   const sh=p[2]*G.tana;
   return sh===0 ? p : [p[0]+sh, p[1], p[2]];
@@ -892,7 +1085,7 @@ function shear3(p){
    pairing mirrors the patch and inverts every cell. */
 function warp3(p){
   const q=shear3(p);
-  if(!P.wrap || !G.wrapOK) return q;
+  if(!wrapped()) return q;
   const th=q[2]/P.rMid, r=G.rIn+q[1];
   return [q[0], r*Math.cos(th), r*Math.sin(th)];
 }
@@ -914,8 +1107,13 @@ function poly(pp){
   for(let i=1;i<pp.length;i++) ctx.lineTo(pp[i][0],pp[i][1]);
   ctx.closePath();
 }
-
-function arcSteps(){ return (P.wrap && G.wrapOK) ? Math.min(Math.max(P.nZ,8),24) : 1; }
+function cross3(a,b){
+  return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+}
+function unit3(v){ const m=Math.hypot(v[0],v[1],v[2])||1; return [v[0]/m,v[1]/m,v[2]/m]; }
+/* A surface that spans z is straight while the patch is flat and an arc once
+   it is rolled, so it is drawn in this many pieces. */
+function arcSteps(){ return wrapped() ? Math.min(Math.max(P.nZ,8),24) : 1; }
 
 function boxFaces(){
   const {W,lTot,zx}=G, H=P.H, f=[], nS=arcSteps();
@@ -954,33 +1152,32 @@ function drawBoxFaces(list, front){
     ctx.strokeStyle=pal.zoneEdge[f.z]; ctx.lineWidth=front?1.2:1; ctx.stroke();
   }
 }
-function cross3(a,b){
-  return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
-}
-function unit3(v){ const m=Math.hypot(v[0],v[1],v[2])||1; return [v[0]/m,v[1]/m,v[2]/m]; }
-
-function drawRods(){
-  const faces=[], H=P.H;
+/* One slab of every rod, from z0 to z1.  Splitting the rods at the section
+   plane is what lets that plane read as a cut through the bundle instead of
+   a sheet floating over it. */
+function drawRods(z0, z1){
+  if(z0===undefined){ z0=0; z1=P.H; }
+  if(!(z1>z0)) return;
+  const faces=[], nS=arcSteps();
   for(const r of G.rods){
     const pg=r.pg, n=pg.length;
-    const nS=arcSteps();
     for(let i=0;i<n;i++){
       const A=pg[i], B=pg[(i+1)%n];
       for(let k=0;k<nS;k++){
-        const zb=H*k/nS, zt=H*(k+1)/nS;
+        const zb=z0+(z1-z0)*k/nS, zt=z0+(z1-z0)*(k+1)/nS;
         const w=[warp3([A[0],A[1],zt]), warp3([B[0],B[1],zt]),
                  warp3([B[0],B[1],zb]), warp3([A[0],A[1],zb])];
         const u=[w[1][0]-w[0][0], w[1][1]-w[0][1], w[1][2]-w[0][2]];
         const v=[w[3][0]-w[0][0], w[3][1]-w[0][1], w[3][2]-w[0][2]];
-        const nn=unit3(cross3(v,u));               // outward on this arc piece
+        const nn=unit3(cross3(v,u));               // outward on this piece
         const nv=rotate(nn[0],nn[1],nn[2]);
         if(nv[2]<=0) continue;
         faces.push({pts:w, s:shade(nv)});
       }
     }
     const nvT=rotate(0,0,1);
-    if(nvT[2]>0) faces.push({pts:pg.map(q=>warp3([q[0],q[1],H])), s:Math.min(1,shade(nvT)+0.06)});
-    else faces.push({pts:pg.map(q=>warp3([q[0],q[1],0])), s:shade(rotate(0,0,-1))});
+    if(nvT[2]>0) faces.push({pts:pg.map(q=>warp3([q[0],q[1],z1])), s:Math.min(1,shade(nvT)+0.06)});
+    else         faces.push({pts:pg.map(q=>warp3([q[0],q[1],z0])), s:shade(rotate(0,0,-1))});
   }
   for(const f of faces){
     f.pp=f.pts.map(q=>project(q,true));            // points are warped already
@@ -995,13 +1192,27 @@ function drawRods(){
     ctx.strokeStyle=pal.rodEdge; ctx.stroke();
   }
 }
-/* ---- the predicted mesh in 3-D : capping surface + rod-wall layers ------- */
-function drawMesh3D(){
-  if(!P.showMesh || !P.mesh3d || interacting) return false;
-  if(G.stat.n > 60000) return false;
-  const H=P.H, up=rotate(0,0,1)[2] > 0, zc = up ? H : 0;   // visible capping plane
-  const quality = MODE!=="grid";
-  // capping surface : the 2-D mesh itself
+/* ---- the predicted mesh in 3-D : section plane + rod-wall layers ---------
+   The section is drawn on the surface z = zCut*H (mid height by default), so a
+   contour reads as a cut through the bundle.  drawRods is called once for the
+   slab below it and once for the slab above.  On a rolled coil that surface is
+   the cylinder of constant angle, which warp3 produces from the same code.  */
+function cutZ(){ return P.H*P.zCut; }
+/* Mesh LINES in 3-D follow both toggles.  The section plane itself is drawn
+   whenever a coloured mode asks for it, because that map is the view, not an
+   overlay on it. */
+function wallMeshOn(){
+  return P.showMesh && P.mesh3d && !interacting && G.stat.n<=60000;
+}
+function section3dOn(){
+  if(interacting || !G.blocks.length || G.stat.n>60000) return false;
+  return MODE!=="grid" ? true : (P.showMesh && P.mesh3d);
+}
+/* the 2-D mesh itself, laid on the section surface */
+function drawSection3D(){
+  const zc=cutZ();
+  if(FIELD_MODE[MODE]) solveField();
+  const quality = MODE!=="grid" && (!FIELD_MODE[MODE] || !!G.field);
   if(quality){
     for(const b of G.blocks){
       const g=b.grid;
@@ -1009,10 +1220,10 @@ function drawMesh3D(){
         const q=[g[i][j],g[i+1][j],g[i+1][j+1],g[i][j+1]].map(v=>project([v[0],v[1],zc]));
         ctx.beginPath(); ctx.moveTo(q[0][0],q[0][1]);
         for(let k=1;k<4;k++) ctx.lineTo(q[k][0],q[k][1]);
-        ctx.closePath(); ctx.fillStyle=metricColor(b.q[i][j]); ctx.fill();
+        ctx.closePath(); ctx.fillStyle=metricColor(b.q[i][j], b, i, j); ctx.fill();
       }
     }
-  }else{
+  }else if(P.showMesh && P.mesh3d){
     ctx.strokeStyle=pal.tvMesh; ctx.lineWidth=0.5; ctx.beginPath();
     for(const b of G.blocks){
       const g=b.grid;
@@ -1023,12 +1234,33 @@ function drawMesh3D(){
     }
     ctx.stroke();
   }
-  // every lateral surface : rod walls, side walls, inlet and outlet planes.
-  // One vertical per boundary node + one ring per z layer, front faces only.
+  /* estimated streamlines, laid on the same surface.  They are drawn here, in
+     between the two rod slabs, so the rods standing above the plane hide the
+     stretches of line that run behind them. */
+  if(FIELD_MODE[MODE] && G.field && P.stream){
+    const ls=streamlines();
+    ctx.strokeStyle = MODE==="vel" ? "rgba(255,255,255,.82)" : "rgba(22,26,34,.6)";
+    ctx.lineWidth=1.1; ctx.lineJoin="round"; ctx.lineCap="round"; ctx.setLineDash([]);
+    ctx.beginPath();
+    for(const l of ls){
+      const q0=project([l[0][0],l[0][1],zc]); ctx.moveTo(q0[0],q0[1]);
+      for(let i=1;i<l.length;i++){
+        const q=project([l[i][0],l[i][1],zc]); ctx.lineTo(q[0],q[1]);
+      }
+    }
+    ctx.stroke();
+  }
+}
+/* every lateral surface : rod walls, side walls, inlet and outlet planes.
+   One vertical per boundary node + one ring per z layer, front faces only.
+   A ring joins two nodes at the same z, and at fixed z the roll is affine, so
+   a ring stays a straight chord; only the verticals follow the arc.        */
+function drawWallMesh(){
+  const H=P.H;
   let core;
-  try{ core=meshCore(); }catch(e){ return true; }
-  if(core.checks.cracks) return true;
-  const N=core.nodes, nZ=P.nZ, zs=[];
+  try{ core=meshCore(); }catch(e){ return; }
+  if(core.checks.cracks) return;
+  const N=core.nodes, nZ=P.nZ, zs=[], nS=arcSteps();
   for(let l=0;l<=nZ;l++) zs.push(H*l/nZ);
   ctx.strokeStyle=pal.tvMesh; ctx.lineWidth=0.6; ctx.beginPath();
   for(const p of PATCH_ORDER){
@@ -1038,8 +1270,7 @@ function drawMesh3D(){
       const a0=warp3([A[0],A[1],0]), b0=warp3([B[0],B[1],0]), aH=warp3([A[0],A[1],H]);
       const nn=unit3(cross3([b0[0]-a0[0],b0[1]-a0[1],b0[2]-a0[2]],
                             [aH[0]-a0[0],aH[1]-a0[1],aH[2]-a0[2]]));
-      if(rotate(nn[0],nn[1],nn[2])[2]<=0) continue;  // back-facing
-      const nS=arcSteps();
+      if(rotate(nn[0],nn[1],nn[2])[2]<=0) continue;       // back-facing
       for(let k=0;k<=nS;k++){
         const q=project([A[0],A[1],H*k/nS]);
         k ? ctx.lineTo(q[0],q[1]) : ctx.moveTo(q[0],q[1]);
@@ -1051,7 +1282,6 @@ function drawMesh3D(){
     }
   }
   ctx.stroke();
-  return true;
 }
 
 /* ---- coordinate triad, fixed in the corner of the viewport --------------- */
@@ -1088,13 +1318,13 @@ function drawAxes(){
   ctx.restore();
 }
 
-/* ---- the rest of the coil, outside the meshed sector --------------------
-   The patch is deliberately a small arc, so on its own it looks straight. This
-   continues every tube along its true helix well past the domain, dimmed, so
-   the coil is visible without paying for a bigger mesh.                     */
+/* ---- the rest of the coil, outside the meshed sector ---------------------
+   The meshed patch is one sector of a much longer coil.  This continues every
+   tube along its true helix well past the domain, dimmed, so the sector reads
+   as a cut-out rather than as the whole machine. */
 const CTX_EXTRA = 100 * Math.PI / 180;          // how far past the patch to draw
 function drawCoilContext(){
-  if(!P.coilCtx || !P.wrap || !G.wrapOK) return;
+  if(!P.coilCtx || !wrapped()) return;
   const R=P.rMid, t0=-CTX_EXTRA, t1=G.theta+CTX_EXTRA, n=110;
   ctx.save();
   ctx.lineWidth=1; ctx.setLineDash([]);
@@ -1106,7 +1336,6 @@ function drawCoilContext(){
       const q=project([x0+R*th*G.tana, r*Math.cos(th), r*Math.sin(th)], true);
       k ? ctx.lineTo(q[0],q[1]) : ctx.moveTo(q[0],q[1]);
     }
-    //  fade the part outside the patch, keep the meshed arc solid
     ctx.strokeStyle=pal.spoke; ctx.globalAlpha=.45; ctx.stroke(); ctx.globalAlpha=1;
   }
   ctx.restore();
@@ -1125,7 +1354,7 @@ function drawDims(){
     ctx.closePath(); ctx.fill();
   };
   const one=(p1,p2,e1,e2,label)=>{
-    const st=!(P.wrap && G.wrapOK);                 // straight only while flat
+    const st=!wrapped();                            // straight only while flat
     const A=project(p1,st), B=project(p2,st), E1=project(e1,st), E2=project(e2,st);
     if(Math.hypot(B[0]-A[0], B[1]-A[1]) < 14) return;   // edge-on: nothing to show
     const nS=st?1:arcSteps(), path=[];
@@ -1159,10 +1388,10 @@ function drawDims(){
   ctx.restore();
 }
 
-/* hexagonal cells + radial spokes drawn on the top surface */
+/* lattice cells + radial spokes drawn on the section surface */
 function drawCells3D(){
   if(!P.showMesh) return;
-  const H=P.H;
+  const H=cutZ();
   ctx.lineWidth=1.2; ctx.strokeStyle=pal.cell; ctx.setLineDash([]);
   for(const c of G.cells){
     if(c.pg.length<3) continue;
@@ -1182,13 +1411,12 @@ function drawCells3D(){
   }
 }
 function drawInterfaces(){
-  const {W,zx}=G, H=P.H;
+  const {W,zx}=G, H=P.H, nS=arcSteps();
   ctx.save(); ctx.setLineDash([5,4]); ctx.lineWidth=1; ctx.strokeStyle=pal.iface;
-  const nS=arcSteps();
   for(const x of [zx[1],zx[2]]){
     const pts=[];
-    for(let k=0;k<=nS;k++) pts.push([x,0,P.H*k/nS]);
-    for(let k=nS;k>=0;k--) pts.push([x,W,P.H*k/nS]);
+    for(let k=0;k<=nS;k++) pts.push([x,0,H*k/nS]);
+    for(let k=nS;k>=0;k--) pts.push([x,W,H*k/nS]);
     poly(pts.map(q=>project(q)));
     ctx.stroke();
   }
@@ -1206,7 +1434,7 @@ function drawFlow(){
     const z=H*(j+0.5)/nz;
     for(let k=0;k<ny;k++){
       const y=W*(k+0.5)/ny;
-      const st=!(P.wrap && G.wrapOK);
+      const st=!wrapped();
       const a=project([-gap-len,y,z],st), b=project([-gap,y,z],st);
       const dx=b[0]-a[0], dy=b[1]-a[1], n=Math.hypot(dx,dy);
       if(n<6) continue;                              // edge-on: nothing to show
@@ -1223,17 +1451,22 @@ function draw(){
   ctx.clearRect(0,0,cw,ch);
   if(!G) return;
   let bf = P.showBox ? boxFaces() : [];
-  const meshOn = P.showMesh && P.mesh3d && !interacting && G.stat.n<=60000;
-  if(meshOn){                       // the capping face would hide the mesh
-    const up=rotate(0,0,1)[2] > 0;
+  const up = rotate(0,0,1)[2] > 0;             // are we looking down on the box?
+  const meshOn = section3dOn();
+  if(meshOn){              // the capping face would tint the section colours
     bf = bf.filter(f => !(f.n[2]=== (up?1:-1)));
   }
   const inletFacing = rotate(-1,0,0)[2] > 0;   // is the inlet plane turned to us?
   drawBoxFaces(bf,false);
   drawInterfaces();
   if(!inletFacing) drawFlow();                 // upstream arrows sit behind the body
-  drawRods();
-  if(!drawMesh3D()) drawCells3D();
+  /* the section surface cuts the rods : the far slab, then the surface, then
+     the near slab.  Looking down, "far" is everything below it.            */
+  const zc=cutZ(), H=P.H;
+  drawRods(up?0:zc, up?zc:H);
+  if(meshOn) drawSection3D(); else drawCells3D();
+  drawRods(up?zc:0, up?H:zc);
+  if(wallMeshOn()) drawWallMesh();
   if(inletFacing) drawFlow();
   drawBoxFaces(bf,true);
   drawCoilContext();
@@ -1246,7 +1479,7 @@ function draw(){
    from the rod / x).  SMESH's Quadrangle mapping on a block whose two "radial"
    sides are straight reduces exactly to this transfinite blend, and the 1-D
    node spacing uses the same NumberOfSegments rules, so the picture matches
-   what SALOME will produce.                                                 */
+   what SALOME would produce.                                                */
 /* Shared points must come out bit-identical from either block, so corners are
    merged once into a canonical table and every side is walked from its lower
    vertex id.  Each block also carries key(i,j): a topological name for the node
@@ -1262,16 +1495,24 @@ function sidePt(V, ia, ib, i, n){
 function sideKey(ia, ib, i, n){
   return ia <= ib ? "s"+ia+"_"+ib+"_"+i : "s"+ib+"_"+ia+"_"+(n-i);
 }
-/* Divisions on a cell side, proportional to its length. A hexagon's flat and
-   slanted sides differ by about a third, and the squared-off end rows differ
-   again, so a fixed count per side would bunch nodes on part of the tube wall
-   and starve the rest. Both cells sharing a side see the same two endpoints, so
-   they compute the same count and the mesh stays conformal.
-   uniformDiv turns it off when a rod-free wall cell exists - see build(). */
+/* Geometry function 4 of 5: divisions on a cell side, proportional to its
+   length.  Both cells sharing a side see the same two endpoints, so they
+   compute the same count and the mesh stays conformal.
+   In-line - a side cut in half by a channel wall gets half the divisions, so
+   cells there keep the same size as everywhere else.
+   Staggered - a hexagon's flat and slanted sides differ by about a third, and
+   the squared-off end rows differ again, so a fixed count per side would bunch
+   nodes on part of the tube wall and starve the rest.  uniformDiv turns the
+   proportional rule off when a rod-free wall cell exists - see build().     */
 function sideDiv(V, ia, ib){
-  if(G.uniformDiv) return G.nAzS;
   const A=V[ia], B=V[ib];
-  return Math.max(1, Math.round(Math.hypot(B[0]-A[0],B[1]-A[1])/G.azStep));
+  if(isStg()){
+    if(G.uniformDiv) return G.nAzS;
+    return Math.max(1, Math.round(Math.hypot(B[0]-A[0],B[1]-A[1])/G.azStep));
+  }
+  const dx=Math.abs(B[0]-A[0]), dy=Math.abs(B[1]-A[1]);
+  const full = dx>dy ? P.SL : P.ST;                 // a full side of that orientation
+  return Math.max(1, Math.round(G.nAzS*Math.hypot(dx,dy)/full));
 }
 function mergeVertices(cells, tol){
   const V=[], grid=new Map(), cs=4*tol;
@@ -1337,12 +1578,14 @@ function buildBlocks(){
       const wallSide = (Math.abs(c.y)<1e-9 && Math.abs(A[1])<1e-9 && Math.abs(B[1])<1e-9) ||
                        (Math.abs(c.y-G.W)<1e-9 && Math.abs(A[1]-G.W)<1e-9 && Math.abs(B[1]-G.W)<1e-9);
       if(wallSide) continue;                           // that side is inside the rod
+      /* parametric angle on the footprint; for a circle aE = bE and this is
+         the polar angle, so the rod and the tube share one code path */
       let tA=Math.atan2((A[1]-c.y)/G.bE, (A[0]-c.x)/G.aE),
           tB=Math.atan2((B[1]-c.y)/G.bE, (B[0]-c.x)/G.aE);
       while(tB<=tA) tB+=TAU;
       const ns=sideDiv(V,ia,ib);                       // this side's divisions
-      rodArea += 0.5*G.aE*G.bE*ns*Math.sin((tB-tA)/ns); // faceted tube, exact area
-      const wpt=id=>{                                   // point on the ellipse
+      rodArea += 0.5*G.aE*G.bE*ns*Math.sin((tB-tA)/ns); // faceted footprint, exact area
+      const wpt=id=>{                                  // point on the footprint
         const Vv=V[id], th=Math.atan2((Vv[1]-c.y)/G.bE, (Vv[0]-c.x)/G.aE);
         return [c.x+G.aE*Math.cos(th), c.y+G.bE*Math.sin(th)];
       };
@@ -1441,11 +1684,347 @@ function ramp(t){
   const [x,y,u] = t<0.5 ? [A,B,t*2] : [B,C,(t-0.5)*2];
   return `rgb(${Math.round(x[0]+(y[0]-x[0])*u)},${Math.round(x[1]+(y[1]-x[1])*u)},${Math.round(x[2]+(y[2]-x[2])*u)})`;
 }
-function metricColor(m){
+function metricColor(m, b, i, j){
   if(MODE==="skew") return ramp(m.dev/60);
   if(MODE==="ar")   return ramp(Math.log(Math.max(1,m.ar))/Math.log(40));
+  if(FIELD_MODE[MODE]){
+    const F=G.field;
+    if(!F) return "rgba(0,0,0,.06)";
+    const q=b.qoff + i*(b.grid[0].length-1) + j;
+    return MODE==="vel" ? cmap((F.umag[q]/F.uTop), CMAP_V)
+                        : cmap((F.p[q]-F.pLo)/Math.max(1e-9,F.pHi-F.pLo), CMAP_P);
+  }
   const lo=Math.log(G.stat.sMin), hi=Math.log(G.stat.sMax);
   return ramp((Math.log(m.size)-lo)/Math.max(1e-9,hi-lo));
+}
+
+/* ==================== estimated flow field (pre-CFD) ======================
+   A potential-flow solve on the very mesh that gets exported:  Laplace for
+   phi over the x-y section (inlet = fixed flux, outlet = fixed phi, rod and
+   side walls = no flux), then u = grad(phi) by Green-Gauss.  Potential flow
+   has no drag, so the pressure picture is the Bernoulli term plus a
+   correlation-based streamwise loss laid on top; that keeps the local detail
+   while making the bundle dp an engineering number rather than zero.
+   It is an ESTIMATE - no separation, no wake, no turbulence.  Its purpose is
+   to check the mesh and the boundary set-up and to give the right scale
+   before a real solver run.                                                */
+const FIELD_MODE = {vel:1, pres:1};
+const FIELD_MAX = 80000;           // 2-D cells above which the estimate is skipped
+/* viridis-like, and a blue-grey-red diverging map for pressure */
+const CMAP_V=[[68,1,84],[65,68,135],[42,120,142],[47,180,124],[181,222,43],[253,231,37]];
+const CMAP_P=[[36,66,130],[78,132,190],[186,206,222],[236,233,228],[218,160,112],[176,66,44]];
+function cmap(t, C){
+  t = t>0 ? (t<1 ? t : 1) : 0;
+  const s=t*(C.length-1);
+  let i=Math.floor(s); if(i>C.length-2) i=C.length-2;
+  const u=s-i, a=C[i], b=C[i+1];
+  return "rgb("+Math.round(a[0]+(b[0]-a[0])*u)+","+Math.round(a[1]+(b[1]-a[1])*u)+","
+               +Math.round(a[2]+(b[2]-a[2])*u)+")";
+}
+function smooth01(t){ return t<=0?0 : (t>=1?1 : t*t*(3-2*t)); }
+
+/* --- pressure loss correlations, used only for the streamwise ramp -------- */
+function lossModel(){
+  const k=toM(), U=P.vel, rho=P.rho, nu=P.nu*1e-6;
+  /* the blockage seen by the flow is the FOOTPRINT, not the tube diameter: an
+     inclined tube cuts the section as an ellipse 2aE long and 2bE wide, and
+     for a straight rod both collapse to D, so one expression serves both. */
+  const dT=2*G.bE, dL=2*G.aE;
+  const XT=P.ST/dT, XL=P.SL/dL;
+  const umax = U*(P.ST>dT ? P.ST/(P.ST-dT) : 1);
+  const ReMax = umax*P.D*k/nu;
+  /* Jakob's friction factor, in Holman's form
+       dp = 2 f N G_max^2 / rho = 2 f N rho umax^2,   Eu per row = 4 f
+     The two arrangements have their own correlation and differ by roughly a
+     factor of two at the same pitch, so the arrangement has to pick one.
+     In-line spot-checked against Zukauskas: X=1.5 at Re 1e4 gives Eu 0.32
+     (chart ~0.35), X=2 at Re 4e4 gives Eu 0.17 (chart ~0.15).
+     The staggered branch is Jakob's staggered form as published; it has NOT
+     been cross-checked against a chart here.  It yields Eu 0.46 at X=1.5,
+     Re 1e4 and Eu 0.27 at X=2, Re 4e4 - about 1.5x the in-line value at the
+     same pitch.  Treat it as the same class of estimate as the rest of this
+     panel, and check it against your own data before quoting a number.   */
+  const f = isStg()
+    ? (0.25 + 0.118/Math.pow(Math.max(XT-1,1e-3), 1.08))
+      * Math.pow(Math.max(ReMax,1), -0.16)
+    : (0.044 + 0.08*XL/Math.pow(Math.max(XT-1,1e-3), 0.43+1.13/XL))
+      * Math.pow(Math.max(ReMax,1), -0.15);
+  const dpBundle = 2*f*P.nRows*rho*umax*umax;
+  /* plain duct friction in the inlet and outlet boxes */
+  const W=G.W*k, H=P.H*k, Dh=(W+H)>0 ? 2*W*H/(W+H) : 1;
+  const ReD=Math.max(U*Dh/nu, 1);
+  const fD=ReD<2300 ? 64/ReD : 0.316*Math.pow(ReD,-0.25);
+  const gradBox = fD/Math.max(Dh,1e-9)*0.5*rho*U*U;      // Pa per metre
+  return {f, dpBundle, gradBox, umax, ReMax, Eu:4*f,
+          dpTotal: dpBundle + gradBox*(P.lIn+P.lOut)*k};
+}
+/* cumulative loss from the inlet plane to x (model units) -> Pa */
+function lossAt(x, L){
+  const k=toM();
+  let s = L.gradBox*Math.min(Math.max(x,0), G.X0)*k;
+  if(x>G.X1) s += L.gradBox*(x-G.X1)*k;
+  const per=L.dpBundle/Math.max(1,P.nRows);
+  for(let i=0;i<P.nRows;i++){
+    const xc=P.lIn+0.5*P.SL+i*P.SL;
+    s += per*smooth01((x-(xc-0.45*P.SL))/(0.9*P.SL));
+  }
+  return s;
+}
+
+function solveField(){
+  if(G.field !== undefined) return G.field;      // null = attempted, unavailable
+  G.field = null;
+  G.noteDirty = true;                            // the sidebar read-out is stale
+  if(!(G.clearance>0)) return (G.fieldWhy="f_bad", null);
+  if(!G.blocks.length || G.stat.n > FIELD_MAX) return (G.fieldWhy="f_big", null);
+  let c; try{ c=meshCore(); }catch(e){ return (G.fieldWhy="f_bad", null); }
+  if(c.checks.cracks || !(c.checks.amin>0)) return (G.fieldWhy="f_bad", null);
+  const t0=performance.now();
+  const N=c.nodes, Q=c.quads, E=c.edges, nC=Q.length, nE=E.length;
+
+  /* ---- cell centroids, areas, smallest edge ---- */
+  const cx=new Float64Array(nC), cy=new Float64Array(nC),
+        ar=new Float64Array(nC), hmin=new Float64Array(nC);
+  for(let q=0;q<nC;q++){
+    const V=Q[q]; let a2=0, sx=0, sy=0, hm=Infinity;
+    for(let e=0;e<4;e++){
+      const A=N[V[e]], B=N[V[(e+1)&3]];
+      const cr=A[0]*B[1]-B[0]*A[1];
+      a2+=cr; sx+=(A[0]+B[0])*cr; sy+=(A[1]+B[1])*cr;
+      const l=Math.hypot(B[0]-A[0],B[1]-A[1]); if(l<hm) hm=l;
+    }
+    ar[q]=Math.abs(a2)/2; hmin[q]=hm;
+    if(Math.abs(a2)>1e-30){ cx[q]=sx/(3*a2); cy[q]=sy/(3*a2); }
+    else { let x=0,y=0; for(const id of V){ x+=N[id][0]; y+=N[id][1]; } cx[q]=x/4; cy[q]=y/4; }
+  }
+  /* ---- face geometry.  (a->b) is oriented with the owner on its left, so
+          the owner's outward normal is (dy,-dx)/L.                        */
+  const KIND=new Int8Array(nE);                 // 0 wall, 1 inlet, 2 outlet, 3 internal
+  for(const ei of c.patches.inlet)  KIND[ei]=1;
+  for(const ei of c.patches.outlet) KIND[ei]=2;
+  const fL=new Float64Array(nE), fnx=new Float64Array(nE), fny=new Float64Array(nE),
+        fw=new Float64Array(nE), fa=new Float64Array(nE), fdn=new Float64Array(nE);
+  for(let i=0;i<nE;i++){
+    const e=E[i], A=N[e[0]], B=N[e[1]], o=e[2], nb=e[3];
+    const dx=B[0]-A[0], dy=B[1]-A[1], L=Math.hypot(dx,dy)||1e-30;
+    fL[i]=L; fnx[i]=dy/L; fny[i]=-dx/L;
+    const fx=(A[0]+B[0])/2, fy=(A[1]+B[1])/2;
+    if(nb>=0){
+      KIND[i]=3;
+      const d=Math.hypot(cx[nb]-cx[o], cy[nb]-cy[o])||1e-30;
+      fa[i]=L/d;
+      const d1=Math.hypot(fx-cx[o], fy-cy[o]), d2=Math.hypot(cx[nb]-fx, cy[nb]-fy);
+      fw[i]=d1/Math.max(d1+d2,1e-30);          // weight of the neighbour value
+    }else{
+      const dn=Math.abs((fx-cx[o])*fnx[i] + (fy-cy[o])*fny[i]);
+      fdn[i]=Math.max(dn, 1e-9*Math.max(G.lTot,1));
+      if(KIND[i]===2) fa[i]=L/fdn[i];
+    }
+  }
+  /* ---- assemble  A phi = b  (CSR, symmetric positive definite) ---- */
+  const row=new Int32Array(nC+1);
+  for(let i=0;i<nE;i++) if(KIND[i]===3){ row[E[i][2]+1]++; row[E[i][3]+1]++; }
+  for(let q=0;q<nC;q++) row[q+1]+=row[q];
+  const col=new Int32Array(row[nC]), val=new Float64Array(row[nC]);
+  const at=new Int32Array(nC); for(let q=0;q<nC;q++) at[q]=row[q];
+  const diag=new Float64Array(nC), rhs=new Float64Array(nC);
+  let inFlux=0;
+  for(let i=0;i<nE;i++){
+    const e=E[i], o=e[2], nb=e[3];
+    if(KIND[i]===3){
+      diag[o]+=fa[i]; diag[nb]+=fa[i];
+      col[at[o]]=nb; val[at[o]++]=-fa[i];
+      col[at[nb]]=o; val[at[nb]++]=-fa[i];
+    }else if(KIND[i]===2){ diag[o]+=fa[i]; }          // phi = 0 at the outlet
+    else if(KIND[i]===1){ rhs[o]-=fL[i]; inFlux+=fL[i]; }   // unit inflow
+  }
+  /* ---- preconditioned conjugate gradient, started from uniform flow ---- */
+  const phi=new Float64Array(nC);
+  for(let q=0;q<nC;q++) phi[q]=cx[q]-G.lTot;
+  const r=new Float64Array(nC), z=new Float64Array(nC),
+        p=new Float64Array(nC), Ap=new Float64Array(nC);
+  const mul=(x,y)=>{
+    for(let q=0;q<nC;q++){
+      let s=diag[q]*x[q];
+      for(let k=row[q];k<row[q+1];k++) s+=val[k]*x[col[k]];
+      y[q]=s;
+    }
+  };
+  mul(phi, Ap);
+  let bn=0;
+  for(let q=0;q<nC;q++){ r[q]=rhs[q]-Ap[q]; bn+=rhs[q]*rhs[q]; }
+  bn=Math.sqrt(bn)||1;
+  let rz=0;
+  for(let q=0;q<nC;q++){ z[q]=r[q]/(diag[q]||1); p[q]=z[q]; rz+=r[q]*z[q]; }
+  const TOL=1e-7*bn, MAXIT=2000;
+  let it=0, rn=Infinity;
+  for(; it<MAXIT; it++){
+    rn=0; for(let q=0;q<nC;q++) rn+=r[q]*r[q];
+    rn=Math.sqrt(rn);
+    if(rn<TOL) break;
+    mul(p, Ap);
+    let pAp=0; for(let q=0;q<nC;q++) pAp+=p[q]*Ap[q];
+    if(!(Math.abs(pAp)>0)) break;
+    const al=rz/pAp;
+    for(let q=0;q<nC;q++){ phi[q]+=al*p[q]; r[q]-=al*Ap[q]; }
+    let rz2=0;
+    for(let q=0;q<nC;q++){ z[q]=r[q]/(diag[q]||1); rz2+=r[q]*z[q]; }
+    const be=rz2/(rz||1e-300); rz=rz2;
+    for(let q=0;q<nC;q++) p[q]=z[q]+be*p[q];
+  }
+  /* ---- u = grad(phi) by Green-Gauss, normalised so that mean inlet u = 1 -- */
+  const ux=new Float64Array(nC), uy=new Float64Array(nC);
+  for(let i=0;i<nE;i++){
+    const e=E[i], o=e[2], nb=e[3];
+    let pf;
+    if(KIND[i]===3)      pf=phi[o]+(phi[nb]-phi[o])*fw[i];
+    else if(KIND[i]===2) pf=0;
+    else if(KIND[i]===1) pf=phi[o]-fdn[i];        // dphi/dn = -1 at the inlet
+    else                 pf=phi[o];               // no flux at a wall
+    const gx=pf*fnx[i]*fL[i], gy=pf*fny[i]*fL[i];
+    ux[o]+=gx; uy[o]+=gy;
+    if(nb>=0){ ux[nb]-=gx; uy[nb]-=gy; }
+  }
+  for(let q=0;q<nC;q++){ const a=ar[q]||1e-30; ux[q]/=a; uy[q]/=a; }
+  /* mass balance: outward flux through the outlet must match what entered.
+     inFlux is the inlet area (unit inflow), so a converged solve gives
+     outFlux = inFlux.  This is a check that can actually fail.            */
+  let outFlux=0;
+  for(const ei of c.patches.outlet) outFlux += fa[ei]*(0-phi[E[ei][2]]);
+  const resid=Math.abs(outFlux-inFlux)/Math.max(inFlux,1e-30);
+
+  /* ---- physical scaling and the pressure field ---- */
+  const L=lossModel(), U=P.vel, rho=P.rho, k=toM();
+  const umag=new Float64Array(nC), pr=new Float64Array(nC);
+  let uMax=0, dtMin=Infinity;
+  for(let q=0;q<nC;q++){
+    const m=Math.hypot(ux[q],uy[q])*U;
+    umag[q]=m; if(m>uMax) uMax=m;
+    pr[q] = 0.5*rho*(U*U-m*m) - lossAt(cx[q], L);
+    const dt=hmin[q]*k/Math.max(m,1e-9); if(dt<dtMin) dtMin=dt;
+  }
+  /* cap the colour scale at a high percentile so one stray cell cannot
+     wash out the whole picture */
+  const step=Math.max(1,Math.floor(nC/4000)), samp=[];
+  for(let q=0;q<nC;q+=step) samp.push(umag[q]);
+  samp.sort((a,b)=>a-b);
+  const uTop=Math.max(samp[Math.floor(samp.length*0.995)]||uMax, 1e-9);
+  let pLo=Infinity, pHi=-Infinity;
+  for(let q=0;q<nC;q++){ if(pr[q]<pLo)pLo=pr[q]; if(pr[q]>pHi)pHi=pr[q]; }
+
+  /* ---- block -> quad index offsets (meshCore fills QUADS block by block) -- */
+  let off=0;
+  for(const b of G.blocks){
+    b.qoff=off;
+    off += (b.grid.length-1)*(b.grid[0].length-1);
+  }
+  G.field={phi, ux, uy, umag, p:pr, uMax, uTop, pLo, pHi, dtMin, resid,
+           iters:it, converged: it<MAXIT, loss:L, nC, ms:performance.now()-t0,
+           blocksOk: off===nC};
+  G.fieldWhy=null;
+  buildRaster();
+  return G.field;
+}
+
+/* ---- a coarse raster of u so streamlines can be traced anywhere ---------- */
+function buildRaster(){
+  const F=G.field; if(!F) return;
+  const NX=320, NY=Math.max(16, Math.min(320, Math.round(NX*G.W/Math.max(G.lTot,1e-9))));
+  const rx=new Float32Array(NX*NY), ry=new Float32Array(NX*NY), rw=new Float32Array(NX*NY);
+  const sx=NX/G.lTot, sy=NY/G.W;
+  const c=G.core;
+  for(let q=0;q<F.nC;q++){
+    const V=c.quads[q];
+    let x=0,y=0; for(const id of V){ x+=c.nodes[id][0]; y+=c.nodes[id][1]; }
+    x/=4; y/=4;
+    let i=Math.floor(x*sx), j=Math.floor(y*sy);
+    if(i<0)i=0; if(i>=NX)i=NX-1; if(j<0)j=0; if(j>=NY)j=NY-1;
+    const t=j*NX+i;
+    rx[t]+=F.ux[q]; ry[t]+=F.uy[q]; rw[t]+=1;
+  }
+  for(let t=0;t<rx.length;t++) if(rw[t]>0){ rx[t]/=rw[t]; ry[t]/=rw[t]; }
+  // fill the gaps left by cells that are larger than a raster bin
+  for(let pass=0; pass<6; pass++){
+    let filled=0;
+    for(let j=0;j<NY;j++) for(let i=0;i<NX;i++){
+      const t=j*NX+i; if(rw[t]>0) continue;
+      let ax=0, ay=0, n=0;
+      for(let dj=-1;dj<=1;dj++) for(let di=-1;di<=1;di++){
+        const ii=i+di, jj=j+dj;
+        if(ii<0||jj<0||ii>=NX||jj>=NY) continue;
+        const s=jj*NX+ii;
+        if(rw[s]>0){ ax+=rx[s]; ay+=ry[s]; n++; }
+      }
+      if(n){ rx[t]=ax/n; ry[t]=ay/n; rw[t]=0.5; filled++; }
+    }
+    if(!filled) break;
+  }
+  F.raster={NX,NY,rx,ry,sx,sy};
+}
+function sampleU(F, x, y){
+  const R=F.raster; if(!R) return null;
+  let fx=x*R.sx-0.5, fy=y*R.sy-0.5;
+  let i=Math.floor(fx), j=Math.floor(fy);
+  const tx=fx-i, ty=fy-j;
+  const cl=(v,n)=>v<0?0:(v>=n?n-1:v);
+  const i0=cl(i,R.NX), i1=cl(i+1,R.NX), j0=cl(j,R.NY), j1=cl(j+1,R.NY);
+  const w00=(1-tx)*(1-ty), w10=tx*(1-ty), w01=(1-tx)*ty, w11=tx*ty;
+  const a=j0*R.NX+i0, b=j0*R.NX+i1, cq=j1*R.NX+i0, d=j1*R.NX+i1;
+  return [R.rx[a]*w00+R.rx[b]*w10+R.rx[cq]*w01+R.rx[d]*w11,
+          R.ry[a]*w00+R.ry[b]*w10+R.ry[cq]*w01+R.ry[d]*w11];
+}
+function inRod(x,y){
+  const a=G.aE+1e-9, b=G.bE+1e-9;
+  for(const r of G.rods){
+    const dx=(x-r.x)/a, dy=(y-r.y)/b;
+    if(dx*dx+dy*dy < 1) return true;
+  }
+  return false;
+}
+/* streamlines seeded across the inlet plane */
+function streamlines(){
+  const F=G.field; if(!F || !F.raster) return [];
+  if(F.lines) return F.lines;
+  const n=Math.max(9, Math.min(30, P.nCols*4+1));
+  const h=G.lTot/700, out=[];
+  const x0=P.lIn>0 ? 0.25*P.lIn : 0.004*G.lTot;
+  for(let s=0;s<n;s++){
+    let x=x0, y=G.W*(s+0.5)/n;
+    if(inRod(x,y)) continue;
+    const line=[[x,y]];
+    for(let k=0;k<2600;k++){
+      const u1=sampleU(F,x,y); if(!u1) break;
+      const m1=Math.hypot(u1[0],u1[1]); if(m1<1e-4) break;
+      const xm=x+h*u1[0]/m1*0.5, ym=y+h*u1[1]/m1*0.5;      // RK2, arc-length step
+      const u2=sampleU(F,xm,ym) || u1;
+      const m2=Math.hypot(u2[0],u2[1])||m1;
+      x+=h*u2[0]/m2; y+=h*u2[1]/m2;
+      if(x<0 || x>G.lTot || y<0 || y>G.W) break;
+      if(inRod(x,y)) break;
+      line.push([x,y]);
+    }
+    if(line.length>4) out.push(line);
+  }
+  F.lines=out;
+  return out;
+}
+
+/* ---- the sidebar read-out for the estimate ---- */
+function flowNote(){
+  const el=$("flowOut"); if(!el) return;
+  const head=`<b>${T("f_head")}</b><br>`;
+  if(!FIELD_MODE[MODE] && !(G&&G.field)){ el.innerHTML=head+T("f_hint"); return; }
+  const F=G?G.field:null;
+  if(!F){ el.innerHTML=head+T(G&&G.fieldWhy ? G.fieldWhy : "f_hint"); return; }
+  const L=F.loss;
+  const dp=L.dpTotal, dpTxt = dp>=1000 ? (dp/1000).toFixed(2)+" kPa" : dp.toFixed(0)+" Pa";
+  const dt=F.dtMin, dtTxt = dt>=1e-3 ? (dt*1e3).toFixed(2)+" ms" : (dt*1e6).toFixed(1)+" µs";
+  el.innerHTML = head +
+    `${T("f_dp")} <span class="hi">${dpTxt}</span> · ${T("f_eu")} <b>${L.Eu.toFixed(3)}</b><br>` +
+    `${T("f_umax")} <b>${F.uMax.toFixed(2)}</b> m/s · ${T("f_ubar")} <b>${L.umax.toFixed(2)}</b> m/s<br>` +
+    `${T("f_dt")} <b>${dtTxt}</b> · ${T("f_res")} <b>${F.resid.toExponential(1)}</b>` +
+    ` (${F.iters} ${T("f_iter")}${F.converged?"":" — "+T("f_stop")}, ${F.ms.toFixed(0)} ms)<br>` +
+    `<span style="opacity:.85">${T("f_warn")}</span>`;
 }
 
 function paintSection(c2, wpx, hpx, big){
@@ -1455,9 +2034,15 @@ function paintSection(c2, wpx, hpx, big){
   const pad=14, s=Math.min((wpx-2*pad)/lTot, (hpx-2*pad-12)/W);
   const ox=(wpx-lTot*s)/2, oy=(hpx+W*s)/2+6;
   const px=(x,y)=>[ox+x*s, oy-y*s];
-  const quality = MODE!=="grid" && G.blocks.length>0;
+  const field = FIELD_MODE[MODE];
+  if(field && !interacting) solveField();
+  const quality = MODE!=="grid" && G.blocks.length>0 && (!field || !!G.field);
   const cellPx = s*G.stat.sMin;                      // smallest cell in pixels
-  const showQuads = P.showMesh && G.blocks.length>0 && G.stat.n <= (big?200000:60000);
+  /* "grid preview" governs mesh LINES only.  A quality or field map is the
+     picture being asked for, so it paints whether or not lines are on.     */
+  const canPaint = G.blocks.length>0 && G.stat.n <= (big?200000:60000);
+  const showFill = canPaint && quality;
+  const showWire = canPaint && P.showMesh && !quality;
 
   if(!quality) for(let i=0;i<3;i++){
     const a=px(zx[i],W), b=px(zx[i+1],0);
@@ -1472,7 +2057,7 @@ function paintSection(c2, wpx, hpx, big){
     }
     c2.stroke();
   };
-  if(showQuads && quality){                          // filled by cell quality
+  if(showFill){                                      // filled by cell quality
     for(const b of G.blocks){
       const g=b.grid;
       for(let i=0;i<g.length-1;i++) for(let j=0;j<g[0].length-1;j++){
@@ -1480,11 +2065,11 @@ function paintSection(c2, wpx, hpx, big){
         c2.beginPath(); c2.moveTo(q[0][0],q[0][1]);
         for(let k=1;k<4;k++) c2.lineTo(q[k][0],q[k][1]);
         c2.closePath();
-        c2.fillStyle=metricColor(b.q[i][j]); c2.fill();
-        if(cellPx>3){ c2.strokeStyle=pal.qEdge; c2.lineWidth=.4; c2.stroke(); }
+        c2.fillStyle=metricColor(b.q[i][j], b, i, j); c2.fill();
+        if(cellPx>3 && !field && P.showMesh){ c2.strokeStyle=pal.qEdge; c2.lineWidth=.4; c2.stroke(); }
       }
     }
-  }else if(showQuads){                               // wireframe
+  }else if(showWire){                                // wireframe
     const A=[],B=[],Cc=[];
     for(const b of G.blocks){
       const g=b.grid, dst = b.zone===0?A : (b.zone===2?Cc : B);
@@ -1506,7 +2091,21 @@ function paintSection(c2, wpx, hpx, big){
   c2.restore();
   if(P.showMesh && !quality)                          // hexagonal cell boundaries
     line(G.cells.filter(c=>c.pg.length>2).map(c=>c.pg.concat([c.pg[0]])), pal.cell, 1);
-  if(quality && G.stat.worst){                        // mark the worst cell
+  if(field && G.field && P.stream && !interacting){    // estimated streamlines
+    const ls=streamlines();
+    c2.save();
+    c2.beginPath(); c2.rect(RA[0],RA[1],RB[0]-RA[0],RB[1]-RA[1]); c2.clip();
+    c2.strokeStyle = MODE==="vel" ? "rgba(255,255,255,.72)" : "rgba(24,28,36,.5)";
+    c2.lineWidth = big?1.1:0.8; c2.lineJoin="round";
+    c2.beginPath();
+    for(const l of ls){
+      const q0=px(l[0][0],l[0][1]); c2.moveTo(q0[0],q0[1]);
+      for(let i=1;i<l.length;i++){ const q=px(l[i][0],l[i][1]); c2.lineTo(q[0],q[1]); }
+    }
+    c2.stroke();
+    c2.restore();
+  }
+  if(quality && !field && G.stat.worst){               // mark the worst cell
     const w=G.stat.worst.p.map(v=>px(v[0],v[1]));
     const cxp=(w[0][0]+w[2][0])/2, cyp=(w[0][1]+w[2][1])/2;
     c2.strokeStyle=pal.bad; c2.lineWidth=1.5;
@@ -1517,12 +2116,22 @@ function paintSection(c2, wpx, hpx, big){
 
   if(quality){                                        // colour bar
     const bw=Math.min(150,wpx*0.4), bh=7, bx=wpx-bw-14, by=hpx-20;
-    for(let i=0;i<bw;i++){ c2.fillStyle=ramp(i/bw); c2.fillRect(bx+i,by,1,bh); }
+    const F=G.field;
+    const pTxt=v=>Math.abs(v)>=1000 ? (v/1000).toFixed(1)+" kPa" : v.toFixed(0)+" Pa";
+    let lo="min", hi="max";
+    if(MODE==="skew"){ lo="0°"; hi="60°"; }
+    else if(MODE==="ar"){ lo="1"; hi="40"; }
+    else if(MODE==="vel" && F){ lo="0"; hi=F.uTop.toFixed(2)+" m/s"; }
+    else if(MODE==="pres" && F){ lo=pTxt(F.pLo); hi=pTxt(F.pHi); }
+    for(let i=0;i<bw;i++){
+      c2.fillStyle = field ? cmap(i/bw, MODE==="vel"?CMAP_V:CMAP_P) : ramp(i/bw);
+      c2.fillRect(bx+i,by,1,bh);
+    }
     c2.fillStyle=getComputedStyle(document.body).color;
     c2.font="10px "+uiFont(); c2.textAlign="left";
-    c2.fillText(MODE==="skew"?"0°":(MODE==="ar"?"1":"min"), bx, by-3);
+    c2.fillText(lo, bx, by-3);
     c2.textAlign="right";
-    c2.fillText(MODE==="skew"?"60°":(MODE==="ar"?"40":"max"), bx+bw, by-3);
+    c2.fillText(hi, bx+bw, by-3);
   }
 }
 
@@ -1548,6 +2157,7 @@ $("zoomBtn").addEventListener("click",()=>{ zoomwrap.hidden=false; requestAnimat
 $("zoomClose").addEventListener("click",()=>zoomwrap.hidden=true);
 zoomwrap.addEventListener("click",e=>{ if(e.target===zoomwrap) zoomwrap.hidden=true; });
 
+
 /* =============================== stats ==================================== */
 function fmt(n){ return (Math.round(n*10)/10).toLocaleString(); }
 function cellCount2D(){
@@ -1556,6 +2166,9 @@ function cellCount2D(){
   for(const c of G.cells){
     const vd=c.vid, n=vd.length;
     if(n<3) continue;
+    //  a rod-free wall cell is ONE transfinite block, nAzS x nAzS, not an
+    //  O-grid; counting it per side would overstate it fourfold
+    if(!c.rod){ if(n>=4) q2 += G.nAzS*G.nAzS; continue; }
     for(let k=0;k<n;k++){
       const ia=vd[k], ib=vd[(k+1)%n], A=V[ia], B=V[ib];
       const wallSide = (Math.abs(c.y)<1e-9 && Math.abs(A[1])<1e-9 && Math.abs(B[1])<1e-9) ||
@@ -1587,13 +2200,21 @@ function updateStats(){
   $("sSkew").textContent=isFinite(G.stat.devMax)?G.stat.devMax.toFixed(0)+"°":"—";
   $("sAR").textContent=isFinite(G.stat.arMax)?G.stat.arMax.toFixed(1):"—";
 
+  /* Warnings are ordered by how badly they break the mesh, and only the first
+     is shown.  The overlap tests use the FOOTPRINT (2aE x 2bE), which equals D
+     in both directions for a straight rod.  A staggered lattice has no
+     neighbour at (SL, 0), so SL alone never causes an overlap there; what it
+     can do is fold the hexagon, which is a different message.              */
   const w=$("warn"); let msg="", err=false;
-  if(P.ST<=P.D){ err=true; msg=T("w_st")(fmt(P.ST), fmt(P.D)); }
-  else if(P.SL<=P.D){ err=true; msg=T("w_sl")(fmt(P.SL), fmt(P.D)); }
+  const dT=2*G.bE, dL=2*G.aE;
+  if(P.ST<=dT){ err=true; msg=T("w_st")(fmt(P.ST), fmt(dT)); }
+  else if(!isStg() && P.SL<=dL){ err=true; msg=T("w_sl")(fmt(P.SL), fmt(dL)); }
+  else if(isStg() && G.XE<=0){ err=true; msg=T("w_slstg")(fmt(P.SL), fmt(P.ST/2)); }
+  else if(!(G.clearance>0)){ err=true; msg=T("w_fit")(G.clearance.toFixed(2)); }
   else if(P.firstLayer*P.nRad > G.clearance)
     msg=T("w_lay")(P.nRad, P.firstLayer, fmt(P.firstLayer*P.nRad), fmt(G.clearance));
-  else if(P.wrap && !G.wrapOK){ err=true; msg=T("w_coil")(); }
-  else if(P.wrap && G.wrapOK && (G.theta/P.nZ)*180/Math.PI > 4)
+  else if(isHel() && P.wrap && !G.wrapOK){ err=true; msg=T("w_coil")(); }
+  else if(wrapped() && (G.theta/P.nZ)*180/Math.PI > 4)
     msg=T("w_arc")(((G.theta/P.nZ)*180/Math.PI).toFixed(1),
                    (100*Math.pow(G.theta/P.nZ,2)/6).toFixed(2));
   else if(P.lOut < 4*P.D) msg=T("w_out")(fmt(P.lOut), fmt(4*P.D));
@@ -1608,6 +2229,7 @@ let needsDraw=true;
 function frame(){
   if(P.autoRotate){ yaw+=0.006; interacting=true; needsDraw=true; }
   if(needsDraw){ draw(); drawTop(); if(!zoomwrap.hidden) drawBig(); needsDraw=false; }
+  if(G && G.noteDirty){ G.noteDirty=false; modeNote(); flowNote(); }
   requestAnimationFrame(frame);
 }
 
@@ -1620,32 +2242,39 @@ function syncLabels(){
     if(hint) hint.innerHTML = HINT[id] ? HINT[id](d) : "";
   }
 }
-/* ---- derived hint shown next to each editable number ---- */
+/* ---- derived hint shown next to each editable number ----
+   A hint may read the geometry; nothing else in this section may.          */
 const HINT = {
+  sector:d=>`${T("arc")} ${fmt(P.H)}`,
   helix:d=>`${T("lean")} ${fmt(d.shift)} · ${(2*d.aE).toFixed(2)}×${(2*d.bE).toFixed(2)}`,
   rMid:d=>`r ${fmt(d.rIn)}–${fmt(d.rOut)}`,
-  sector:d=>`${T("arc")} ${fmt(P.H)}`,
   ST:d=>`P/D ${(P.ST/P.D).toFixed(2)}`,
   SL:d=>`diag ${d.SD.toFixed(1)}`,
   nRows:d=>`L<sub>B</sub> ${fmt(P.nRows*P.SL)}`,
   nCols:d=>`W ${fmt(P.nCols*P.ST)}`,
-  nAz:d=>{ const a=d.azFull||[0,0];
+  nAz:d=>{ if(!isStg()) return `→ ${4*d.nAzS} (${T("perSide")} ${d.nAzS})`;
+           const a=d.azFull||[0,0];
            return `→ ${a[0]===a[1]?a[0]:a[0]+"–"+a[1]} (${T("perSide")} ${d.nAzS})`; },
   nRad:d=>`${T("growth")} ${d.qRad.toFixed(3)}`,
   firstLayer:d=>`${T("gap")} ${d.clearance>0?d.clearance.toFixed(2):"—"}`,
   nZ:d=>P.nZ===1 ? T("quasi2d")
-      : (P.wrap && G.wrapOK ? `${fmt(P.H/P.nZ)} · ${(P.sector/P.nZ).toFixed(2)}°/층`
-                            : `Δz ${fmt(P.H/P.nZ)}`),
+      : (wrapped() ? `${fmt(P.H/P.nZ)} · ${(P.sector/P.nZ).toFixed(2)}°/${T("layer")}`
+                   : `Δz ${fmt(P.H/P.nZ)}`),
   vel:d=>`U<sub>max</sub> ${flow().umax.toFixed(2)} m/s`,
   nu:d=>"m²/s",
+  rho:d=>"kg/m³",
   ypl:d=>`y₁ ${fmt2(flow().y1model)}`
 };
 function fmt2(v){ return v>=1?v.toFixed(2):v.toPrecision(2); }
 
-/* ---- boundary-layer estimate at the rod wall ---- */
+/* ---- boundary-layer estimate at the rod wall ----
+   The gap velocity uses the transverse footprint, which is D for a straight
+   rod and still D for an inclined tube - the ellipse stretches along the flow,
+   not across it - so this is the same number the rod explorer produced.    */
 function flow(){
   const k=toM(), D=P.D*k, ST=P.ST*k;
-  const umax = P.vel*(ST>D ? ST/(ST-D) : 1);        // gap (maximum) velocity
+  const dT=(G?2*G.bE:P.D)*k;
+  const umax = P.vel*(ST>dT ? ST/(ST-dT) : 1);      // gap (maximum) velocity
   const nu = P.nu*1e-6;
   const Re = umax*D/nu;
   const Cf = 0.079*Math.pow(Math.max(Re,1),-0.25);  // Blasius, Fanning
@@ -1665,7 +2294,7 @@ function physNote(){
     ` · ${T("nowYplus")} <b>${f.yplCur>0?f.yplCur.toFixed(1):"—"}</b>`;
 }
 
-function rebuild(){ build(); syncLabels(); modeNote(); physNote(); needsDraw=true; }
+function rebuild(){ build(); syncLabels(); modeNote(); physNote(); flowNote(); needsDraw=true; }
 function paintRange(el){
   const mn=+el.min, mx=+el.max, v=+el.value, pct=mx>mn?(v-mn)/(mx-mn)*100:0;
   el.style.background=`linear-gradient(90deg,var(--accent) ${pct}%,var(--sunk) ${pct}%)`;
@@ -1688,8 +2317,10 @@ function setParam(id, v, fromSlider){
   if(INT_PARAM[id]) v=Math.max(1,Math.round(v));
   else v=Math.max(0, v);
   if(id==="nAz") v=Math.max(6,v);
+  if(id==="helix") v=Math.min(v,80);                 // tan(alpha) must stay finite
   if(P[id]===v) return false;
   P[id]=v;
+  if(id==="H") H_ROD=v;                              // remember the rod channel height
   const sl=$(id);
   if(sl && !fromSlider){ sl.value=Math.min(+sl.max, Math.max(+sl.min, v)); paintRange(sl); }
   return true;
@@ -1723,13 +2354,16 @@ CHECKS.forEach(id=>{
   el.addEventListener("change",()=>{
     P[id]=el.checked;
     if(id==="autoRotate") busy();
-    else if(id==="mesh3d") needsDraw=true;
+    else if(id==="mesh3d" || id==="stream" || id==="coilCtx") needsDraw=true;
     else rebuild();
   });
 });
 $("equi").addEventListener("click",()=>{
   P.SL=P.ST;                                       // square lattice
   $("SL").value=P.SL; paintRange($("SL")); rebuild();
+});
+document.querySelectorAll("#geomSeg button").forEach(b=>{
+  b.addEventListener("click",()=>applyGeometry(b.dataset.geom));
 });
 document.querySelectorAll(".seg button[data-view]").forEach(b=>{
   b.addEventListener("click",()=>{
@@ -1740,10 +2374,17 @@ document.querySelectorAll(".seg button[data-view]").forEach(b=>{
 });
 const MODE_NOTE = {
   get grid(){ return T("mn_grid"); }, get skew(){ return T("mn_skew"); },
-  get ar(){ return T("mn_ar"); },     get size(){ return T("mn_size"); }
+  get ar(){ return T("mn_ar"); },     get size(){ return T("mn_size"); },
+  get vel(){ return T("mn_vel"); },   get pres(){ return T("mn_pres"); }
 };
 function modeNote(){
   let s=MODE_NOTE[MODE];
+  if(FIELD_MODE[MODE]){
+    if(G && G.field===null && G.fieldWhy) s += "  ▸ " + T(G.fieldWhy);
+    $("modeNote").textContent=s;
+    flowNote();
+    return;
+  }
   if(G && G.stat && !G.stat.skipped && MODE!=="grid"){
     const p=n=>(100*n).toFixed(n>0.999?0:1)+"%";
     s += MODE==="ar"
@@ -1756,14 +2397,34 @@ document.querySelectorAll("#modeSeg button").forEach(b=>{
   b.addEventListener("click",()=>{
     document.querySelectorAll("#modeSeg button").forEach(o=>o.classList.remove("on"));
     b.classList.add("on");
-    MODE=b.dataset.mode; modeNote(); needsDraw=true;
+    MODE=b.dataset.mode;
+    if(FIELD_MODE[MODE] && G && G.field===undefined){
+      $("modeNote").textContent=MODE_NOTE[MODE]+"  ▸ "+T("f_busy");
+      requestAnimationFrame(()=>{ solveField(); modeNote(); needsDraw=true; });
+    }else{ modeNote(); }
+    needsDraw=true;
   });
 });
+/* ---- section plane : a view control, so it never rebuilds the mesh ------- */
+function syncZCut(){
+  const el=$("zCut");
+  el.value=P.zCut; paintRange(el);
+  $("zCutV").textContent=(+P.zCut).toFixed(2);
+}
+$("zCut").addEventListener("input",()=>{
+  const v=parseFloat($("zCut").value);
+  P.zCut = isFinite(v) ? Math.max(0,Math.min(1,v)) : 0.5;
+  syncZCut(); needsDraw=true;
+});
+syncZCut();
+
 $("reset").addEventListener("click",()=>{
-  Object.assign(P,DEFAULTS);
+  Object.assign(P, DEFAULTS, GEOM[GK].def);
+  H_ROD=DEFAULTS.H;
   RANGES.forEach(id=>{ $(id).value=P[id]; paintRange($(id)); });
   CHECKS.forEach(id=>$(id).checked=P[id]);
-  [yaw,pitch]=VIEWS.iso; zoom=1; rebuild();
+  syncZCut();
+  [yaw,pitch]=VIEWS.iso; zoom=1; panX=0; panY=0; rebuild();
 });
 
 /* ======================= MESH EXPORT =======================================
@@ -1830,7 +2491,7 @@ function meshCore(){
     else if(Math.abs(A[1])<t && Math.abs(B[1])<t) p="wall_side_y0";
     else if(Math.abs(A[1]-G.W)<t && Math.abs(B[1]-G.W)<t) p="wall_side_ymax";
     else {
-      // both ends lie exactly on the rod circle; the chord midpoint does not,
+      // both ends lie exactly on the footprint; the chord midpoint does not,
       // so testing the midpoint would fail at coarse azimuthal resolution
       const on=(q,r)=>Math.abs(((q[0]-r.x)/G.aE)**2+((q[1]-r.y)/G.bE)**2-1)<1e-6;
       p = G.rods.some(r=>on(A,r) && on(B,r)) ? "wall_rods" : null;
@@ -1910,7 +2571,11 @@ function sink(){
           blob(type){ if(buf.length) parts.push(buf.join("")); return new Blob(parts,{type}); },
           text(){ if(buf.length){ parts.push(buf.join("")); buf=[]; } return parts.join(""); }};
 }
-/* every exported coordinate goes through the unit scale */
+/* Every exported coordinate goes through the geometry map and then the unit
+   scale, in that order.  warp3 is the identity for a rod bundle, so this is
+   the same arithmetic the rod explorer did; for a coil it is what turns the
+   flat patch into the real machine.  There is exactly one path, so the
+   preview, the checks and the files can never disagree.                    */
 function zpt(c, i){
   const n=c.nodes[i%c.N2], k=toM(), z=P.H*Math.floor(i/c.N2)/c.nZ;
   const w=warp3([n[0], n[1], z]);
@@ -1955,20 +2620,17 @@ function writeVTU(c){
 /* ---- every cell volume, rebuilt from the faces ---------------------------
    A solver does not trust a cell list; it integrates x.n dA over the faces of
    each cell.  This does the same, so an inverted or degenerate cell shows up
-   here rather than in the solver.  Coordinates come from zpt(), the same
-   mapping the writers use, so any shear or wrap the geometry applies is
-   included.  The total is compared with the analytic volume of the faceted
-   domain whenever that comparison is exact: a straight or sheared extrusion
-   has planar faces and preserves volume, a cylindrical wrap does neither, so
-   for a wrapped geometry the total is reported but only positivity is gated.
-   What none of this can test is the c0/c1 convention itself - only the solver
-   knows that, and it is pinned in writeFluent by what Fluent reported.       */
+   here rather than in the solver, and the total is compared with the analytic
+   volume of the faceted domain, which also catches a unit slip.  What it
+   cannot test is the c0/c1 convention itself - only the solver knows that,
+   and it is pinned above by what Fluent actually reported.                 */
 function cellVolumes(c){
-  const nC=c.nCells, k=toM();
+  const nC=c.nCells;
   const V=new Float64Array(nC);
   const acc=(f,c0,c1)=>{
     const p0=zpt(c,f[0]), p1=zpt(c,f[1]), p2=zpt(c,f[2]), p3=zpt(c,f[3]);
-    /* S = 1/2 (p2-p0) x (p3-p1) */
+    /* S = 1/2 (p2-p0) x (p3-p1); exact for a planar quad, and the largest
+       error it can make on a slightly warped one is second order */
     const ax=p2[0]-p0[0], ay=p2[1]-p0[1], az=p2[2]-p0[2];
     const bx=p3[0]-p1[0], by=p3[1]-p1[1], bz=p3[2]-p1[2];
     const sx=0.5*(ay*bz-az*by), sy=0.5*(az*bx-ax*bz), sz=0.5*(ax*by-ay*bx);
@@ -1988,10 +2650,45 @@ function cellVolumes(c){
     if(!(v>0)) neg++;
     tot+=v;
   }
-  const expect=(G.lTot*G.W-G.rodArea)*P.H*Math.pow(k,3);
-  const strict = !(typeof P.wrap!=="undefined" && P.wrap && G.wrapOK);
-  return {vMin, vMax, tot, neg, expect, strict,
-          err:Math.abs(tot-expect)/Math.max(expect,1e-300)};
+  const e=analyticVolume(c);
+  return {vMin, vMax, tot, neg, expect:e.expect, tol:e.tol, chord:e.chord,
+          err:Math.abs(tot-e.expect)/Math.max(e.expect,1e-300)};
+}
+/* ---- what the cell volumes must add up to --------------------------------
+   Flat: the faceted section area times the height.
+
+   Rolled: the roll has Jacobian r/rMid, so by Pappus the smooth volume of one
+   layer is the section's first moment about the coil axis times the swept
+   angle.  The exported cells chord that arc instead of following it, and the
+   chorded hexahedron's volume is exactly  int(r dA) * sin(dTheta)  -- not to
+   leading order, exactly.  (Checked against the divergence formula on 300
+   random skewed quads at angles up to 0.9 rad: worst relative difference
+   3e-14.  The volume is therefore short of the smooth one by the familiar
+   sin(dTheta)/dTheta, which is what the arc warning reports as a percentage.)
+
+   So the target is closed form in both cases and the gate stays at 1e-6 for
+   both.  The older helical explorers could not do this - they compared a
+   rolled mesh against the FLAT volume, which of course disagreed, and so they
+   skipped the check and labelled the number "indicative".  Area and first
+   moment are taken from the exported quads, so the target is built from the
+   same facets as the mesh rather than from the smooth outline.             */
+function analyticVolume(c){
+  const k=toM(), N=c.nodes;
+  let A2=0, My6=0;                                   // 2A and 6*int(y dA)
+  for(const Q of c.quads){
+    for(let e=0;e<4;e++){
+      const a=N[Q[e]], b=N[Q[(e+1)&3]];
+      const cr=a[0]*b[1]-b[0]*a[1];
+      A2+=cr; My6+=(a[1]+b[1])*cr;
+    }
+  }
+  const A=Math.abs(A2)/2, My=Math.sign(A2)*My6/6;    // area, first moment in y
+  if(!wrapped()) return {expect:A*P.H*Math.pow(k,3), tol:1e-6, chord:0};
+  const dth=G.theta/P.nZ;
+  const chord=dth>1e-12 ? Math.sin(dth)/dth : 1;     // arc -> chord, per layer
+  //  int(r dA) over the section = rIn*A + int(y dA), times nZ*sin(dTheta)
+  const mom=(G.rIn*A+My)*Math.pow(k,3);
+  return {expect:mom*P.nZ*Math.sin(dth), tol:1e-6, chord:1-chord};
 }
 
 const FLUENT_BC={inlet:10, outlet:5, wall_rods:3, wall_side_y0:3, wall_side_ymax:3,
@@ -2000,7 +2697,7 @@ const FLUENT_TYPE={2:"interior", 3:"wall", 5:"pressure-outlet", 10:"velocity-inl
 
 function writeFluent(c){
   const s=sink(), np=c.N2*(c.nZ+1), nc=c.nCells, nf=c.nInt+c.nBnd, hx=n=>n.toString(16);
-  s.put('(0 "rod bundle : structured hexahedral mesh")\n(2 3)\n');
+  s.put('(0 "'+caseName()+' : structured hexahedral mesh")\n(2 3)\n');
   s.put("(10 (0 1 "+hx(np)+" 0 3))\n(10 (1 1 "+hx(np)+" 1 3)(\n");
   eachPoint(c,(x,y,z)=>s.put(x+" "+y+" "+z+"\n"));
   s.put("))\n(12 (0 1 "+hx(nc)+" 0))\n(12 (2 1 "+hx(nc)+" 1 4))\n");
@@ -2074,7 +2771,7 @@ function writeSTL(c){
   let n=0;
   for(const p of PATCH_ORDER) eachPatchFace(c,p,()=>n++);
   const buf=new ArrayBuffer(84+100*n), dv=new DataView(buf);
-  new Uint8Array(buf,0,80).set(new TextEncoder().encode("rod bundle boundary"));
+  new Uint8Array(buf,0,80).set(new TextEncoder().encode(caseName()+" boundary"));
   dv.setUint32(80,2*n,true);
   let off=84;
   const tri=(a,b,cc)=>{
@@ -2142,10 +2839,13 @@ async function makeZip(files){
 
 /* ---------------- download ---------------- */
 function caseName(){
-  let n="helicalStg_D"+P.D+"_a"+P.helix+"_s"+P.sector+"_R"+P.rMid+"_"+P.nRows+"x"+P.nCols+
-        "_az"+G.azFull[1]+"r"+P.nRad+"z"+P.nZ;
+  let n=GEOM[GK].prefix+"_D"+P.D+"_ST"+P.ST+"_SL"+P.SL;
+  n += isHel() ? "_a"+P.helix+"_s"+P.sector+"_R"+P.rMid : "_H"+P.H;
+  n += "_"+P.nRows+"x"+P.nCols+
+       "_az"+(isStg() ? G.azFull[1] : 4*G.nAzS)+"r"+P.nRad+"z"+P.nZ;
   if(!P.halfRods) n+="_nohalf";
-  if(P.firstRowOffset) n+="_off";
+  if(isStg() && P.firstOffset) n+="_off";
+  if(isHel() && !P.wrap) n+="_flat";
   return n.replace(/\./g,"p");
 }
 function save(blob, name){
@@ -2182,15 +2882,15 @@ document.querySelectorAll(".dl .btn").forEach(btn=>{
     await new Promise(r=>setTimeout(r,20));
     try{
       const t0=performance.now();
-      if(!(G.clearance>0)) throw {key:"e_fit"};   // tube larger than its own cell
-      if(P.wrap && !G.wrapOK) throw {key:"e_coil"};
+      if(!(G.clearance>0)) throw {key:"e_fit"};   // rod larger than its own cell
+      if(isHel() && P.wrap && !G.wrapOK) throw {key:"e_coil"};
       const c=meshCore();
       if(c.checks.cracks) throw {key:"e_crack", arg:c.checks.cracks};
       if(c.checks.maxdev>G.tol) throw {key:"e_join", arg:c.checks.maxdev.toExponential(2)};
       if(!(c.checks.amin>0)) throw {key:"e_area"};
       const vol=cellVolumes(c);
       if(vol.neg) throw {key:"e_vol", arg:vol.neg.toLocaleString()};
-      if(vol.strict && vol.err>1e-6) throw {key:"e_volsum", arg:vol.err.toExponential(1)};
+      if(vol.err>vol.tol) throw {key:"e_volsum", arg:vol.err.toExponential(1)};
       const blob=await f.make(c);
       save(blob, caseName()+f.ext);
       const mb=blob.size/1048576;
@@ -2198,7 +2898,7 @@ document.querySelectorAll(".dl .btn").forEach(btn=>{
               (mb<1 ? (blob.size/1024).toFixed(0)+" KB" : mb.toFixed(1)+" MB"),
               ((performance.now()-t0)/1000).toFixed(1),
               c.checks.areaErr.toExponential(1)],
-              vol:[vol.neg, vol.err.toExponential(1), vol.strict]};
+              vol:[vol.neg, vol.err.toExponential(1)]};
       renderNote();
     }catch(err){
       lastDL={ok:false, key:err&&err.key, arg:err&&err.arg, raw:(err&&err.message)||String(err)};
@@ -2209,6 +2909,7 @@ document.querySelectorAll(".dl .btn").forEach(btn=>{
     }
   });
 });
+addEventListener("keydown",e=>{ if(e.key==="Escape") zoomwrap.hidden=true; });
 addEventListener("keydown",e=>{ if(e.key==="Escape") zoomwrap.hidden=true; });
 
 /* drag + wheel */
@@ -2249,12 +2950,13 @@ document.querySelectorAll("#unitSeg button").forEach(b=>{
     physNote(); syncLabels(); saveState();
   });
 });
-const FLUIDS={water:1.004, air:15.16};
+const FLUIDS={water:{nu:1.004, rho:998.2}, air:{nu:15.16, rho:1.204}};
 document.querySelectorAll("#fluidSeg button").forEach(b=>{
   b.addEventListener("click",()=>{
     document.querySelectorAll("#fluidSeg button").forEach(o=>o.classList.remove("on"));
     b.classList.add("on"); P.fluid=b.dataset.fluid;
-    if(FLUIDS[P.fluid]){ setParam("nu", FLUIDS[P.fluid]); }
+    const f=FLUIDS[P.fluid];
+    if(f){ setParam("nu", f.nu); setParam("rho", f.rho); }
     rebuild(); saveState();
   });
 });
@@ -2265,16 +2967,20 @@ $("applyY").addEventListener("click",()=>{
   rebuild(); saveState();
 });
 
-/* ---- case sharing -------------------------------------------------------- */
-const SHARE_KEYS=RANGES.concat(["unit","fluid","halfRods","firstRowOffset","wrap"]);
+/* ---- case sharing --------------------------------------------------------
+   The geometry travels with the case: a link that restored the parameters but
+   not the arrangement would quietly show a different bundle.               */
+const SHARE_KEYS=RANGES.concat(["unit","fluid","halfRods","firstOffset","wrap"]);
 function encodeState(){
-  return SHARE_KEYS.map(k=>k+"="+(typeof P[k]==="boolean"?(P[k]?1:0):P[k])).join("&");
+  return ["geom="+GK].concat(SHARE_KEYS.map(k=>
+    k+"="+(typeof P[k]==="boolean"?(P[k]?1:0):P[k]))).join("&");
 }
 function applyState(str){
-  let hit=false;
+  let hit=false, geom=null;
   for(const kv of String(str).split("&")){
     const i=kv.indexOf("="); if(i<1) continue;
     const k=kv.slice(0,i), v=kv.slice(i+1);
+    if(k==="geom"){ if(GEOM[v]){ geom=v; hit=true; } continue; }
     if(!SHARE_KEYS.includes(k)) continue;
     if(typeof P[k]==="boolean") P[k]=(v==="1");
     else if(k==="unit"||k==="fluid"){ if(v) P[k]=v; }
@@ -2282,13 +2988,15 @@ function applyState(str){
     hit=true;
   }
   if(!hit) return false;
+  H_ROD=P.H;
+  if(geom) applyGeometry(geom,{quiet:true});
   RANGES.forEach(id=>{ const el=$(id); if(el){ el.value=Math.min(+el.max,Math.max(+el.min,P[id])); paintRange(el);} });
   CHECKS.forEach(id=>{ const el=$(id); if(el) el.checked=P[id]; });
   document.querySelectorAll("#unitSeg button").forEach(b=>b.classList.toggle("on",b.dataset.unit===P.unit));
   document.querySelectorAll("#fluidSeg button").forEach(b=>b.classList.toggle("on",b.dataset.fluid===P.fluid));
   return true;
 }
-function saveState(){ try{ localStorage.setItem("rbCase", encodeState()); }catch(e){} }
+function saveState(){ try{ localStorage.setItem("bmCase", encodeState()); }catch(e){} }
 $("shareBtn").addEventListener("click",async()=>{
   const url=location.origin+location.pathname+"#"+encodeState();
   try{ await navigator.clipboard.writeText(url); }
@@ -2310,10 +3018,11 @@ $("langBtn").addEventListener("click",()=>setLang(LANG==="ko"?"en":"ko"));
 (function(){
   let restored=false;
   if(location.hash.length>1) restored=applyState(decodeURIComponent(location.hash.slice(1)));
-  if(!restored){ try{ const c=localStorage.getItem("rbCase"); if(c) applyState(c); }catch(e){} }
+  if(!restored){ try{ const c=localStorage.getItem("bmCase"); if(c) applyState(c); }catch(e){} }
 })();
 RANGES.forEach(id=>$(id).addEventListener("change",saveState));
 CHECKS.forEach(id=>$(id).addEventListener("change",saveState));
 
+applyGeometry(GK,{quiet:true});      // show the right controls before the first draw
 resize(); rebuild(); setLang(LANG); frame();
 </script>

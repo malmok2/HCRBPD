@@ -6,24 +6,36 @@ description: Build or extend the standard browser-based parametric CAD + structu
 # Parametric CAD + mesh explorer
 
 This skill lives in the **HCRBPD** repository (helical coil / rod bundle
-pressure drop), which holds one explorer per geometry, each in its own folder
-at the repository root, and this single shared skill. Paths below are relative
-to that root.
+pressure drop), which holds **one** explorer covering every geometry, its
+Python twin, and this skill. Paths below are relative to the repository root.
 
-The reference implementation is `rod_bundle_lattice/rod_lattice_explorer.html`
-— one file, ~2550 lines, no dependencies beyond an optional web font — plus its
-standalone Python twin `rod_bundle_lattice/rod_lattice_mesh.py`. **Read the
-reference file before extending it or porting it.** Most questions are answered
-faster by reading it than by reasoning from scratch, and it is the definition of
-the standard rather than a description of one.
+- `mesh_explorer.html` — the tool. One self-contained file, ~3000 lines, no
+  dependencies beyond an optional web font. **Read it before extending it.**
+  Most questions are answered faster by reading it than by reasoning from
+  scratch, and it is the definition of the standard rather than a description
+  of one.
+- `mesh_explorer.py` — the standalone twin. Same mesh, separate code:
+  `--geometry rod-inline|rod-staggered|helical-inline|helical-staggered`.
 
-The other geometries sit beside it — `rod_bundle_staggered/`,
-`helical_coil_bundle/`, `helical_coil_bundle_staggered/` — and each carries its
-own `*_explorer.html` and `*_mesh.py`. They are siblings by copy, not by shared
-library: a fix to the common machinery has to be applied to every folder, and
-the way to be sure it was is to `grep` for it across the repository. Check
-whether a geometry already exists before starting a new one, and when adding
-one, give it a folder of its own at the root.
+Four geometries ship today, as two independent traits: **family** (`rod`,
+straight circular rods with a given channel height; `helical`, tubes inclined
+by the helix angle, meshed flat and rolled back onto the coil) and
+**arrangement** (`in-line`, `staggered`). Setting the helix angle to zero and
+skipping the roll collapses every helical term back to the rod case, which is
+why one code path serves both.
+
+**There is one copy of the common machinery, and geometry knowledge lives in
+exactly five functions** — `derived`, `lattice`, `cellPolygon`, `sideDiv` and
+`warp3`, each labelled "Geometry function N of 5" in both files. Everything
+else — layout, camera, the check battery, the writers, i18n, persistence — is
+shared and must not learn which geometry is active. If you find yourself
+branching on the geometry outside those five, stop: you have put geometry
+knowledge somewhere generic.
+
+This replaced four copied sibling files in September 2026. The reason matters:
+a fix to shared code had to be applied four times, and the git history shows
+exactly that happening. Do not fork the file again. A new geometry is a new
+entry in the `GEOM` registry, not a new copy.
 
 ## The core claim: skip the mesher
 
@@ -66,7 +78,7 @@ reads three tables:
 - `STR.ko` / `STR.en` — every visible string
 - `HINT` — the derived value shown beside each number
 
-A new geometry changes those tables and the four geometry functions. It does
+A new geometry changes those tables and the five geometry functions. It does
 not touch layout, camera, export, i18n or persistence code. If you find
 yourself editing those to add a geometry, stop — you have probably put geometry
 knowledge somewhere generic.
@@ -78,11 +90,35 @@ must stay out of `RANGES`, and similar).
 
 ## Adding a new geometry
 
-Only four things are geometry-specific. Everything else is reusable as-is.
+Add an entry to the `GEOM` registry and fill in the five geometry functions.
+Nothing else should need touching, in either file.
+
+```js
+const GEOM = {
+  "my-shape": {family:"rod", stagger:false, prefix:"my_shape", def:{SL:20}},
+  ...
+};
+```
+
+Controls that belong to one geometry carry `data-geo="helical"` (or `rod`,
+`inline`, `staggered`) in the markup; `applyGeometry` shows and hides them.
+Strings live in `STR.ko` / `STR.en`, keyed by element id. Then:
+
+**0 — The map into the world (`warp3`).** Identity unless the patch is meshed
+in one space and used in another. The helical family meshes a flat patch and
+then shears and rolls it; because exported coordinates go through `warp3` in
+one place (`zpt` / `eachPoint`), the preview, the checks and the files cannot
+drift apart. A non-identity map has to keep a positive Jacobian — rolling with
+`cos` before `sin` does, the other pairing mirrors the patch and inverts every
+cell.
 
 **1 — Section polygon(s).** Write the closed-form 2-D cross-section: outer
 boundary and inclusions. Clip against domain walls with Sutherland–Hodgman,
-then de-duplicate consecutive points.
+then de-duplicate consecutive points. Note that the inclusion footprint is an
+**ellipse** (`aE`, `bE`), not a circle: a tube inclined by α cuts the section
+at `aE = R/cos α`, `bE = R`, and a straight rod is just the α = 0 case. Use
+`aE`/`bE` everywhere — the parametric angle `atan2(dy/bE, dx/aE)` reduces to
+the polar angle for a circle, so one code path covers both.
 
 **2 — Block decomposition.** Cut the section into quadrilateral blocks, each a
 `grid[i][j]` of node positions. For an inclusion, enclose it in a cell polygon
@@ -112,6 +148,13 @@ These are invariants that took real debugging to find. Preserve them.
   through topological keys, never through rounded-coordinate hashing.
 - **`lerp(a, b, t)` returns `a` exactly at `t=0` and `b` exactly at `t=1`.**
   In floating point `a + (b-a)*1.0 ≠ b`, and that inequality becomes a crack.
+- **The same rule one level up: a list of parameters that should end at 1 must
+  END at 1, set outright.** `nodes()` / `fractions()` accumulate n graded steps
+  designed to sum to `L`, and land a few ulp either side. That value is then
+  fed to `lerp` as `t`; `t = 0.9999999999999998` puts the outer radial node a
+  hair off the cell side, and the two O-grids sharing that side disagree about
+  where it is. Clamping with `Math.min(L, s)` only works when the accumulation
+  happens to overshoot — do not rely on it.
 - **One source for preview and export.** The picture on screen and the exported
   file come from the same block list, or they will drift apart.
 - **Export coordinates in metres.** OpenFOAM's polyMesh carries no unit
@@ -119,6 +162,12 @@ These are invariants that took real debugging to find. Preserve them.
 - **Fluent gets its faces reversed; OpenFOAM does not.** The two conventions
   are opposite. See `references/mesh-core.md` — this cost a full solver run to
   discover and must not be re-guessed.
+- **A non-planar quad face has no single area vector, so fix the convention.**
+  Use the centroid decomposition, which sums to exactly
+  `S = ½ (p₂−p₀) × (p₃−p₁)` — what OpenFOAM does to a polygonal face. Splitting
+  the face on one diagonal instead is a different number: identical while every
+  face is planar, and 9e-4 different on a rolled coil. The twin reports the gap
+  between the two as a non-planarity measure; the gate uses the centroid form.
 - **Refuse to export an invalid configuration.** Degenerate geometry, cracks,
   non-positive cell volumes: fail loudly rather than writing a file that will
   waste a solver run.
@@ -152,11 +201,16 @@ prove a toggle did something, wrap `drawRods`/`drawSection3D` to prove the
 painter order flips with the camera. These catch what a screenshot glance
 misses, and they can be re-run after the next change.
 
-**Cross-check two independent implementations when both exist.** The Python
-twin and the browser build the same mesh; comparing order-sensitive checksums
-of the node and quad tables proves they agree exactly. That is much stronger
-evidence than either one passing its own tests. When you fix a writer bug, fix
-it in both — the twin has drifted before.
+**Cross-check the two implementations.** `mesh_explorer.py` and
+`mesh_explorer.html` build the same mesh from separate code; comparing
+order-sensitive checksums (FNV-1a over the node coordinates at `%.12e` and over
+the quad index tuples, both in table order) proves they agree node for node.
+That is much stronger evidence than either one passing its own tests, and it is
+how the face-convention difference above was found. As of the merge all four
+geometries match on both checksums, on every count, and on total volume to
+1e-15, over default and coarse settings alike. `mesh_explorer.py --json`
+exists for exactly this. When you fix anything in one, fix it in both — the
+twin has drifted before.
 
 **Test coarse settings, not just defaults.** Most real bugs appeared at low
 resolution, where tolerances that look generous stop holding. Sweep the list in
