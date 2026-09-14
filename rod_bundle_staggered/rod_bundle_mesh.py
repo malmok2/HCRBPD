@@ -84,9 +84,14 @@ WRITE_OPENFOAM = True   # polyMesh
 WRITE_VTU      = True   # ParaView
 WRITE_STL      = True   # boundary surface for figures
 
-# Fluent face convention: the face normal built from the node order points
-# from c0 to c1 (c1 = 0 on a boundary, normal outward).  Set False to swap.
-FLUENT_NORMAL_C0_TO_C1 = True
+# Fluent face convention.  The face lists below carry the OpenFOAM rule: the
+# right-hand-rule normal of the node order runs from the owner into the
+# neighbour, and outward on a boundary.  Fluent is the opposite - its normal
+# points INTO c0 - so the node order is reversed on the way out.  Settled
+# empirically: ANSYS Fluent 2026 R1 read a mesh written the OpenFOAM way and
+# reported every cell as non-positive volume.  Set False to write it the
+# OpenFOAM way instead (which Fluent will reject).
+FLUENT_REVERSE_FACES = True
 
 # =============================================================================
 #  DERIVED
@@ -764,9 +769,8 @@ def write_fluent(path):
             f.write("(13 (%x %x %x %x 4)(\n" % (zid, first, last, bc))
             for e in items:
                 fc, c0, c1 = e[0], e[1] + 1, (e[2] + 1 if e[2] >= 0 else 0)
-                if not FLUENT_NORMAL_C0_TO_C1:
-                    fc = fc[::-1]
-                    c0, c1 = c1, c0
+                if FLUENT_REVERSE_FACES:
+                    fc = fc[::-1]      # c0 stays the owner; only the normal flips
                 f.write("%x %x %x %x %x %x\n" % (fc[0] + 1, fc[1] + 1, fc[2] + 1,
                                                  fc[3] + 1, c0, c1))
             f.write("))\n")
