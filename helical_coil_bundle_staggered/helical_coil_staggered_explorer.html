@@ -545,6 +545,9 @@ const STR = {
     e_crack:n=>"격자가 닫히지 않았습니다 (균열 "+n+")",
     e_join:v=>"블록 접합 불일치 "+v,
     e_area:()=>"면적이 0 이하인 셀이 있습니다",
+    d_vol:(n,e,st)=>`셀 체적 검사 통과 — 음/영 체적 ${n}개, 총 체적 오차 ${e}${st?"":" (감긴 형상: 참고값)"}`,
+    e_vol:n=>"체적이 0 이하인 셀 "+n+"개 — 면 방향이 뒤집혔습니다",
+    e_volsum:e=>"셀 체적 합이 해석적 체적과 다릅니다 (오차 "+e+")",
     e_fit:()=>"관이 셀 안에 들어가지 않습니다 — 위 경고를 먼저 해결하세요",
     e_lean:()=>"기울어짐이 입·출구 박스보다 깁니다 — 박스를 늘리거나 나선각을 줄이세요",
     e_coil:()=>"코일 반경이 번들 폭의 절반보다 작거나 한 바퀴를 넘습니다"
@@ -599,6 +602,9 @@ const STR = {
     e_crack:n=>"the mesh is not closed ("+n+" cracks)",
     e_join:v=>"blocks disagree on a shared node by "+v,
     e_area:()=>"a cell has non-positive area",
+    d_vol:(n,e,st)=>`cell volumes verified — ${n} non-positive, total volume error ${e}${st?"":" (wrapped: indicative)"}`,
+    e_vol:n=>n+" cells have non-positive volume - the face orientation is inverted",
+    e_volsum:e=>"the cell volumes do not sum to the analytic volume (error "+e+")",
     e_fit:()=>"the tube does not fit in its cell — resolve the warning above first",
     e_lean:()=>"the lean is longer than the inlet/outlet box — lengthen it or reduce the helix angle",
     e_coil:()=>"the coil radius is below half the bundle width, or the sector exceeds a full turn"
@@ -1946,6 +1952,48 @@ function writeVTU(c){
   return s.blob("application/vnd.vtu");
 }
 
+/* ---- every cell volume, rebuilt from the faces ---------------------------
+   A solver does not trust a cell list; it integrates x.n dA over the faces of
+   each cell.  This does the same, so an inverted or degenerate cell shows up
+   here rather than in the solver.  Coordinates come from zpt(), the same
+   mapping the writers use, so any shear or wrap the geometry applies is
+   included.  The total is compared with the analytic volume of the faceted
+   domain whenever that comparison is exact: a straight or sheared extrusion
+   has planar faces and preserves volume, a cylindrical wrap does neither, so
+   for a wrapped geometry the total is reported but only positivity is gated.
+   What none of this can test is the c0/c1 convention itself - only the solver
+   knows that, and it is pinned in writeFluent by what Fluent reported.       */
+function cellVolumes(c){
+  const nC=c.nCells, k=toM();
+  const V=new Float64Array(nC);
+  const acc=(f,c0,c1)=>{
+    const p0=zpt(c,f[0]), p1=zpt(c,f[1]), p2=zpt(c,f[2]), p3=zpt(c,f[3]);
+    /* S = 1/2 (p2-p0) x (p3-p1) */
+    const ax=p2[0]-p0[0], ay=p2[1]-p0[1], az=p2[2]-p0[2];
+    const bx=p3[0]-p1[0], by=p3[1]-p1[1], bz=p3[2]-p1[2];
+    const sx=0.5*(ay*bz-az*by), sy=0.5*(az*bx-ax*bz), sz=0.5*(ax*by-ay*bx);
+    const cx=(p0[0]+p1[0]+p2[0]+p3[0])/4, cy=(p0[1]+p1[1]+p2[1]+p3[1])/4,
+          cz=(p0[2]+p1[2]+p2[2]+p3[2])/4;
+    const flux=(cx*sx+cy*sy+cz*sz)/3;      // S leaves c0 and enters c1
+    V[c0]+=flux;
+    if(c1>=0) V[c1]-=flux;
+  };
+  eachInternalFace(c,(f,o,n)=>acc(f,o,n));
+  for(const p of PATCH_ORDER) eachPatchFace(c,p,(f,o)=>acc(f,o,-1));
+  let vMin=Infinity, vMax=-Infinity, tot=0, neg=0;
+  for(let q=0;q<nC;q++){
+    const v=V[q];
+    if(v<vMin) vMin=v;
+    if(v>vMax) vMax=v;
+    if(!(v>0)) neg++;
+    tot+=v;
+  }
+  const expect=(G.lTot*G.W-G.rodArea)*P.H*Math.pow(k,3);
+  const strict = !(typeof P.wrap!=="undefined" && P.wrap && G.wrapOK);
+  return {vMin, vMax, tot, neg, expect, strict,
+          err:Math.abs(tot-expect)/Math.max(expect,1e-300)};
+}
+
 const FLUENT_BC={inlet:10, outlet:5, wall_rods:3, wall_side_y0:3, wall_side_ymax:3,
                  wall_bottom:3, wall_top:3};
 const FLUENT_TYPE={2:"interior", 3:"wall", 5:"pressure-outlet", 10:"velocity-inlet"};
@@ -1966,12 +2014,19 @@ function writeFluent(c){
     s.put("))\n");
     zones.push([zid,name,bc]); first+=count; zid++;
   };
+  /* Face orientation.  The enumerators hand a face out with its right-hand-rule
+     normal pointing from the owner INTO the neighbour, and outward on a
+     boundary: the OpenFOAM rule, which foamFiles() writes unchanged.  Fluent
+     is the opposite - the normal built from the node order points INTO c0.
+     Settled empirically: ANSYS Fluent 2026 R1 read a mesh written the
+     OpenFOAM way and called all 610560 cells non-positive volume.  So every
+     face below goes out with its node order reversed.                       */
   emit(2,"interior",c.nInt,()=>eachInternalFace(c,(f,o,n)=>
-    s.put(hx(f[0]+1)+" "+hx(f[1]+1)+" "+hx(f[2]+1)+" "+hx(f[3]+1)+" "+hx(o+1)+" "+hx(n+1)+"\n")));
+    s.put(hx(f[3]+1)+" "+hx(f[2]+1)+" "+hx(f[1]+1)+" "+hx(f[0]+1)+" "+hx(o+1)+" "+hx(n+1)+"\n")));
   for(const p of PATCH_ORDER){
     let n=0; eachPatchFace(c,p,()=>n++);
     emit(FLUENT_BC[p],p,n,()=>eachPatchFace(c,p,(f,o)=>
-      s.put(hx(f[0]+1)+" "+hx(f[1]+1)+" "+hx(f[2]+1)+" "+hx(f[3]+1)+" "+hx(o+1)+" 0\n")));
+      s.put(hx(f[3]+1)+" "+hx(f[2]+1)+" "+hx(f[1]+1)+" "+hx(f[0]+1)+" "+hx(o+1)+" 0\n")));
   }
   s.put('\n(45 (2 fluid fluid)())\n');
   for(const z of zones) s.put("(45 ("+z[0]+" "+FLUENT_TYPE[z[2]]+" "+z[1]+")())\n");
@@ -2112,7 +2167,8 @@ function setNote(txt, cls){ dlNote.innerHTML=txt; dlNote.className="note"+(cls?"
 /* the status line is kept as data so it can be re-rendered in the other language */
 function renderNote(){
   if(!lastDL) return setNote(T("dlNote"));
-  if(lastDL.ok) return setNote(T("d_ok").apply(null, lastDL.a), "ok");
+  if(lastDL.ok) return setNote(T("d_ok").apply(null, lastDL.a) +
+      (lastDL.vol ? "<br>"+T("d_vol").apply(null, lastDL.vol) : ""), "ok");
   setNote(T("d_err")(lastDL.key ? T(lastDL.key)(lastDL.arg) : lastDL.raw), "bad");
 }
 
@@ -2132,13 +2188,17 @@ document.querySelectorAll(".dl .btn").forEach(btn=>{
       if(c.checks.cracks) throw {key:"e_crack", arg:c.checks.cracks};
       if(c.checks.maxdev>G.tol) throw {key:"e_join", arg:c.checks.maxdev.toExponential(2)};
       if(!(c.checks.amin>0)) throw {key:"e_area"};
+      const vol=cellVolumes(c);
+      if(vol.neg) throw {key:"e_vol", arg:vol.neg.toLocaleString()};
+      if(vol.strict && vol.err>1e-6) throw {key:"e_volsum", arg:vol.err.toExponential(1)};
       const blob=await f.make(c);
       save(blob, caseName()+f.ext);
       const mb=blob.size/1048576;
       lastDL={ok:true, a:[f.label, c.nCells.toLocaleString(),
               (mb<1 ? (blob.size/1024).toFixed(0)+" KB" : mb.toFixed(1)+" MB"),
               ((performance.now()-t0)/1000).toFixed(1),
-              c.checks.areaErr.toExponential(1)]};
+              c.checks.areaErr.toExponential(1)],
+              vol:[vol.neg, vol.err.toExponential(1), vol.strict]};
       renderNote();
     }catch(err){
       lastDL={ok:false, key:err&&err.key, arg:err&&err.arg, raw:(err&&err.message)||String(err)};
