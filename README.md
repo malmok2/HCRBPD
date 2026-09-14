@@ -50,6 +50,14 @@ This used to be four copied sibling files, one per geometry, which meant every
 fix to shared machinery had to be applied four times. A new geometry is now an
 entry in the `GEOM` registry, not a new copy.
 
+The helix lean is ramped back to zero across the inlet and outlet boxes, so
+those two planes stay exactly perpendicular to the flow: the inlet patch normal
+is `(-1,0,0)` at every face, rolled or not, and Fluent's default
+"Magnitude, Normal to Boundary" velocity inlet is simply correct. Leaning the
+whole patch instead would tilt the inlet by the full helix angle. Give the
+inlet and outlet boxes a non-zero length — with `L_in = 0` there is nothing to
+ramp through and the tool warns that that end is left oblique.
+
 ## Verification
 
 Every export is gated: the mesh must be watertight (0 cracks), every shared

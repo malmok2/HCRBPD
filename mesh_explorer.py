@@ -193,18 +193,40 @@ class Case(object):
             self.n_az_s = 2 * max(1, int(math.ceil(self.n_az / 8.0)))
 
     # -- geometry function 5 of 5 ------------------------------------------
+    def lean_frac(self, x):
+        """How much of the lean applies at streamwise position x: 1 across the
+        bundle, ramped linearly to 0 at the inlet and outlet planes."""
+        if x <= self.x_b0:
+            f = x / self.l_in if self.l_in > 1e-12 else 1.0
+        elif x >= self.x_b1:
+            f = (self.l_tot - x) / self.l_out if self.l_out > 1e-12 else 1.0
+        else:
+            f = 1.0
+        return 0.0 if f < 0.0 else (1.0 if f > 1.0 else f)
+
     def warp(self, p):
         """The map from the meshed patch into the world.
 
-        Identity for a rod bundle.  For a coil: lean the bundle downstream with
-        height (unit determinant, so no volume changes), then roll y onto the
-        radius and z onto the angle.  Cos before sin keeps the Jacobian
-        positive (+r/R); the other pairing mirrors the patch and inverts every
-        cell.
+        Identity for a rod bundle.  For a coil, two steps.
+
+        Step 1, the lean.  The tubes are inclined by alpha, so the bundle has
+        to shear by z*tan(alpha).  The lean is ramped linearly back to zero
+        across the inlet and outlet boxes, so B shears by the full amount while
+        A stretches and C compresses by that same amount, and the inlet and
+        outlet planes stay exactly perpendicular to the flow.  Leaning the
+        whole patch instead would tilt the inlet plane by exactly alpha, and
+        Fluent's default "Magnitude, Normal to Boundary" velocity inlet would
+        then inject the flow alpha off the shell axis.  The cost is paid in the
+        boxes, whose cells lean instead; total volume is unchanged because what
+        A gains C loses.
+
+        Step 2, the roll: y becomes radius, z becomes angle, x stays the shell
+        axis.  Cos before sin keeps the Jacobian positive (+r/R); the other
+        pairing mirrors the patch and inverts every cell.
         """
         x, y, z = p
         if self.tana:
-            x += z * self.tana
+            x += z * self.tana * self.lean_frac(x)
         if not self.rolled:
             return (x, y, z)
         th = z / self.r_mid
@@ -250,6 +272,11 @@ class Case(object):
         if self.family == "helical" and self.wrap and not self.wrap_ok:
             fail("the coil radius is invalid: R - W/2 = %.3f must be positive and "
                  "the sector must stay under a full turn" % self.r_in)
+        if self.family == "helical" and self.tana and (self.l_in <= 0 or self.l_out <= 0):
+            print("[warn] %s is zero, so that face keeps the full %.3g deg helix lean "
+                  "- there is no box to absorb it. Set the solver's inlet velocity by "
+                  "components, not normal-to-boundary."
+                  % ("l_in" if self.l_in <= 0 else "l_out", self.helix))
 
 
 # =============================================================================

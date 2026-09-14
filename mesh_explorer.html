@@ -602,6 +602,7 @@ const STR = {
     w_out:(a,b)=>`출구 박스가 짧습니다 — L<sub>out</sub> <b>${a}</b> &lt; 4D <b>${b}</b>. 후류가 출구면에 걸릴 수 있습니다.`,
     w_in:(a,b)=>`입구 박스가 짧습니다 — L<sub>in</sub> <b>${a}</b> &lt; 2D <b>${b}</b>.`,
     w_coil:()=>`코일 반경이 유효하지 않습니다 — R − W/2 가 양수여야 하고 방위각은 한 바퀴 미만이어야 합니다.`,
+    w_oblique:(a,b)=>`${a}가 0이라 그쪽 면이 <b>${b}°</b> 기울어집니다 — 나선 기울기를 흡수할 박스가 없습니다. Fluent의 &lsquo;Normal to Boundary&rsquo;가 축에서 벗어난 방향으로 유입시킵니다. 박스를 주거나, 속도를 성분 (U,0,0)으로 지정하세요.`,
     w_arc:(a,b)=>`층당 각도가 큽니다 — <b>${a}°</b>/층이면 호를 <b>${b}%</b> 만큼 잘라냅니다. <b>H 방향 층</b>을 늘리세요.`,
     d_busy:c=>`격자 생성 중… ${c} 셀`,
     d_ok:(l,c,sz,t,e)=>`<b>${l}</b> 저장 · ${c} 셀 · ${sz} · ${t}초<br>검사 통과 — 균열 0, 절점 불일치 0, 면적 오차 ${e}`,
@@ -683,6 +684,7 @@ const STR = {
     w_out:(a,b)=>`The outlet box is short — L<sub>out</sub> <b>${a}</b> &lt; 4D <b>${b}</b>. The wake may reach the outlet.`,
     w_in:(a,b)=>`The inlet box is short — L<sub>in</sub> <b>${a}</b> &lt; 2D <b>${b}</b>.`,
     w_coil:()=>`The coil radius is invalid — R − W/2 must be positive and the sector must stay under a full turn.`,
+    w_oblique:(a,b)=>`${a} is zero, so that face is left tilted by <b>${b}°</b> — there is no box to absorb the helix lean. Fluent's &ldquo;Normal to Boundary&rdquo; would then inject the flow off-axis. Give it a box, or set the velocity by components (U,0,0).`,
     w_arc:(a,b)=>`The layer angle is coarse — <b>${a}°</b> per layer chords the arc by <b>${b}%</b>. Raise <b>Layers along the arc H</b>.`,
     d_busy:c=>`Building the mesh… ${c} cells`,
     d_ok:(l,c,sz,t,e)=>`<b>${l}</b> saved · ${c} cells · ${sz} · ${t} s<br>checks passed — 0 cracks, 0 node mismatch, area error ${e}`,
@@ -1068,16 +1070,41 @@ function rotate(x,y,z){
 }
 /* Geometry function 5 of 5: the map from the meshed patch into the world.
    For a rod bundle it is the identity.  For a coil it is two steps.
-   Lean the bundle downstream with height while the inlet and outlet planes
-   stay flat: B shears by z*tan(alpha), A stretches and C compresses by the
-   same amount, so every z-slice still spans the full length.  The whole patch
-   leans together, boxes included: every z-slice is the same section pushed
-   along the shell axis.  The boxes therefore keep a constant thickness, their
-   outer faces stay parallel to the tubes, and the map has unit determinant so
-   no volume changes.                                                        */
+
+   Step 1, the lean.  The tubes are inclined by alpha, so the bundle has to
+   shear by z*tan(alpha).  The lean is ramped linearly back to zero across the
+   inlet and outlet boxes, so B shears by the full amount while A stretches and
+   C compresses by that same amount.  The inlet and outlet planes therefore
+   stay exactly perpendicular to the flow.
+
+   That matters in the solver, not just on screen.  Leaning the WHOLE patch,
+   boxes included, tilts the inlet plane by exactly alpha; ANSYS Fluent's
+   default velocity inlet is "Magnitude, Normal to Boundary", so it would then
+   inject the flow alpha off the shell axis with a spurious z component, and -
+   once the patch is rolled - with a direction that varies across the face.
+   With the ramp the inlet normal is (-1,0,0) at every face, rolled or not, and
+   "Normal to Boundary" is simply correct.
+
+   The cost is paid in the boxes: their cells lean instead, by
+   atan(H*tan(alpha)/L_in) at the inlet end and the same with L_out at the
+   outlet end.  The bundle itself is untouched.  Total volume is unchanged,
+   because what A gains C loses - the two ramps are equal and opposite.
+
+   A zero-length box has nothing to ramp through, so the lean stays full there
+   and that end goes back to being oblique.  The warning panel says so.      */
 function wrapped(){ return !!(G && P.wrap && G.wrapOK); }
+/* how much of the lean applies at streamwise position x: 1 across the bundle,
+   ramped to 0 at the inlet and outlet planes */
+function leanFrac(x){
+  let f;
+  if(x <= G.X0)      f = P.lIn  > 1e-12 ? x/P.lIn : 1;
+  else if(x >= G.X1) f = P.lOut > 1e-12 ? (G.lTot-x)/P.lOut : 1;
+  else               f = 1;
+  return f<0 ? 0 : (f>1 ? 1 : f);        // clamp: drawing code passes x outside
+}
 function shear3(p){
-  const sh=p[2]*G.tana;
+  if(!G.tana) return p;
+  const sh=p[2]*G.tana*leanFrac(p[0]);
   return sh===0 ? p : [p[0]+sh, p[1], p[2]];
 }
 /* Roll the patch onto the shell: y becomes radius, z becomes angle, x stays the
@@ -2214,6 +2241,8 @@ function updateStats(){
   else if(P.firstLayer*P.nRad > G.clearance)
     msg=T("w_lay")(P.nRad, P.firstLayer, fmt(P.firstLayer*P.nRad), fmt(G.clearance));
   else if(isHel() && P.wrap && !G.wrapOK){ err=true; msg=T("w_coil")(); }
+  else if(isHel() && G.tana && (P.lIn<=0 || P.lOut<=0))
+    msg=T("w_oblique")(P.lIn<=0 ? "L<sub>in</sub>" : "L<sub>out</sub>", fmt(P.helix));
   else if(wrapped() && (G.theta/P.nZ)*180/Math.PI > 4)
     msg=T("w_arc")(((G.theta/P.nZ)*180/Math.PI).toFixed(1),
                    (100*Math.pow(G.theta/P.nZ,2)/6).toFixed(2));

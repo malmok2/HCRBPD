@@ -168,6 +168,18 @@ These are invariants that took real debugging to find. Preserve them.
   the face on one diagonal instead is a different number: identical while every
   face is planar, and 9e-4 different on a rolled coil. The twin reports the gap
   between the two as a non-planarity measure; the gate uses the centroid form.
+- **The inlet and outlet planes must come out perpendicular to the flow.**
+  If the geometry map leans or twists the patch, ramp that lean back to zero
+  across the inlet and outlet boxes rather than applying it globally. Leaning
+  everything tilts the inlet plane by the full lean angle, and ANSYS Fluent's
+  default velocity inlet is "Magnitude, Normal to Boundary" — so the case
+  silently runs with the flow injected off-axis, with a spurious transverse
+  component, and (once rolled) with a direction that varies across the face.
+  This was found in a real Fluent setup, not in a test. Measure it: the mean
+  face normal of the inlet patch, in exported coordinates, must be (-1,0,0)
+  with zero spread. Ramping costs nothing — what the inlet box gains the
+  outlet box loses, so total volume is unchanged, and the boxes end up LESS
+  non-orthogonal than under a global lean, not more.
 - **Refuse to export an invalid configuration.** Degenerate geometry, cracks,
   non-positive cell volumes: fail loudly rather than writing a file that will
   waste a solver run.
