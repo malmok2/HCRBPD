@@ -3798,8 +3798,15 @@ async function loadField(){
     RES.data = got;
     RES.mock = got.some(f=>f.mock);
     let lo=Infinity, hi=-Infinity, bb=[[1e30,1e30,1e30],[-1e30,-1e30,-1e30]];
+    let holes=0;
     for(const f of got){
-      for(const v of f.values){ if(v<lo)lo=v; if(v>hi)hi=v; }
+      //  a diverged run sends null where Fluent had NaN or infinity: those
+      //  facets are left out of the range and drawn as gaps, so one bad cell
+      //  does not flatten the colour scale over the whole patch
+      for(const v of f.values){
+        if(!Number.isFinite(v)){ holes++; continue; }
+        if(v<lo)lo=v; if(v>hi)hi=v;
+      }
       for(const p of f.vertices) for(let k=0;k<3;k++){
         if(p[k]<bb[0][k]) bb[0][k]=p[k];
         if(p[k]>bb[1][k]) bb[1][k]=p[k];
@@ -3808,7 +3815,10 @@ async function loadField(){
     RES.lo=lo; RES.hi=hi;
     RES.centre=[0,1,2].map(k=>(bb[0][k]+bb[1][k])/2);
     RES.radius=0.55*Math.hypot(bb[1][0]-bb[0][0],bb[1][1]-bb[0][1],bb[1][2]-bb[0][2])||1;
-    $("resNote").textContent = T("res_loaded")(got.length, fmtSci(lo), fmtSci(hi));
+    $("resNote").textContent = T("res_loaded")(got.length, fmtSci(lo), fmtSci(hi))
+      + (holes ? (LANG==="ko"
+          ? " · 유한하지 않은 값 " + holes + "개는 제외했습니다 (발산 의심)"
+          : " · " + holes + " non-finite value(s) left out (suspect divergence)") : "");
     const w=$("resWarn");
     w.classList.toggle("show", RES.mock);
     w.classList.toggle("err", RES.mock);
@@ -3844,8 +3854,13 @@ function drawRes(){
     const pp = f.vertices.map(resProject);
     const dim = (f.surface==="wall_rods") ? opacity : 1;
     for(const face of f.faces){
-      let d=0, val=0;
-      for(const i of face){ d+=pp[i][2]; val+=f.values[i]; }
+      let d=0, val=0, ok=true;
+      for(const i of face){
+        const v=f.values[i];
+        if(!Number.isFinite(v)){ ok=false; break; }   // gap, not a wrong colour
+        d+=pp[i][2]; val+=v;
+      }
+      if(!ok) continue;
       tris.push({pts:face.map(i=>pp[i]), depth:d/face.length,
                  t:(val/face.length-RES.lo)/span, dim:dim});
     }

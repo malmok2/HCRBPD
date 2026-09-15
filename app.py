@@ -78,6 +78,25 @@ def case_from(geometry, params):
     return ME.Case(geometry, **kw)
 
 
+def _jsonable(x):
+    """json.dumps' last resort, for objects it does not know.
+
+    This used to be plain `float`, which is wrong twice over: it silently
+    turns anything numeric-looking into a number, and on a numpy ARRAY it
+    fails with "only 0-dimensional arrays can be converted to Python scalars"
+    - a message about numpy, three layers below the field that actually went
+    unconverted.  Convert what can be converted; name what cannot.
+    """
+    tolist = getattr(x, "tolist", None)         # ndarray and numpy scalars
+    if tolist is not None:
+        return tolist()
+    item = getattr(x, "item", None)
+    if item is not None:
+        return item()
+    raise TypeError("cannot send a %s over the wire: %r"
+                    % (type(x).__name__, x))
+
+
 # =============================================================================
 #  THE JOB
 # =============================================================================
@@ -298,7 +317,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def _json(self, obj, code=200):
         self._send(code, json.dumps(obj, ensure_ascii=False, allow_nan=False,
-                                    default=float))
+                                    default=_jsonable))
 
     def _fail(self, exc, code=400):
         self._json({"ok": False, "error": "%s: %s" % (type(exc).__name__, exc)}, code)

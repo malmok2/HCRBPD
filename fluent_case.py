@@ -1307,18 +1307,28 @@ class FluentDriver(BaseDriver):
     def field(self, surface, variable):
         import ansys.fluent.core as pf
         fd = self.solver.fields.field_data
-        geo = fd.get_field_data(pf.SurfaceFieldDataRequest(
-            surfaces=[surface],
-            data_types=[pf.SurfaceDataType.Vertices, pf.SurfaceDataType.FacesConnectivity]))
+        types = [pf.SurfaceDataType.Vertices, pf.SurfaceDataType.FacesConnectivity]
+        #  The structured connectivity is deprecated in favour of the flat one
+        #  and warns on every call; ask for flat where the request takes it.
+        #  Either shape is decoded below, so the fallback is not a second
+        #  code path so much as a second spelling of the same request.
+        flat = True
+        try:
+            req = pf.SurfaceFieldDataRequest(surfaces=[surface], data_types=types,
+                                             flatten_connectivity=True)
+        except TypeError:
+            flat = False
+            req = pf.SurfaceFieldDataRequest(surfaces=[surface], data_types=types)
+        geo = fd.get_field_data(req)
         sc = fd.get_field_data(pf.ScalarFieldDataRequest(
             surfaces=[surface], field_name=VARIABLES[variable]["fluent"],
             node_value=True, boundary_value=True))
-        verts = _as_list(getattr(geo[surface], "vertices", geo[surface]))
-        conn = _as_list(getattr(geo[surface], "connectivity", None))
-        vals = _as_list(sc[surface] if not hasattr(sc[surface], "scalar_field")
-                        else sc[surface].scalar_field)
+        sd = geo[surface]
+        verts = _as_list(getattr(sd, "vertices", None))
+        faces = _faces(getattr(sd, "connectivity", None), flat)
+        vals = _as_list(getattr(sc[surface], "scalar_field", sc[surface]))
         return {"surface": surface, "variable": variable,
-                "vertices": verts, "faces": conn, "values": vals, "mock": False}
+                "vertices": verts, "faces": faces, "values": vals, "mock": False}
 
     def report(self, kind, surfaces, variable):
         fld = VARIABLES[variable]["fluent"]
@@ -1329,17 +1339,91 @@ class FluentDriver(BaseDriver):
             raise DriverError("unknown report %r" % kind)
         fn = self._obj(key)
         if kind in ("area",):
-            return float(fn(surface_names=list(surfaces)))
-        return float(fn(surface_names=list(surfaces), report_of=fld))
+            return _scalar(fn(surface_names=list(surfaces)), kind)
+        return _scalar(fn(surface_names=list(surfaces), report_of=fld), kind)
+
+
+def _scalar(x, what):
+    """One number out of whatever a surface integral hands back.
+
+    Some releases return the bare float, some a one-element array, some a
+    dict keyed by surface.  float() on the array forms raises a numpy message
+    that says nothing about which report failed, so unwrap first and name the
+    report if there is still no single number in there.
+    """
+    v = _plain(x)
+    while isinstance(v, (list, tuple)) and len(v) == 1:
+        v = v[0]
+    if isinstance(v, dict) and len(v) == 1:
+        v = _plain(list(v.values())[0])
+        while isinstance(v, (list, tuple)) and len(v) == 1:
+            v = v[0]
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        raise DriverError("the %s report came back as %s, not a number: %r"
+                          % (what, type(x).__name__, x))
+    return float(v)
+
+
+def _faces(conn, flat):
+    """Face connectivity as a list of vertex-index lists, from either shape.
+
+    Flat is one array per surface: [n, v0..vn-1, n, v0..., ...].  Structured
+    is a list of arrays, one per face.  Telling them apart by looking is
+    unreliable - a structured surface of triangles and a flat array both come
+    out as a sequence of ints - so the caller says which was asked for, and
+    the flat decode still checks its own counts rather than trusting them.
+    """
+    a = _as_list(conn)
+    if not a:
+        return []
+    if not flat:
+        return [list(f) for f in a]
+    out, i, n = [], 0, len(a)
+    while i < n:
+        k = int(a[i])
+        if k <= 0 or i + k >= n:
+            raise DriverError(
+                "face connectivity is malformed at index %d: a face of %r "
+                "vertices does not fit in the %d values left" % (i, a[i], n - i - 1))
+        out.append([int(v) for v in a[i + 1:i + 1 + k]])
+        i += k + 1
+    return out
 
 
 def _as_list(x):
+    """Whatever PyFluent hands back, as plain JSON-able Python.
+
+    It is not one shape.  Vertices come back as an (N,3) ndarray, a scalar
+    field as a 1-D ndarray, but face connectivity as a LIST of 1-D ndarrays,
+    one per face - and a list has no .tolist(), so a shallow conversion left
+    the inner arrays as numpy and the error surfaced two layers away, in
+    json.dumps, as "only 0-dimensional arrays can be converted to Python
+    scalars".  Recursing costs nothing and the shape stops mattering.
+
+    Non-finite values become None: a diverged run should draw a hole and say
+    so, not abort the whole payload on a single NaN.
+    """
     if x is None:
         return []
-    try:
-        return x.tolist()
-    except AttributeError:
-        return list(x)
+    return _plain(x)
+
+
+def _plain(x):
+    if x is None:
+        return None
+    tolist = getattr(x, "tolist", None)         # ndarray, and numpy scalars
+    if tolist is not None:
+        return _plain(tolist())
+    if isinstance(x, (list, tuple)):
+        return [_plain(v) for v in x]
+    if isinstance(x, float):
+        return x if math.isfinite(x) else None
+    if isinstance(x, (int, str, bool)) or x is None:
+        return x
+    item = getattr(x, "item", None)             # any other numpy-ish scalar
+    if item is not None:
+        return _plain(item())
+    return x
 
 
 #  variable id -> {fluent field name, label}.  The ids are what the wire
