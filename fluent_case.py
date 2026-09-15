@@ -134,6 +134,14 @@ PATHS = {
                            "backflow_turbulent_intensity",
     "outlet_bf_visc_ratio": "setup.boundary_conditions.pressure_outlet.turbulence."
                             "backflow_turbulent_viscosity_ratio",
+    "outlet_turb_spec": "setup.boundary_conditions.pressure_outlet.turbulence."
+                        "turbulence_specification",
+    "outlet_bf_hyd_diam": "setup.boundary_conditions.pressure_outlet.turbulence."
+                          "backflow_hydraulic_diameter",
+    #  the bare .material on a cell zone is a deprecated alias PyFluent still
+    #  accepts with a warning; .general.material is the real one, and it is the
+    #  real one in every release from 2024 R2 on
+    "zone_material":   "setup.cell_zone_conditions.fluid.general.material",
 
     "set_zone_type":   "setup.boundary_conditions.set_zone_type",
 
@@ -321,6 +329,11 @@ SETTINGS = [
             {"id": "intensity", "kind": "number", "default": 5.0, "min": 0.01, "max": 100,
              "step": 0.1, "unit": "%", "ko": "난류 강도", "en": "Turbulent intensity",
              "show_if": {"~viscous": ["laminar"]},
+             "note_ko": "퍼센트로 입력하십시오. Fluent settings API는 분율을 받으므로 100으로 "
+                        "나누어 전달하고, 적용 후 실제 값을 해석 로그에 되읽어 남깁니다.",
+             "note_en": "Enter a percentage. The settings API takes a fraction, so this is "
+                        "divided by 100 on the way in, and the value Fluent ends up holding "
+                        "is read back into the run log.",
              "paths": ["inlet_intensity"]},
             {"id": "visc_ratio", "kind": "number", "default": 10.0, "min": 1e-3, "max": 1e5,
              "step": 1, "ko": "난류 점성비", "en": "Turbulent viscosity ratio",
@@ -559,7 +572,8 @@ def audit_paths(versions=("242", "251", "252", "261", "271")):
                 "interrupt", "si_area_avg", "si_mass_flow", "si_facet_min",
                 "si_facet_max", "si_area", "plane_surface", "inlet_components",
                 "hybrid_init", "standard_init", "init_type", "residual_eqs",
-                "under_relaxation", "materials"):
+                "under_relaxation", "materials", "zone_material",
+                "outlet_turb_spec", "outlet_bf_hyd_diam"):
         used.setdefault(key, set()).add("driver")
 
     unknown = sorted(k for k in used if k not in PATHS)
@@ -695,6 +709,21 @@ class FluentDriver(BaseDriver):
             self.log("  (%s via the fallback path %s)" % (key, used))
         return used
 
+    def _soft(self, what, fn):
+        """Run a settings write that may legitimately be refused.
+
+        Fluent deactivates an input when the model state makes it meaningless -
+        backflow turbulence before a specification method is chosen, say.  That
+        is worth reporting but is not a reason to abandon a set-up that is
+        otherwise complete.
+        """
+        try:
+            fn()
+            return True
+        except Exception as exc:                       # noqa: BLE001
+            self.log("  %s was refused (%s)" % (what, exc))
+            return False
+
     def _try(self, key, value):
         """Optional setting: log and carry on if this release will not take it."""
         try:
@@ -742,8 +771,9 @@ class FluentDriver(BaseDriver):
         mat.viscosity.option = "constant"
         mat.viscosity.value = float(m["viscosity"])
         self.log("material %s: rho=%g, mu=%g" % (name, m["density"], m["viscosity"]))
-        for z in S.setup.cell_zone_conditions.fluid:
-            S.setup.cell_zone_conditions.fluid[z].material = name
+        zones = S.setup.cell_zone_conditions.fluid
+        for z in zones:
+            zones[z].general.material = name
 
         # --- zone types, before the boundary conditions are written ---
         self.apply_zone_types()
@@ -751,6 +781,58 @@ class FluentDriver(BaseDriver):
         self.apply_methods()
         self.apply_controls()
         self.apply_residuals()
+        self.verify_setup()
+
+    def verify_setup(self):
+        """Read the important settings back out of Fluent and log them.
+
+        Writing a setting is not the same as Fluent holding what you meant, and
+        a wrong turbulent intensity is invisible in the residuals and obvious
+        only in the answer.  In particular the settings API takes intensity as
+        a FRACTION - the panel asks for a percentage and this divides by 100 -
+        which is documented nowhere in the API itself.  Printing what Fluent
+        actually holds turns that assumption into something the first run
+        confirms or refutes, instead of a guess nobody ever checks.
+        """
+        S, s = self.solver.settings, self.s
+        lam = s["turbulence"]["viscous"] == "laminar"
+        rows = []
+
+        def read(label, fn):
+            try:
+                rows.append((label, fn()))
+            except Exception as exc:                   # noqa: BLE001
+                rows.append((label, "<unreadable: %s>" % exc))
+
+        inl = S.setup.boundary_conditions.velocity_inlet["inlet"]
+        out = S.setup.boundary_conditions.pressure_outlet["outlet"]
+        read("inlet spec", lambda: inl.momentum.velocity_specification_method())
+        if s["inlet"]["spec"] == "components":
+            read("inlet u,v,w", lambda: [inl.momentum.velocity_components[k]()
+                                         for k in range(3)])
+        else:
+            read("inlet |u|", lambda: resolve_obj(S, PATHS["inlet_magnitude"])())
+        read("outlet gauge p", lambda: out.momentum.gauge_pressure())
+        if not lam:
+            read("inlet turb spec", lambda: inl.turbulence.turbulence_specification())
+            read("inlet intensity  (sent %g%% as %g)"
+                 % (float(s["inlet"]["intensity"]),
+                    float(s["inlet"]["intensity"]) / 100.0),
+                 lambda: inl.turbulence.turbulent_intensity())
+            read("outlet turb spec", lambda: out.turbulence.turbulence_specification())
+            read("outlet backflow intensity",
+                 lambda: out.turbulence.backflow_turbulent_intensity())
+        read("viscous model", lambda: resolve_obj(S, PATHS["viscous_model"])())
+        zones = S.setup.cell_zone_conditions.fluid
+        read("cell zone material",
+             lambda: [zones[z].general.material() for z in zones])
+
+        self.log("--- what Fluent holds after set-up ---")
+        for label, val in rows:
+            self.log("    %-38s %s" % (label, val))
+        self.log("    (intensity is a FRACTION in the settings API: 0.05 = 5%."
+                 " If Fluent's panel shows 0.05 % rather than 5 %, say so and"
+                 " the conversion comes out.)")
 
     def apply_zone_types(self):
         z, set_type = self.s["zones"], self._obj("set_zone_type")
@@ -778,22 +860,43 @@ class FluentDriver(BaseDriver):
             inl.momentum.velocity_specification_method = "Magnitude, Normal to Boundary"
             inl.momentum.velocity_magnitude = float(i["velocity"])
         if not lam:
-            inl.turbulence.turbulence_specification = i["turb_spec"]
-            inl.turbulence.turbulent_intensity = float(i["intensity"]) / 100.0
+            #  specification first, then the inputs it activates
+            self._soft("inlet turbulence specification", lambda: setattr(
+                inl.turbulence, "turbulence_specification", i["turb_spec"]))
+            self._soft("inlet turbulent intensity", lambda: setattr(
+                inl.turbulence, "turbulent_intensity", float(i["intensity"]) / 100.0))
             if i["turb_spec"] == "Intensity and Viscosity Ratio":
-                inl.turbulence.turbulent_viscosity_ratio = float(i["visc_ratio"])
+                self._soft("inlet turbulent viscosity ratio", lambda: setattr(
+                    inl.turbulence, "turbulent_viscosity_ratio",
+                    float(i["visc_ratio"])))
             else:
-                inl.turbulence.hydraulic_diameter = float(i["hydraulic_diameter"])
+                self._soft("inlet hydraulic diameter", lambda: setattr(
+                    inl.turbulence, "hydraulic_diameter",
+                    float(i["hydraulic_diameter"])))
 
         out = S.setup.boundary_conditions.pressure_outlet["outlet"]
         o = s["outlet"]
         out.momentum.gauge_pressure = float(o["gauge_pressure"])
         out.momentum.prevent_reverse_flow = bool(o["prevent_reverse_flow"])
         if not lam:
-            out.turbulence.backflow_turbulent_intensity = \
-                float(o["backflow_intensity"]) / 100.0
-            out.turbulence.backflow_turbulent_viscosity_ratio = \
-                float(o["backflow_visc_ratio"])
+            #  The specification method has to be chosen FIRST: until it is,
+            #  Fluent keeps the backflow inputs inactive and rejects a write to
+            #  them with "the object is not active".  The outlet follows the
+            #  inlet's choice - a case that specifies intensity and hydraulic
+            #  diameter going in and viscosity ratio coming back would be odd.
+            self._soft("outlet turbulence specification", lambda: setattr(
+                out.turbulence, "turbulence_specification", i["turb_spec"]))
+            self._soft("backflow turbulent intensity", lambda: setattr(
+                out.turbulence, "backflow_turbulent_intensity",
+                float(o["backflow_intensity"]) / 100.0))
+            if i["turb_spec"] == "Intensity and Viscosity Ratio":
+                self._soft("backflow turbulent viscosity ratio", lambda: setattr(
+                    out.turbulence, "backflow_turbulent_viscosity_ratio",
+                    float(o["backflow_visc_ratio"])))
+            else:
+                self._soft("backflow hydraulic diameter", lambda: setattr(
+                    out.turbulence, "backflow_hydraulic_diameter",
+                    float(i["hydraulic_diameter"])))
 
     def apply_methods(self):
         m = self.s["methods"]
@@ -1314,6 +1417,11 @@ def journal(geometry, params, settings, mesh_path, version=None):
     w("mat.density.value = %g" % float(m["density"]))
     w("mat.viscosity.option = 'constant'")
     w("mat.viscosity.value = %g" % float(m["viscosity"]))
+    w("for z in S.setup.cell_zone_conditions.fluid:")
+    w("    S.%s[z].general.material = %r"
+      % (P_("zone_material").rsplit(".general.material", 1)[0]
+         .replace("setup.cell_zone_conditions.fluid",
+                  "setup.cell_zone_conditions.fluid"), m["name"]))
     w("")
     zoned = [(pt, s["zones"].get(pt, "wall")) for pt in WALL_PATCHES
              if s["zones"].get(pt, "wall") != "wall"]
@@ -1334,6 +1442,8 @@ def journal(geometry, params, settings, mesh_path, version=None):
         w("inlet.momentum.velocity_specification_method = 'Magnitude, Normal to Boundary'")
         w("S.%s = %g" % (P_("inlet_magnitude"), float(i["velocity"])))
     if not lam:
+        w("#  the specification method activates the inputs below it, so it")
+        w("#  has to be set first or Fluent refuses them as 'not active'")
         w("inlet.turbulence.turbulence_specification = %r" % i["turb_spec"])
         w("inlet.turbulence.turbulent_intensity = %g" % (float(i["intensity"]) / 100.0))
         if i["turb_spec"] == "Intensity and Viscosity Ratio":
@@ -1345,10 +1455,15 @@ def journal(geometry, params, settings, mesh_path, version=None):
     w("outlet.momentum.gauge_pressure = %g" % float(o["gauge_pressure"]))
     w("outlet.momentum.prevent_reverse_flow = %r" % bool(o["prevent_reverse_flow"]))
     if not lam:
+        w("outlet.turbulence.turbulence_specification = %r" % i["turb_spec"])
         w("outlet.turbulence.backflow_turbulent_intensity = %g"
           % (float(o["backflow_intensity"]) / 100.0))
-        w("outlet.turbulence.backflow_turbulent_viscosity_ratio = %g"
-          % float(o["backflow_visc_ratio"]))
+        if i["turb_spec"] == "Intensity and Viscosity Ratio":
+            w("outlet.turbulence.backflow_turbulent_viscosity_ratio = %g"
+              % float(o["backflow_visc_ratio"]))
+        else:
+            w("outlet.turbulence.backflow_hydraulic_diameter = %g"
+              % float(i["hydraulic_diameter"]))
     w("")
     w("S.%s = %r" % (P_("flow_scheme"), me["flow_scheme"]))
     w("S.%s = %r" % (P_("gradient"), me["gradient"]))
