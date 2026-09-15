@@ -995,9 +995,13 @@ def run_checks(m, quiet=False):
 # =============================================================================
 #  5) WRITERS
 # =============================================================================
+#  Solver input files are written with newline="\n" throughout.  Python's text
+#  mode would otherwise translate to CRLF on Windows, and a polyMesh written on
+#  a Windows workstation is routinely copied to a Linux cluster.  The files are
+#  byte-identical on every platform this way.
 def write_vtu(m, path):
     c = m.c
-    with open(path, "w") as f:
+    with open(path, "w", newline="\n") as f:
         f.write('<?xml version="1.0"?>\n<VTKFile type="UnstructuredGrid" '
                 'version="0.1" byte_order="LittleEndian">\n <UnstructuredGrid>\n')
         f.write('  <Piece NumberOfPoints="%d" NumberOfCells="%d">\n'
@@ -1052,27 +1056,27 @@ def write_openfoam(m, folder):
             ordered.append(e[0])
             owner.append(e[1])
 
-    with open(os.path.join(folder, "points"), "w") as f:
+    with open(os.path.join(folder, "points"), "w", newline="\n") as f:
         head(f, "vectorField", "points")
         f.write("%d\n(\n" % len(m.points))
         f.write("".join("(%.10g %.10g %.10g)\n" % c.XP(p) for p in m.points))
         f.write(")\n")
-    with open(os.path.join(folder, "faces"), "w") as f:
+    with open(os.path.join(folder, "faces"), "w", newline="\n") as f:
         head(f, "faceList", "faces")
         f.write("%d\n(\n" % len(ordered))
         f.write("".join("4(%d %d %d %d)\n" % tuple(fc) for fc in ordered))
         f.write(")\n")
-    with open(os.path.join(folder, "owner"), "w") as f:
+    with open(os.path.join(folder, "owner"), "w", newline="\n") as f:
         head(f, "labelList", "owner")
         f.write("%d\n(\n" % len(owner))
         f.write("".join("%d\n" % o for o in owner))
         f.write(")\n")
-    with open(os.path.join(folder, "neighbour"), "w") as f:
+    with open(os.path.join(folder, "neighbour"), "w", newline="\n") as f:
         head(f, "labelList", "neighbour")
         f.write("%d\n(\n" % len(neighbour))
         f.write("".join("%d\n" % n for n in neighbour))
         f.write(")\n")
-    with open(os.path.join(folder, "boundary"), "w") as f:
+    with open(os.path.join(folder, "boundary"), "w", newline="\n") as f:
         head(f, "polyBoundaryMesh", "boundary")
         f.write("%d\n(\n" % len(PATCH_ORDER))
         for p in PATCH_ORDER:
@@ -1092,7 +1096,7 @@ def write_fluent(m, path, reverse=True):
     reported every cell as non-positive volume.  Pass reverse=False to write it
     the OpenFOAM way instead (which Fluent will reject)."""
     c = m.c
-    with open(path, "w") as f:
+    with open(path, "w", newline="\n") as f:
         f.write('(0 "%s : structured hexahedral mesh")\n' % c.name(m.az_full[1]))
         f.write("(0 \"dimension\")\n(2 3)\n\n")
         f.write('(0 "nodes")\n(10 (0 1 %x 0 3))\n' % len(m.points))

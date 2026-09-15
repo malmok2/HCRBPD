@@ -19,13 +19,37 @@ ParaView and STL — all in the browser, no mesher.
 nothing to run. The Geometry tab works exactly as before and every export format
 is there. The other three tabs explain why they need a server.
 
-**As a CFD app** — `pip install ansys-fluent-core`, then:
+**As a CFD app** — get the repository, install PyFluent, run the server.
+
+Linux / macOS:
 
 ```
+git clone -b claude/funny-mendel-qzcep2 https://github.com/malmok2/HCRBPD.git
+cd HCRBPD
+pip install ansys-fluent-core
 python3 app.py
 ```
 
-That serves the same page on `127.0.0.1` (loopback only) and opens it. The
+Windows (PowerShell) — there is no `python3` on Windows, use `python` or `py`:
+
+```powershell
+git clone -b claude/funny-mendel-qzcep2 https://github.com/malmok2/HCRBPD.git
+cd HCRBPD
+pip install ansys-fluent-core
+python app.py
+```
+
+Note the `-b`: the work is on that branch, not on `main`. The files the app
+writes are LF on every platform, including Windows, so a polyMesh written on a
+Windows workstation drops straight onto a Linux cluster.
+
+`app.py` prints what it found before serving — `backend: auto -> Fluent 26.1.0`
+if it can drive the real thing, or the reason it cannot. PyFluent locates Fluent
+through the `AWP_ROOT<version>` environment variable that the Ansys installer
+sets; if that is missing the app says so up front and falls back to the mock
+rather than failing part way into a run.
+
+It serves the same page on `127.0.0.1` (loopback only) and opens it. The
 Settings tab configures the Fluent case, the Run tab meshes, launches Fluent and
 plots residuals live, and the Results tab pulls fields back and draws contours on
 any patch, with area-weighted averages, mass flows and the bundle pressure drop.
