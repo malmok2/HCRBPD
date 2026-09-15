@@ -1914,6 +1914,181 @@ def path_for(version, key):
     return detail if ok else spec.split("|")[0]
 
 
+# =============================================================================
+#  FIELD SNAPSHOTS
+# =============================================================================
+#  A .cas.h5 can only be reopened by Fluent, which means a licence and a
+#  minute of waiting every time you want to look at a picture you already
+#  made.  A snapshot is the other half: the sampled field itself - the
+#  vertices, the faces and one value per NODE per variable, for the surfaces
+#  and planes you were looking at.  It reloads with no solver at all.
+#
+#  It is a record of what was sampled, not a substitute for the case: it
+#  carries the surfaces that were in it and nothing else, so it says which
+#  those were and when, and the app labels a reloaded view accordingly.
+SNAPSHOT_VERSION = 1
+SNAPSHOT_EXT = ".fields.json"
+
+
+def snapshot(driver, surfaces, variables, meta=None):
+    """Sample `variables` on `surfaces` and return the snapshot dict.
+
+    The geometry of a surface is fetched once and shared by every variable on
+    it - it is the same mesh - so adding a variable costs one array, not a
+    whole copy of the surface.
+    """
+    out = {"snapshot_version": SNAPSHOT_VERSION,
+           "created": time.strftime("%Y-%m-%d %H:%M:%S"),
+           "variables": list(variables), "surfaces": {},
+           "mock": bool(getattr(driver, "mock", False))}
+    out.update(meta or {})
+    for name in surfaces:
+        first = driver.field(name, variables[0])
+        entry = {"vertices": first["vertices"], "faces": first["faces"],
+                 "values": {variables[0]: first["values"]}}
+        for v in variables[1:]:
+            entry["values"][v] = driver.field(name, v)["values"]
+        out["surfaces"][name] = entry
+    return out
+
+
+def write_snapshot(path, data):
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        json.dump(data, fh, separators=(",", ":"), allow_nan=False)
+    return path
+
+
+def read_snapshot(path):
+    with open(path, encoding="utf-8") as fh:
+        data = json.load(fh)
+    v = data.get("snapshot_version")
+    if v != SNAPSHOT_VERSION:
+        raise DriverError("%s was written by a different version of this tool "
+                          "(snapshot_version %r, this one reads %d)"
+                          % (os.path.basename(path), v, SNAPSHOT_VERSION))
+    if not isinstance(data.get("surfaces"), dict) or not data["surfaces"]:
+        raise DriverError("%s carries no surfaces" % os.path.basename(path))
+    return data
+
+
+class SnapshotDriver(BaseDriver):
+    """Serves a saved snapshot.  No Fluent, no mesh, no solver.
+
+    It answers the same three questions the Results tab asks - which surfaces,
+    which variables, and the field on one of them - and refuses the rest,
+    because a snapshot is a record of what was sampled and cannot be asked for
+    anything that was not.
+    """
+
+    mock = False
+
+    def __init__(self, data, log):
+        self.data = data
+        self.log = log
+        self.residuals = []
+        self.snapshot = True
+
+    def launch(self):
+        n = len(self.data["surfaces"])
+        self.log("snapshot from %s: %d surface(s), %d variable(s)"
+                 % (self.data.get("created", "?"), n, len(self.data["variables"])))
+        if self.data.get("mock"):
+            self.log("  this snapshot was taken from the MOCK backend - "
+                     "nothing in it is a result")
+
+    def setup(self):
+        pass
+
+    def initialize(self):
+        pass
+
+    def iterate(self, n):
+        pass
+
+    def interrupt(self):
+        pass
+
+    def close(self):
+        pass
+
+    def surfaces(self):
+        return list(self.data["surfaces"])
+
+    def variables(self):
+        return list(self.data["variables"])
+
+    def bbox(self):
+        lo = [1e30] * 3
+        hi = [-1e30] * 3
+        for e in self.data["surfaces"].values():
+            for q in e["vertices"]:
+                for k in range(3):
+                    if q[k] is None:
+                        continue
+                    lo[k] = min(lo[k], q[k])
+                    hi[k] = max(hi[k], q[k])
+        if lo[0] > hi[0]:
+            raise DriverError("the snapshot has no vertices to measure")
+        return [lo, hi]
+
+    def field(self, surface, variable):
+        e = self.data["surfaces"].get(surface)
+        if e is None:
+            raise DriverError("the snapshot has no surface %r; it has %s"
+                              % (surface, ", ".join(self.surfaces())))
+        vals = e["values"].get(variable)
+        if vals is None:
+            raise DriverError(
+                "the snapshot does not carry %r on %s - it was saved with %s. "
+                "Reopen the case to sample a variable it does not have."
+                % (variable, surface, ", ".join(self.data["variables"])))
+        return {"surface": surface, "variable": variable,
+                "vertices": e["vertices"], "faces": e["faces"],
+                "values": vals, "mock": bool(self.data.get("mock")),
+                "snapshot": True}
+
+    def make_plane(self, name, axis, value):
+        raise DriverError(
+            "a snapshot cannot be cut: it holds the surfaces that were saved "
+            "with it. Reopen the case to make a new plane.")
+
+    def drop_plane(self, name):
+        return False
+
+    def load_case(self, path):
+        raise DriverError("a snapshot is not a case")
+
+    def report(self, kind, surfaces, variable):
+        """The same integrals, computed here from the saved facets."""
+        tot_a, acc, lo, hi = 0.0, 0.0, float("inf"), float("-inf")
+        for name in surfaces:
+            f = self.field(name, variable)
+            verts, faces, vals = f["vertices"], f["faces"], f["values"]
+            for face in faces:
+                pts = [verts[i] for i in face]
+                vs = [vals[i] for i in face]
+                if any(v is None for v in vs):
+                    continue
+                a = _quad_area(pts)
+                m = sum(vs) / len(vs)
+                tot_a += a
+                acc += a * m
+                lo = min(lo, m)
+                hi = max(hi, m)
+        if kind == "area":
+            return tot_a
+        if kind == "facet-min":
+            return lo if lo < float("inf") else 0.0
+        if kind == "facet-max":
+            return hi if hi > float("-inf") else 0.0
+        if kind == "mass-flow-rate":
+            raise DriverError(
+                "a snapshot cannot give a mass flow: it holds one variable at "
+                "a time on a surface, not the velocity vector and the normal "
+                "together. Reopen the case for that.")
+        return acc / tot_a if tot_a > 0 else 0.0
+
+
 def journal(geometry, params, settings, mesh_path, version=None):
     """Emit the equivalent standalone PyFluent script.
 

@@ -740,7 +740,9 @@
           <input type="range" id="resBands" min="0" max="40" step="1" value="0">
         </div>
         <label class="chk" style="margin-top:6px"><input type="checkbox" id="resLines"><span class="box"></span>등고선 그리기</label>
+        <label class="chk" style="margin-top:6px"><input type="checkbox" id="resSmooth" checked><span class="box"></span>절점값 보간 (고화질)</label>
         <button class="btn" id="resRefresh" style="margin-top:10px">다시 불러오기</button>
+        <button class="btn" id="resSave" style="margin-top:7px">선택한 면 저장 (모든 변수)</button>
         <div class="note" id="resNote"></div>
       </div>
       <div class="grp">
@@ -3367,13 +3369,20 @@ Object.assign(STR.ko, {
   pl_name:"이름은 영문자로 시작하고 영문·숫자·_·- 만 쓸 수 있습니다.",
   pl_del:(n)=>`단면 ${n} 삭제`,
   res_bands:"컨투어 단계", res_bands_cont:"연속", res_lines:"등고선 그리기",
+  res_smooth:"절점값 보간 (고화질)",
+  res_save:"선택한 면 저장 (모든 변수)",
+  res_saving:"저장 중… 변수마다 한 번씩 읽어옵니다.",
+  res_saved:(f,mb)=>`${f} 저장 · ${mb} MB · Fluent 없이 다시 열 수 있습니다`,
+  res_snap:(n,when)=>`저장된 필드 · 면 ${n}개 · ${when}`,
+  res_snap_plane:"저장된 필드에는 단면을 새로 만들 수 없습니다. case를 다시 열어야 합니다.",
+  res_k:(k,n)=>` · 면당 ${k}×${k} 보간 (${n.toLocaleString()} 셀)`,
   f_copy:"경로 복사", f_open:"폴더 열기", f_refresh:"새로 고침",
   f_count:(n)=>`· 파일 ${n}개`,
   f_none:"아직 저장된 파일이 없습니다. 해석을 실행하면 여기에 나타납니다.",
   f_copied:"경로를 복사했습니다.", f_opened:"파일 탐색기에서 열었습니다.",
   f_load:"불러오기",
   f_loading:(n)=>`${n} 를 Fluent에서 여는 중… 계산은 다시 하지 않습니다.`,
-  f_case_hint:"case 파일은 계산을 다시 돌리지 않고 결과만 불러옵니다.",
+  f_case_hint:"case 파일은 Fluent로 다시 열고, fields 파일은 Fluent 없이 바로 엽니다. 둘 다 계산은 다시 하지 않습니다.",
   reports:{"area-weighted-avg":"면적 가중 평균","facet-min":"최솟값","facet-max":"최댓값",
            "mass-flow-rate":"질량유량","area":"면적"},
   m_cells:"셀 수", m_nodes:"절점 (2-D)", m_cracks:"균열", m_maxdev:"절점 불일치",
@@ -3425,13 +3434,20 @@ Object.assign(STR.en, {
   pl_name:"A name starts with a letter and uses letters, digits, _ and - only.",
   pl_del:(n)=>`delete the plane ${n}`,
   res_bands:"Contour levels", res_bands_cont:"continuous", res_lines:"Draw contour lines",
+  res_smooth:"Interpolate node values (high quality)",
+  res_save:"Save the chosen surfaces (all variables)",
+  res_saving:"saving - one read per variable…",
+  res_saved:(f,mb)=>`${f} saved · ${mb} MB · reopens with no Fluent`,
+  res_snap:(n,when)=>`saved field · ${n} surface(s) · ${when}`,
+  res_snap_plane:"A saved field cannot be cut. Reopen the case to make a plane.",
+  res_k:(k,n)=>` · ${k}×${k} per face (${n.toLocaleString()} cells)`,
   f_copy:"Copy path", f_open:"Open folder", f_refresh:"Refresh",
   f_count:(n)=>`· ${n} file(s)`,
   f_none:"Nothing written yet. Run an analysis and the files appear here.",
   f_copied:"Path copied.", f_opened:"Opened in the file manager.",
   f_load:"Open",
   f_loading:(n)=>`opening ${n} in Fluent - nothing is re-solved`,
-  f_case_hint:"A case file brings the results back without solving again.",
+  f_case_hint:"A case file reopens in Fluent, a fields file opens with no Fluent at all. Neither solves anything again.",
   res_holes:(n)=>` · ${n} non-finite value(s) left out (suspect divergence)`,
   h_resid:"Residuals", h_mesh:"Mesh", h_log:"Log", h_journal:"Generated script",
   reports:{"area-weighted-avg":"Area-weighted average","facet-min":"Minimum",
@@ -3829,7 +3845,8 @@ function drawResid(){
 
 /* ========================== 결과 : fields ============================== */
 const RES = {surfaces:[], variable:"pressure", data:[], lo:0, hi:1, mock:false,
-             yaw:-0.62, pitch:0.92, zoom:1, panX:0, panY:0, centre:[0,0,0], radius:1};
+             yaw:-0.62, pitch:0.92, zoom:1, panX:0, panY:0, centre:[0,0,0], radius:1,
+             k:1, fast:false, note:""};
 const resC=$("resView"), xctx=resC.getContext("2d");
 let xw=0, xh=0;
 
@@ -3873,14 +3890,24 @@ function refreshSurfaces(){
     }
     PLANE_WANT = null;
   }
+  //  a snapshot offers exactly the variables it was saved with; a live run
+  //  offers everything.  Rebuild when that set changes rather than once.
   const sel=$("resVariable");
-  if(!sel.options.length){
-    for(const v in SRV.variables){
+  const offer = (JOB && JOB.variables && JOB.variables.length)
+              ? JOB.variables : Object.keys(SRV.variables);
+  if(sel.dataset.built !== offer.join(",")){
+    sel.dataset.built = offer.join(",");
+    const keep = sel.value;
+    sel.innerHTML="";
+    for(const v of offer){
+      if(!SRV.variables[v]) continue;
       const o=document.createElement("option");
       o.value=v; o.textContent=L(SRV.variables[v])+" ("+SRV.variables[v].unit+")";
       sel.appendChild(o);
     }
-    sel.value = RES.variable;
+    sel.value = offer.includes(keep) ? keep
+              : (offer.includes(RES.variable) ? RES.variable : offer[0]);
+    RES.variable = sel.value;
   }
   const rep=$("resReport");
   if(!rep.options.length){
@@ -3922,12 +3949,13 @@ async function refreshFiles(){
       const nm=document.createElement("td"); nm.className="nm"; nm.textContent=f.name;
       const tg=document.createElement("td");
       const sp=document.createElement("span");
-      sp.className="tag"+(f.kind==="case"?" case":""); sp.textContent=f.kind;
+      sp.className="tag"+(f.kind==="case"||f.kind==="fields"?" case":"");
+      sp.textContent=f.kind;
       sp.title=f.label||""; tg.appendChild(sp);
       const sz=document.createElement("td"); sz.className="sz"; sz.textContent=fmtBytes(f.bytes);
       const wh=document.createElement("td"); wh.className="wh"; wh.textContent=fmtWhen(f.mtime);
       const ac=document.createElement("td"); ac.style.textAlign="right";
-      if(f.kind==="case"){
+      if(f.kind==="case" || f.kind==="fields"){
         const b=document.createElement("button");
         b.className="btn"; b.type="button"; b.textContent=T("f_load");
         b.style.cssText="width:auto;padding:5px 13px";
@@ -3982,6 +4010,7 @@ function showPlaneAt(){
     something real instead of 0..1 of nothing.  */
 async function preparePlanes(){
   if(!JOB || !JOB.finished || JOB.error) return;
+  if(JOB.snapshot){ $("planeNote").textContent = T("res_snap_plane"); }
   try{ await ensureBBox(); showPlaneAt(); }
   catch(e){ $("planeNote").textContent = e.message; }
 }
@@ -3998,6 +4027,7 @@ function nextPlaneName(){
 }
 async function addPlane(){
   const note=$("planeNote");
+  if(JOB && JOB.snapshot){ note.textContent=T("res_snap_plane"); return; }
   if(!JOB || !JOB.finished || JOB.error){ note.textContent=T("pl_need"); return; }
   try{
     await ensureBBox();
@@ -4063,6 +4093,7 @@ async function loadField(){
     RES.radius=0.55*Math.hypot(bb[1][0]-bb[0][0],bb[1][1]-bb[0][1],bb[1][2]-bb[0][2])||1;
     $("resNote").textContent = T("res_loaded")(got.length, fmtSci(lo), fmtSci(hi))
       + (holes ? T("res_holes")(holes) : "");
+    RES.note = $("resNote").textContent;
     const w=$("resWarn");
     w.classList.toggle("show", RES.mock);
     w.classList.toggle("err", RES.mock);
@@ -4121,6 +4152,44 @@ function crossSegments(pts, vals, level){
   for(let i=0;i+1<hits.length;i+=2) segs.push([hits[i], hits[i+1]]);
   return segs;
 }
+/*  Fluent hands back a value at every NODE, not one per facet.  Colouring a
+    facet with the mean of its corners throws that away and the contour comes
+    out as one flat tile per mesh cell - which is what a coarse contour plot
+    actually is.  Subdividing each face k x k and interpolating the corner
+    values bilinearly puts the variation back: same data, drawn at the
+    resolution it was measured at.  It is interpolation, not new information,
+    and it is what Fluent's own contour plots do (Gouraud shading), but canvas
+    has no Gouraud so the subdivision is explicit.
+
+    k is chosen to keep the total number of filled cells near a budget, so a
+    coarse patch gets smoothed hard and an already-fine plane is left alone.  */
+const SMOOTH_BUDGET = 120000;
+function smoothK(nFaces){
+  if(RES.fast || !$("resSmooth").checked || nFaces<=0) return 1;
+  const k = Math.floor(Math.sqrt(SMOOTH_BUDGET/nFaces));
+  return Math.max(1, Math.min(6, k));
+}
+/*  One quad -> k*k sub-quads, corner values carried along.  Bilinear in the
+    PROJECTED plane: the face is flat, so interpolating before or after the
+    projection agrees, and this way each corner is projected once.          */
+function subdivideQuad(pp, vv, k, out, dim){
+  const P=(a,b)=>{                       // bilinear corner lookup, a,b in 0..k
+    const u=a/k, w=b/k;
+    const x=(1-u)*(1-w)*pp[0][0] + u*(1-w)*pp[1][0] + u*w*pp[2][0] + (1-u)*w*pp[3][0];
+    const y=(1-u)*(1-w)*pp[0][1] + u*(1-w)*pp[1][1] + u*w*pp[2][1] + (1-u)*w*pp[3][1];
+    const d=(1-u)*(1-w)*pp[0][2] + u*(1-w)*pp[1][2] + u*w*pp[2][2] + (1-u)*w*pp[3][2];
+    const v=(1-u)*(1-w)*vv[0]    + u*(1-w)*vv[1]    + u*w*vv[2]    + (1-u)*w*vv[3];
+    return [x,y,d,v];
+  };
+  const grid=[];
+  for(let a=0;a<=k;a++){ const row=[]; for(let b=0;b<=k;b++) row.push(P(a,b)); grid.push(row); }
+  for(let a=0;a<k;a++) for(let b=0;b<k;b++){
+    const q=[grid[a][b], grid[a+1][b], grid[a+1][b+1], grid[a][b+1]];
+    out.push({pts:q.map(c=>[c[0],c[1]]),
+              depth:(q[0][2]+q[1][2]+q[2][2]+q[3][2])/4,
+              vals:[q[0][3],q[1][3],q[2][3],q[3][3]], dim:dim});
+  }
+}
 function drawRes(){
   if(!xw) sizeRes();
   xctx.clearRect(0,0,xw,xh);
@@ -4132,25 +4201,37 @@ function drawRes(){
   const nb = bandCount();
   const lines = $("resLines").checked && nb > 1;
   const levels = lines ? levelValues(nb) : [];
+  let nFaces=0;
+  for(const f of RES.data) nFaces += f.faces.length;
+  const k = smoothK(nFaces);
+  RES.k = k;
   const tris=[];
   for(const f of RES.data){
     const pp = f.vertices.map(resProject);
     const dim = (f.surface==="wall_rods") ? opacity : 1;
     for(const face of f.faces){
-      let d=0, val=0, ok=true;
+      let d=0, ok=true;
+      const vals=[];
       for(const i of face){
         const v=f.values[i];
         if(!Number.isFinite(v)){ ok=false; break; }   // gap, not a wrong colour
-        d+=pp[i][2]; val+=v;
+        d+=pp[i][2]; vals.push(v);
       }
       if(!ok) continue;
-      const t=(val/face.length-RES.lo)/span;
-      tris.push({pts:face.map(i=>pp[i]), depth:d/face.length,
-                 t:t, dim:dim,
-                 vals: lines ? face.map(i=>f.values[i]) : null});
+      if(k>1 && face.length===4){
+        subdivideQuad(face.map(i=>pp[i]), vals, k, tris, dim);
+      }else{
+        tris.push({pts:face.map(i=>pp[i]), depth:d/face.length,
+                   vals:vals, dim:dim});
+      }
     }
   }
+  for(const c of tris){
+    let m=0; for(const v of c.vals) m+=v;
+    c.t=(m/c.vals.length-RES.lo)/span;
+  }
   tris.sort((a,b)=>a.depth-b.depth);
+  if(RES.note) $("resNote").textContent = RES.note + (k>1 ? T("res_k")(k, tris.length) : "");
   xctx.lineJoin="round";
   for(const f of tris){
     xctx.beginPath();
@@ -4158,10 +4239,30 @@ function drawRes(){
     for(let i=1;i<f.pts.length;i++) xctx.lineTo(f.pts[i][0], f.pts[i][1]);
     xctx.closePath();
     xctx.globalAlpha = f.dim;
-    xctx.fillStyle = cmap(quantise(f.t, nb), CM);
+    const col = cmap(quantise(f.t, nb), CM);
+    xctx.fillStyle = col;
     xctx.fill();
-    if(edges){ xctx.globalAlpha=f.dim*0.5;
+    //  Adjacent fills leave a hairline of background between them once
+    //  antialiased, which on a subdivided face reads as a white grid that is
+    //  not in the data.  Stroking each cell in its own colour closes it.
+    xctx.strokeStyle = col; xctx.lineWidth = 1; xctx.stroke();
+    if(edges && k===1){ xctx.globalAlpha=f.dim*0.5;
       xctx.strokeStyle="rgba(0,0,0,.25)"; xctx.lineWidth=0.4; xctx.stroke(); }
+  }
+  //  With subdivision on, "show face edges" has to mean the MESH faces - the
+  //  sub-grid is a drawing device and showing it would misreport the mesh.
+  if(edges && k>1){
+    xctx.globalAlpha=1; xctx.strokeStyle="rgba(0,0,0,.25)"; xctx.lineWidth=0.4;
+    xctx.beginPath();
+    for(const f of RES.data){
+      const pp=f.vertices.map(resProject);
+      for(const face of f.faces){
+        xctx.moveTo(pp[face[0]][0], pp[face[0]][1]);
+        for(let i=1;i<face.length;i++) xctx.lineTo(pp[face[i]][0], pp[face[i]][1]);
+        xctx.closePath();
+      }
+    }
+    xctx.stroke();
   }
   if(lines){
     xctx.globalAlpha=1; xctx.strokeStyle="rgba(18,22,28,.62)"; xctx.lineWidth=0.9;
@@ -4206,6 +4307,21 @@ $("resVariable").addEventListener("change", loadField);
 $("resRefresh").addEventListener("click", loadField);
 $("resEdges").addEventListener("change", drawRes);
 $("resLines").addEventListener("change", drawRes);
+$("resSmooth").addEventListener("change", drawRes);
+/*  Save what is on screen, at every variable - so it can be reopened, and
+    re-coloured by any of them, with no solver.  */
+$("resSave").addEventListener("click", async ()=>{
+  const want = chosenSurfaces();
+  if(!want.length){ $("resNote").textContent=T("res_pick"); return; }
+  $("resSave").disabled = true;
+  $("resNote").textContent = T("res_saving");
+  try{
+    const j = await api("/api/snapshot", {surfaces:want});
+    $("resNote").textContent = T("res_saved")(j.file, (j.bytes/1e6).toFixed(1));
+    refreshFiles();
+  }catch(e){ $("resNote").textContent = e.message; }
+  finally{ $("resSave").disabled = false; }
+});
 $("resBands").addEventListener("input", ()=>{
   const n=bandCount();
   $("resBandsV").textContent = n ? String(n) : T("res_bands_cont");
@@ -4219,6 +4335,10 @@ $("resOpacity").addEventListener("input", ()=>{
   let drag=false, px=0, py=0, pan=false;
   resC.addEventListener("pointerdown", e=>{
     drag=true; pan=(e.button===1||e.shiftKey||e.ctrlKey);
+    //  interpolating a hundred thousand cells takes a quarter of a second,
+    //  which is fine for a picture and hopeless for a drag.  Rotate on the
+    //  flat draw, then put the quality back once the pointer is up.
+    RES.fast=true;
     px=e.clientX; py=e.clientY; resC.setPointerCapture(e.pointerId);
   });
   resC.addEventListener("pointermove", e=>{
@@ -4227,9 +4347,14 @@ $("resOpacity").addEventListener("input", ()=>{
     else{ RES.yaw+=(e.clientX-px)*0.008; RES.pitch+=(e.clientY-py)*0.008; }
     px=e.clientX; py=e.clientY; drawRes();
   });
-  resC.addEventListener("pointerup", ()=>{drag=false;});
-  resC.addEventListener("pointercancel", ()=>{drag=false;});
+  const settle=()=>{ drag=false; if(RES.fast){ RES.fast=false; drawRes(); } };
+  resC.addEventListener("pointerup", settle);
+  resC.addEventListener("pointercancel", settle);
+  let wheelTimer=0;
   resC.addEventListener("wheel", e=>{
+    RES.fast=true;
+    clearTimeout(wheelTimer);
+    wheelTimer=setTimeout(()=>{ RES.fast=false; drawRes(); }, 180);
     e.preventDefault();
     RES.zoom*=Math.exp(-e.deltaY*0.0011);
     RES.zoom=Math.max(0.2,Math.min(12,RES.zoom)); drawRes();
@@ -4286,6 +4411,7 @@ window.__appLang = function(){
   $("resCompute").textContent=T("res_compute");
   $("resDP").textContent=T("res_dp");
   $("planeAdd").textContent=T("pl_add");
+  $("resSave").textContent=T("res_save");
   $("outCopy").textContent=T("f_copy");
   $("outOpen").textContent=T("f_open");
   $("filesRefresh").textContent=T("f_refresh");
@@ -4306,6 +4432,9 @@ window.__appLang = function(){
   const ln=$("resLines");
   if(ln && ln.parentElement.lastChild.nodeType===3)
     ln.parentElement.lastChild.nodeValue=T("res_lines");
+  const sm=$("resSmooth");
+  if(sm && sm.parentElement.lastChild.nodeType===3)
+    sm.parentElement.lastChild.nodeValue=T("res_smooth");
   $("resBandsV").textContent = bandCount() ? String(bandCount()) : T("res_bands_cont");
   showPlaneAt(); refreshFiles();
   const ed=$("resEdges");

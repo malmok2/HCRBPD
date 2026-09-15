@@ -69,12 +69,32 @@ reports all work on it with no special case. Levels are continuous by default;
 set a band count and the fill quantises to those bands, optionally with the
 contour lines drawn on the band edges, and the colour bar labels them.
 
+**Drawn at the resolution it was measured at.** Fluent returns a value at
+every *node*, not one per facet, and colouring a facet with the mean of its
+corners throws that away — the contour then has exactly as many tiles as the
+mesh has cells. Each face is now subdivided and its corner values interpolated
+across it, which is what Fluent's own contours do; the note under the controls
+says how far it subdivided and how many cells it drew, and the factor adapts so
+a coarse patch is smoothed hard and an already-fine plane is left nearly alone.
+It is interpolation, not new data. Rotating and zooming drop to the flat draw
+and the quality comes back when the pointer stops.
+
 **Where the files went, and getting them back.** The Run tab opens with the
 output folder, its path ready to copy, a button that opens it in the file
 manager, and everything written so far with its kind, size and time. A case file
 carries an Open button: it reopens that case and its data in Fluent and lands in
 the Results tab with nothing re-solved, because a solution that took an hour
 should not have to be produced twice to be looked at twice.
+
+A **field snapshot** goes further. `Save the chosen surfaces` writes the sampled
+field itself — vertices, faces and one value per node per variable, for the
+patches and planes you were looking at — as a `.fields.json`. That reopens with
+no Fluent at all, on any machine, with no licence: every variable re-colours it,
+the surface integrals are recomputed from the saved facets, and the contour
+draws the same way. It is a record of what was sampled, so it says so, and it
+refuses what it cannot answer — a plane it was not saved with, a variable it
+does not carry, a mass flow that needs the velocity vector and the face normal
+together — naming what to do instead rather than guessing.
 `python3 app.py --backend mock` runs the whole thing with an invented field and
 no Fluent, which is how the plumbing is tested; anything it produces is labelled
 MOCK on screen and must not be quoted as a result.

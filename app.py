@@ -105,6 +105,7 @@ def _jsonable(x):
 #  what each extension in the output folder is, so the panel can say rather
 #  than leaving the user to recognise them
 KINDS = [
+    (".fields.json", "fields", "saved field - opens with no Fluent"),
     (".cas.h5", "case", "Fluent case (mesh + set-up)"),
     (".dat.h5", "data", "Fluent data (the solution)"),
     (".msh", "mesh", "Fluent mesh"),
@@ -194,6 +195,7 @@ class Job(object):
         self.notes = []                 # settings the server had to correct
         self.load_path = None           # set when reopening a saved case
         self.loaded = False
+        self.snapshot = False           # ... and that case was a saved field
         self.planes = {}                # name -> {axis, value}
         self._bbox = None
 
@@ -219,6 +221,9 @@ class Job(object):
             "residuals": res, "log": lines, "log_next": n_lines,
             "surfaces": self.driver.surfaces() if self._can_report() else [],
             "planes": dict(self.planes), "loaded": self.loaded,
+            "snapshot": bool(self.driver is not None
+                             and getattr(self.driver, "snapshot", False)),
+            "variables": (self.driver.variables() if self._can_report() else None),
             "out_dir": self.out_dir,
         }
 
@@ -302,11 +307,18 @@ class Job(object):
             self.log("code %s  |  server up since %s" % (version_line(VERSION), STARTED))
             self.log("reopening %s" % os.path.basename(self.load_path))
             self.stage = "launching"
-            self.driver = FC.make_driver(self.backend, self.case, self.settings,
-                                         self.load_path, self.log)
-            self.driver.launch()
-            self.stage = "setup"
-            self.driver.load_case(self.load_path)
+            if self.snapshot:
+                #  a saved field needs no solver at all - that is the point
+                self.driver = FC.SnapshotDriver(
+                    FC.read_snapshot(self.load_path), self.log)
+                self.driver.launch()
+            else:
+                self.driver = FC.make_driver(self.backend, self.case,
+                                             self.settings, self.load_path,
+                                             self.log)
+                self.driver.launch()
+                self.stage = "setup"
+                self.driver.load_case(self.load_path)
             self.mesh_path = self.load_path
             self.stage = "finished"
             self.loaded = True
@@ -389,15 +401,27 @@ class App(object):
             raise ValueError("nothing has been run yet")
         return self.job
 
-    def start_load(self, body):
-        """Open a saved case+data.  The file must be one of ours, by name:
-        the request names a file IN the output folder, never a path."""
-        name = str(body.get("file") or "")
+    def resolve_output(self, body, key="file"):
+        """A file IN the output folder, named by its basename.
+
+        The request names a file, never a path: nothing outside the folder the
+        app writes to is reachable through it.
+        """
+        name = str(body.get(key) or "")
         if not name or os.path.basename(name) != name:
             raise ValueError("name a file in the output folder, not a path")
         full = os.path.join(self.out_dir, name)
         if not os.path.isfile(full):
             raise ValueError("%s is not in %s" % (name, self.out_dir))
+        return name, full
+
+    def start_load(self, body):
+        """Open a saved case+data, or a saved field.
+
+        A .cas.h5 needs Fluent; a snapshot does not need anything, which is
+        the point of it.
+        """
+        name, full = self.resolve_output(body)
         with self.lock:
             if self.job is not None and not self.job.finished_at:
                 raise ValueError("a run is already going; stop it first")
@@ -413,6 +437,7 @@ class App(object):
             #  takes its geometry from the file it is about to read
             self.job.case = case_from(geometry, body.get("params") or {})
             self.job.load_path = full
+            self.job.snapshot = name.endswith(FC.SNAPSHOT_EXT)
             self.job.start()
             return self.job.status()
 
@@ -511,6 +536,31 @@ class Handler(BaseHTTPRequestHandler):
                                    "mock": bool(job.driver.mock)})
             if path == "/api/load":
                 return self._json({"ok": True, "job": self.app.start_load(body)})
+            if path == "/api/snapshot":
+                job = self.app.need_results()
+                want = [str(x) for x in (body.get("surfaces") or [])]
+                live = set(job.driver.surfaces())
+                bad = [x for x in want if x not in live]
+                if bad:
+                    raise ValueError("no such surface: %s" % ", ".join(bad))
+                if not want:
+                    raise ValueError("pick at least one surface to save")
+                vars_ = [str(x) for x in (body.get("variables") or [])]
+                known = set(job.driver.variables())
+                vars_ = [v for v in vars_ if v in known] or list(job.driver.variables())
+                base = os.path.splitext(os.path.splitext(
+                    os.path.basename(job.mesh_path or "fields"))[0])[0]
+                out = os.path.join(self.app.out_dir, base + FC.SNAPSHOT_EXT)
+                data = FC.snapshot(job.driver, want, vars_, meta={
+                    "geometry": job.geometry, "case": base,
+                    "params": job.params, "settings": job.settings})
+                FC.write_snapshot(out, data)
+                job.log("saved %s (%d surface(s), %d variable(s), %.1f MB)"
+                        % (os.path.basename(out), len(want), len(vars_),
+                           os.path.getsize(out) / 1e6))
+                return self._json({"ok": True, "file": os.path.basename(out),
+                                   "bytes": os.path.getsize(out),
+                                   "surfaces": want, "variables": vars_})
             if path == "/api/open_dir":
                 how = open_in_file_manager(self.app.out_dir)
                 return self._json({"ok": True, "opened": self.app.out_dir,
