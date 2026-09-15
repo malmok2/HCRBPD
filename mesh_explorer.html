@@ -154,6 +154,12 @@
   .btn.lang{width:auto; padding:6px 13px; font-size:12px; font-weight:600;
             letter-spacing:.02em; margin-left:12px; order:3}
   header p{order:2}
+  /*  which revision the server is running: quiet, always there, loud only
+      when the checkout has edits that were never committed  */
+  #codeStamp{position:absolute; right:14px; bottom:5px; order:4;
+             font-family:var(--mono); font-size:10.5px; color:var(--muted);
+             letter-spacing:.03em}
+  #codeStamp.dirty{color:var(--warn, #b4690e)}
   .phys{
     font-size:11.5px; color:var(--muted); line-height:1.7; margin:12px 0 11px;
     font-variant-numeric:tabular-nums;
@@ -370,6 +376,7 @@
       <button data-pane="res">결과</button>
     </nav>
     <button class="btn lang" id="langBtn" type="button">EN</button>
+    <span id="codeStamp" title=""></span>
     <p>파라미터를 조절하면 형상과 격자가 즉시 갱신됩니다 · 드래그 회전 · 휠 확대</p>
   </header>
   <div class="main tabpane" data-pane="geom">
@@ -3962,6 +3969,21 @@ function offlineBanners(){
     if(b.dataset.pane!=="geom") b.disabled=true;
   });
 }
+/*  Which code is the SERVER running?  Python imports its modules once, so
+    reloading this page re-fetches the page and nothing else: a change to
+    fluent_case.py or mesh_explorer.py only lands when the server process is
+    restarted.  Showing the revision turns "did I restart it?" from a guess
+    into a glance, and the same string heads every run log. */
+function stampVersion(){
+  const el=$("codeStamp"); if(!el || !SRV || !SRV.version) return;
+  const v=SRV.version;
+  el.textContent = (v.how === "git")
+    ? (v.commit + (v.dirty ? "+edits" : ""))
+    : ("src " + v.date);
+  el.className = v.dirty ? "dirty" : "";
+  el.title = ((v.how === "git") ? v.date + "  " + v.subject : v.subject)
+           + "  |  server up since " + (SRV.started || "?");
+}
 (async function initApp(){
   document.querySelectorAll("#tabs button").forEach(b=>
     b.textContent = T("tabs")[b.dataset.pane]);
@@ -3973,6 +3995,7 @@ function offlineBanners(){
   }catch(e){
     SRV = null; offlineBanners(); return;
   }
+  stampVersion();
   loadSettings();
   const b=$("setBanner");
   b.className = bannerClass();

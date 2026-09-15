@@ -49,6 +49,13 @@ through the `AWP_ROOT<version>` environment variable that the Ansys installer
 sets; if that is missing the app says so up front and falls back to the mock
 rather than failing part way into a run.
 
+It also prints the revision it is running — `code fb7741f (2026-09-15) ...` —
+and that same string heads every run log and sits in the page header. Python
+imports its modules once, so a browser refresh picks up a change to the HTML
+but **not** to `fluent_case.py` or `mesh_explorer.py`: after a `git pull`,
+restart the server. The stamp is there so a stale process is a glance rather
+than a guess, and turns orange when the checkout has uncommitted edits.
+
 It serves the same page on `127.0.0.1` (loopback only) and opens it. The
 Settings tab configures the Fluent case, the Run tab meshes, launches Fluent and
 plots residuals live, and the Results tab pulls fields back and draws contours on

@@ -144,10 +144,12 @@ class Job(object):
 
     def _run(self):
         try:
+            #  first line of every log: paste one back and the code that made
+            #  it is not in doubt
+            self.log("code %s  |  server up since %s" % (version_line(VERSION), STARTED))
             self.stage = "meshing"
             self.case = case_from(self.geometry, self.params)
             self.case.validate()
-            self.log("geometry %s, %s" % (self.geometry, self.case.name()))
             mesh = ME.Mesh(self.case)
             mesh.build()
             rep = ME.run_checks(mesh, quiet=True)
@@ -157,6 +159,7 @@ class Job(object):
             self.log("mesh: %d cells, %d cracks, volume error %.1e"
                      % (rep["cells"], rep["cracks"], rep["vol_err"]))
             name = self.case.name(mesh.az_full[1])
+            self.log("geometry %s, %s" % (self.geometry, name))
             self.mesh_path = os.path.join(self.out_dir, name + ".msh")
             if self.backend == "mock":
                 self.log("MOCK backend: skipping the .msh write")
@@ -218,6 +221,8 @@ class App(object):
         installed, detail = FC.fluent_installed()
         return {
             "ok": True,
+            "version": VERSION,
+            "started": STARTED,
             "fluent_available": FC.fluent_available(),
             "fluent_installed": installed,
             "fluent_detail": detail,
@@ -374,6 +379,54 @@ class Handler(BaseHTTPRequestHandler):
                 "vol_err": rep["vol_err"]}
 
 
+def code_version():
+    """What this server process is actually running.
+
+    Python imports a module once.  Refreshing the browser re-fetches the page
+    and nothing else, so a change to fluent_case.py or mesh_explorer.py only
+    takes effect when this process is restarted - and a run that keeps failing
+    on a bug that was fixed is, nearly always, a server that was never
+    restarted.  Stamping the revision on the console, on /api/info and on the
+    first line of every run log makes that visible instead of a guess.
+    """
+    import subprocess
+    out = {"commit": "", "subject": "", "date": "", "dirty": None, "how": ""}
+    try:
+        def git(*a):
+            return subprocess.check_output(("git", "-C", HERE) + a,
+                                           stderr=subprocess.DEVNULL,
+                                           timeout=10).decode("utf-8", "replace").strip()
+        out["commit"] = git("rev-parse", "--short", "HEAD")
+        out["date"], out["subject"] = git("log", "-1", "--format=%cs%n%s").split("\n", 1)
+        out["dirty"] = bool(git("status", "--porcelain", "--", "*.py", "*.html"))
+        out["how"] = "git"
+    except Exception:                                   # noqa: BLE001
+        #  no git, or not a checkout: the newest source file still says
+        #  whether the running process could possibly be current
+        newest = 0.0
+        for f in ("app.py", "fluent_case.py", "mesh_explorer.py", "mesh_explorer.html"):
+            try:
+                newest = max(newest, os.path.getmtime(os.path.join(HERE, f)))
+            except OSError:
+                pass
+        out["date"] = time.strftime("%Y-%m-%d %H:%M", time.localtime(newest))
+        out["subject"] = "newest source file"
+        out["how"] = "mtime"
+    return out
+
+
+def version_line(v):
+    """One line naming the code, for the console and the run log."""
+    if v["how"] == "git":
+        return "%s%s (%s) %s" % (v["commit"], "+local edits" if v["dirty"] else "",
+                                 v["date"], v["subject"])
+    return "no git here; %s %s" % (v["subject"], v["date"])
+
+
+VERSION = code_version()
+STARTED = time.strftime("%Y-%m-%d %H:%M:%S")
+
+
 def free_port(preferred):
     s = socket.socket()
     try:
@@ -416,6 +469,7 @@ def main(argv=None):
     installed, detail = FC.fluent_installed()
     print("=" * 66)
     print(" bundle CFD app   %s" % url)
+    print(" code           : %s" % version_line(VERSION))
     if a.backend == "mock":
         print(" backend        : mock (forced) - nothing it produces is a result")
     elif installed:
