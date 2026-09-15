@@ -58,8 +58,19 @@ than a guess, and turns orange when the checkout has uncommitted edits.
 
 It serves the same page on `127.0.0.1` (loopback only) and opens it. The
 Settings tab configures the Fluent case, the Run tab meshes, launches Fluent and
-plots residuals live, and the Results tab pulls fields back and draws contours,
-with area-weighted averages, mass flows and the bundle pressure drop.
+plots residuals live — and beside them the **pressure drop itself**, sampled
+every N iterations, because residuals settling is not the same as the answer
+settling and a pressure-drop study cares about the second. The plot calls out
+the current Δp and how much it moved over the final stretch; the interval is a
+setting, and 0 turns it off. It is sampled by the app rather than kept by
+Fluent, so a case file has no history — reopening one reports the converged
+value and says that is all it can. A snapshot carries both histories, so
+reopening one puts the plots back as they were.
+
+The Results tab lists what can be reopened too, so an old result is one click
+away from where you would look at it, not a walk back to the Run tab. The
+Results tab itself pulls fields back and draws contours, with area-weighted
+averages, mass flows and the bundle pressure drop.
 
 **Contours on a plane, not just on the boundary.** The Results tab cuts a
 constant-x, -y or -z plane through the domain — the slider moves it in real

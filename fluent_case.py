@@ -476,6 +476,18 @@ SETTINGS = [
             {"id": "residual_criterion", "kind": "number", "default": 1e-4, "min": 1e-12,
              "max": 1e-1, "step": 1e-5, "ko": "수렴 판정 잔차", "en": "Residual criterion",
              "paths": ["residual_eqs"]},
+            {"id": "monitor_every", "kind": "number", "default": 10, "min": 0,
+             "max": 1000, "step": 1, "int": True,
+             "ko": "압력강하 기록 간격 (0 = 끄기)",
+             "en": "Pressure-drop sampling interval (0 = off)",
+             "note_ko": "반복 중 이 간격마다 입구·출구 면적가중 평균 정압을 읽어 "
+                        "Δp 이력을 만듭니다. 잔차와 달리 Fluent가 아니라 이 앱이 "
+                        "기록하는 값이라, 간격을 줄이면 그만큼 느려집니다.",
+             "note_en": "Reads the area-weighted mean static pressure on the inlet and "
+                        "outlet this often while iterating, to build a history of the "
+                        "pressure drop. Unlike the residuals this is sampled by the app, "
+                        "not kept by Fluent, so a shorter interval costs time.",
+             "paths": []},
             {"id": "write_case", "kind": "bool", "default": True,
              "ko": "끝나면 case+data 저장", "en": "Write case and data when finished",
              "paths": ["write_case_data"]},
@@ -795,6 +807,11 @@ class BaseDriver(object):
         self.mesh_path = mesh_path
         self.log = log                # callable(str)
         self.residuals = []           # list of dicts: {"iter": n, <eq>: value}
+        #  the bundle pressure drop as it converges: [{"iter", "dp", "p_in",
+        #  "p_out"}].  The residuals say the equations are settling; this says
+        #  the ANSWER is, which is not the same thing and is the one a
+        #  pressure-drop study is actually after.
+        self.monitors = []
         self.stopping = False
 
     # lifecycle ----------------------------------------------------------
@@ -812,6 +829,25 @@ class BaseDriver(object):
     def variables(self):                      raise NotImplementedError
     def field(self, surface, variable):       raise NotImplementedError
     def report(self, kind, surfaces, variable): raise NotImplementedError
+
+    # -- the pressure-drop monitor, shared by every driver that can report --
+    def sample_dp(self, it):
+        """One (iteration, Δp) point, or None if it could not be read."""
+        try:
+            p_in = self.report("area-weighted-avg", ["inlet"], "pressure")
+            p_out = self.report("area-weighted-avg", ["outlet"], "pressure")
+        except Exception as exc:                        # noqa: BLE001
+            return exc
+        row = {"iter": int(it), "dp": p_in - p_out,
+               "p_in": p_in, "p_out": p_out}
+        self.monitors.append(row)
+        return row
+
+    def monitor_interval(self):
+        try:
+            return max(0, int(self.s["run"].get("monitor_every", 0) or 0))
+        except (TypeError, ValueError):
+            return 0
 
 
 # --------------------------------------------------------------------------
@@ -1227,8 +1263,25 @@ class FluentDriver(BaseDriver):
         """
         import ansys.fluent.core as pf
 
+        every = self.monitor_interval()
+        state = {"k": 0, "failed": 0}
+
         def on_iter(session=None, event_info=None):    # noqa: ARG001
             self.collect_residuals(quiet=True)
+            state["k"] += 1
+            #  Sampling Δp means two surface integrals, so it is deliberately
+            #  not done every iteration.  Three failures in a row and it stops
+            #  trying: a monitor that cannot be read should cost one line in
+            #  the log, not one line per iteration.
+            if not every or state["failed"] >= 3 or state["k"] % every:
+                return
+            got = self.sample_dp(state["k"])
+            if isinstance(got, Exception):
+                state["failed"] += 1
+                if state["failed"] == 1:
+                    self.log("  pressure-drop monitor unavailable (%s)" % got)
+                elif state["failed"] == 3:
+                    self.log("  pressure-drop monitor giving up for this run")
 
         handle = None
         try:
@@ -1247,6 +1300,13 @@ class FluentDriver(BaseDriver):
                 except Exception:                      # noqa: BLE001
                     pass
         self.collect_residuals()
+        #  always finish with a sample, whatever the interval landed on, so
+        #  the last point on the plot is the converged answer
+        if every and state["failed"] < 3:
+            last = self.sample_dp(state["k"] or int(n))
+            if isinstance(last, dict):
+                self.log("Dp = %.6g Pa  (inlet %.6g, outlet %.6g)"
+                         % (last["dp"], last["p_in"], last["p_out"]))
         if self.s["run"]["write_case"]:
             base = os.path.splitext(self.mesh_path)[0]
             self.log("writing %s.cas.h5" % base)
@@ -1413,6 +1473,19 @@ class FluentDriver(BaseDriver):
         self._obj("read_case_data")(file_name=path)
         self.log("loaded; surfaces: %s" % ", ".join(self.surfaces()[:8]))
         self.collect_residuals(quiet=True)
+        if self.residuals:
+            self.log("  residual history came back with the case: %d iteration(s)"
+                     % len(self.residuals))
+        else:
+            self.log("  this case carries no residual history")
+        #  The Dp history is sampled by this app while it iterates, so a case
+        #  file has none - but the converged value is in the data, and one
+        #  point is worth more than an empty plot.
+        got = self.sample_dp(self.residuals[-1]["iter"] if self.residuals else 0)
+        if isinstance(got, dict):
+            self.log("Dp = %.6g Pa  (inlet %.6g, outlet %.6g) - the converged "
+                     "value; the history itself is not stored in a case file"
+                     % (got["dp"], got["p_in"], got["p_out"]))
         return True
 
     def variables(self):
@@ -1597,6 +1670,7 @@ class MockDriver(BaseDriver):
         if self.s["turbulence"]["viscous"] != "laminar":
             eqs += ["k", "omega"]
         crit = float(self.s["run"]["residual_criterion"])
+        every = self.monitor_interval()
         for k in range(1, n + 1):
             if self.stopping:
                 self.log("MOCK: interrupted at iteration %d" % k)
@@ -1607,13 +1681,33 @@ class MockDriver(BaseDriver):
                 row[e] = start * math.exp(-3.5 * k / max(n, 1)) * (
                     1.0 + 0.25 * math.sin(k * (0.7 + 0.11 * j)))
             self.residuals.append(row)
+            #  a Dp that settles onto its answer from above, the way a real
+            #  one does, so the monitor plot has something with a shape
+            if every and k % every == 0:
+                self.monitors.append(self._mock_dp(k, n))
             if k % max(1, n // 40) == 0:
                 time.sleep(0.01)                        # let the UI see it stream
             worst = max(row[e] for e in eqs)
             if worst < crit:
                 self.log("MOCK: residuals below %g at iteration %d" % (crit, k))
                 break
+        if every:
+            done = self.residuals[-1]["iter"] if self.residuals else n
+            if not self.monitors or self.monitors[-1]["iter"] != done:
+                self.monitors.append(self._mock_dp(done, n))
+            self.log("MOCK: Dp = %.6g Pa (invented)" % self.monitors[-1]["dp"])
         self.log("MOCK: %d iterations recorded" % len(self.residuals))
+
+    def _mock_dp(self, k, n):
+        """Converging towards the value the mock field itself implies."""
+        final = (self._value("pressure", [0.0, self.case.W * self.case.export_scale * 0.5,
+                                          0.0])
+                 - self._value("pressure", [self.case.l_tot * self.case.export_scale,
+                                            self.case.W * self.case.export_scale * 0.5,
+                                            0.0]))
+        f = 1.0 + 0.55 * math.exp(-4.0 * k / max(n, 1)) * math.cos(0.20 * k)
+        dp = final * f
+        return {"iter": int(k), "dp": dp, "p_in": dp, "p_out": 0.0}
 
     def interrupt(self):
         self.stopping = True
@@ -1975,6 +2069,10 @@ def snapshot(driver, surfaces, variables, meta=None):
     out = {"snapshot_version": SNAPSHOT_VERSION,
            "created": time.strftime("%Y-%m-%d %H:%M:%S"),
            "variables": list(variables), "surfaces": {},
+           #  the run's own history travels with the field: reopening a
+           #  snapshot should put the same plots back, not just the picture
+           "residuals": list(getattr(driver, "residuals", []) or []),
+           "monitors": list(getattr(driver, "monitors", []) or []),
            "mock": bool(getattr(driver, "mock", False))}
     out.update(meta or {})
     for name in surfaces:
@@ -2020,13 +2118,18 @@ class SnapshotDriver(BaseDriver):
     def __init__(self, data, log):
         self.data = data
         self.log = log
-        self.residuals = []
+        self.residuals = list(data.get("residuals") or [])
+        self.monitors = list(data.get("monitors") or [])
         self.snapshot = True
 
     def launch(self):
         n = len(self.data["surfaces"])
         self.log("snapshot from %s: %d surface(s), %d variable(s)"
                  % (self.data.get("created", "?"), n, len(self.data["variables"])))
+        self.log("  with %d residual row(s) and %d pressure-drop sample(s)"
+                 % (len(self.residuals), len(self.monitors)))
+        if self.monitors:
+            self.log("Dp = %.6g Pa (as saved)" % self.monitors[-1]["dp"])
         if self.data.get("mock"):
             self.log("  this snapshot was taken from the MOCK backend - "
                      "nothing in it is a result")

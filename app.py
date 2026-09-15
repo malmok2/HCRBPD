@@ -209,6 +209,7 @@ class Job(object):
     def status(self, log_from=0):
         with self.lock:
             res = list(self.driver.residuals) if self.driver else []
+            mon = list(getattr(self.driver, "monitors", []) or []) if self.driver else []
             lines = self.log_lines[log_from:]
             n_lines = len(self.log_lines)
         return {
@@ -218,7 +219,8 @@ class Job(object):
             "elapsed": round(time.time() - self.started, 2),
             "finished": self.finished_at is not None,
             "mesh": self.mesh_stats, "mesh_path": self.mesh_path,
-            "residuals": res, "log": lines, "log_next": n_lines,
+            "residuals": res, "monitors": mon,
+            "log": lines, "log_next": n_lines,
             "surfaces": self.surface_list(),
             "planes": dict(self.planes), "loaded": self.loaded,
             "snapshot": bool(self.driver is not None

@@ -334,7 +334,19 @@
   }
   .plotwrap{position:relative; height:330px; border-radius:14px; overflow:hidden;
             background:var(--glass); box-shadow:var(--sh-2), inset 0 1px 0 var(--hl)}
-  #residPlot, #resView{display:block; width:100%; height:100%}
+  #residPlot, #dpPlot, #resView{display:block; width:100%; height:100%}
+  /*  reopening a result from the Results tab: the same files the Run tab
+      lists, as a compact row each  */
+  .reslist .openrow{
+    display:flex; align-items:center; gap:7px; padding:5px 4px;
+    border-top:1px solid var(--line); font-size:11.5px;
+  }
+  .reslist .openrow:first-child{border-top:none}
+  .reslist .openrow .nm{
+    flex:1; min-width:0; font-family:var(--mono); font-size:10.5px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text);
+  }
+  .reslist .openrow .btn{width:auto; padding:4px 11px; font-size:11px}
   .resmain{flex:1; min-width:0; position:relative; overflow:hidden}
   .reslist{display:flex; flex-direction:column; gap:2px}
   /*  a plane the user made sits in the same list as a boundary, with the one
@@ -684,6 +696,11 @@
           <div class="plotwrap"><canvas id="residPlot"></canvas></div>
           <div class="note" id="residNote"></div>
         </div>
+        <div class="card" style="grid-column:1/-1">
+          <h3>압력강하 Δp <span id="dpNow" style="text-transform:none;font-weight:500"></span></h3>
+          <div class="plotwrap"><canvas id="dpPlot"></canvas></div>
+          <div class="note" id="dpNote"></div>
+        </div>
         <div class="card">
           <h3>메시</h3>
           <table class="vals" id="meshStats"><tbody></tbody></table>
@@ -702,6 +719,11 @@
       <div class="grp">
         <h2>면 선택</h2>
         <div class="reslist" id="resSurfaces"></div>
+      </div>
+      <div class="grp">
+        <h2>저장된 결과 불러오기</h2>
+        <div class="reslist" id="resLoadList"></div>
+        <div class="note" id="resLoadNote"></div>
       </div>
       <div class="grp">
         <h2>단면 만들기</h2>
@@ -3348,6 +3370,15 @@ Object.assign(STR.ko, {
   r_mesh:"메시만 생성 중…",
   r_meshok:(n,mb,c)=>`메시 저장 완료 — ${n} · ${mb} MB · ${c} 셀`,
   resid_scale:"세로축 로그", resid_wait:"반복이 시작되면 잔차가 그려집니다.",
+  dp_wait:"반복이 시작되면 Δp가 기록됩니다. 세팅 탭의 '압력강하 기록 간격'으로 조절합니다.",
+  dp_none_done:"이 실행에는 Δp 이력이 없습니다. 기록 간격이 0이거나, case 파일에서 불러온 결과입니다.",
+  dp_last:(v)=>`Δp = ${v} Pa`,
+  dp_n:(n,pi,po)=>`샘플 ${n}개 · 입구 ${pi} Pa · 출구 ${po} Pa`,
+  dp_drift:(r)=>` · 마지막 구간 변동폭 ${r} %`,
+  dp_mock:" · MOCK — 가짜 값",
+  h_dpplot:"압력강하 Δp", h_resload:"저장된 결과 불러오기",
+  rl_none:"불러올 결과가 없습니다. 해석을 실행하고 저장하면 여기 나타납니다.",
+  rl_hint:"case는 Fluent로, fields는 Fluent 없이 엽니다.",
   resid_n:(n,e)=>`${n}회 · ${e}`,
   res_none:"해석이 끝나면 결과를 불러올 수 있습니다.",
   res_pick:"왼쪽에서 면을 하나 이상 고르십시오.",
@@ -3415,6 +3446,15 @@ Object.assign(STR.en, {
   r_mesh:"writing the mesh…",
   r_meshok:(n,mb,c)=>`mesh written — ${n} · ${mb} MB · ${c} cells`,
   resid_scale:"log scale", resid_wait:"Residuals appear once the iterations start.",
+  dp_wait:"The pressure drop is recorded once the iterations start; the interval is on the Settings tab.",
+  dp_none_done:"This run has no pressure-drop history - the interval was 0, or it came from a case file.",
+  dp_last:(v)=>`Δp = ${v} Pa`,
+  dp_n:(n,pi,po)=>`${n} sample(s) · inlet ${pi} Pa · outlet ${po} Pa`,
+  dp_drift:(r)=>` · moved ${r} % over the last stretch`,
+  dp_mock:" · MOCK — invented",
+  h_dpplot:"Pressure drop Δp", h_resload:"Open a saved result",
+  rl_none:"Nothing to open yet. Run an analysis and save, and it appears here.",
+  rl_hint:"A case opens in Fluent, a fields file opens without it.",
   resid_n:(n,e)=>`${n} iterations · ${e}`,
   res_none:"Results can be loaded once a run has finished.",
   res_pick:"Pick at least one surface on the left.",
@@ -3485,8 +3525,8 @@ function showPane(name){
   document.querySelectorAll("#tabs button").forEach(b=>
     b.classList.toggle("on", b.dataset.pane===name));
   if(name==="geom"){ resize(); needsDraw=true; }
-  if(name==="run"){ sizeResid(); drawResid(); refreshFiles(); }
-  if(name==="res"){ sizeRes(); drawRes(); }
+  if(name==="run"){ sizeResid(); sizeDp(); drawResid(); drawDp(); refreshFiles(); }
+  if(name==="res"){ sizeRes(); drawRes(); refreshFiles(); }
 }
 document.querySelectorAll("#tabs button").forEach(b=>
   b.addEventListener("click", ()=>showPane(b.dataset.pane)));
@@ -3729,7 +3769,7 @@ $("runStart").addEventListener("click", async ()=>{
   logCursor = 0;
   $("runLog").textContent = "";
   JOB = null; BBOX = null;
-  setRunBanner(); renderStages(); renderMeshStats(); drawResid();
+  setRunBanner(); renderStages(); renderMeshStats(); drawResid(); drawDp();
   RES.data = []; drawRes();
   $("runStart").disabled = true;
   try{
@@ -3765,13 +3805,103 @@ async function poll(){
       }
       $("runStart").disabled = !JOB.finished;
       $("runStop").disabled = !!JOB.finished;
-      setRunBanner(); renderStages(); renderMeshStats(); drawResid();
+      setRunBanner(); renderStages(); renderMeshStats(); drawResid(); drawDp(); drawDp();
       if(JOB.finished){
         refreshSurfaces(); refreshFiles(); preparePlanes(); return;
       }
     }
   }catch(e){ /* the server went away; the banner already says what it can */ }
   pollTimer = setTimeout(poll, 700);
+}
+
+/* ---- pressure-drop monitor : linear y, iteration x ----------------------
+   The residuals say the equations are settling.  They do not say the ANSWER
+   is: a run can sit at 1e-5 while the pressure drop is still drifting, and a
+   pressure-drop study cares about the second.  So this plots Dp against
+   iteration, on a linear axis because Dp is what it is - not an error - with
+   the last value called out and a band showing how much it moved over the
+   final fifth of the run.                                                  */
+const dpC=$("dpPlot"), dctx=dpC.getContext("2d");
+let dw=0, dh=0;
+function sizeDp(){
+  const r=dpC.getBoundingClientRect();
+  dw=r.width; dh=r.height;
+  dpC.width=Math.round(dw*dpr); dpC.height=Math.round(dh*dpr);
+  dctx.setTransform(dpr,0,0,dpr,0,0);
+}
+function dpRows(){ return (JOB && JOB.monitors) ? JOB.monitors : []; }
+function drawDp(){
+  if(!dw) sizeDp();
+  dctx.clearRect(0,0,dw,dh);
+  const rows=dpRows();
+  if(!rows.length){
+    $("dpNow").textContent="";
+    $("dpNote").textContent = (JOB && JOB.finished && !JOB.error)
+      ? T("dp_none_done") : T("dp_wait");
+    return;
+  }
+  let lo=Infinity, hi=-Infinity, xmax=1;
+  for(const r of rows){
+    if(!Number.isFinite(r.dp)) continue;
+    xmax=Math.max(xmax, r.iter); lo=Math.min(lo,r.dp); hi=Math.max(hi,r.dp);
+  }
+  if(!isFinite(lo)){ $("dpNote").textContent=T("dp_wait"); return; }
+  if(hi-lo < 1e-12){ const pad=Math.max(1, Math.abs(hi)*0.05); lo-=pad; hi+=pad; }
+  else { const pad=(hi-lo)*0.12; lo-=pad; hi+=pad; }
+  const padL=78, padR=118, padT=14, padB=28;
+  const X=i=>padL+(dw-padL-padR)*(i-1)/Math.max(1,xmax-1);
+  const Y=v=>padT+(dh-padT-padB)*(1-(v-lo)/(hi-lo));
+  dctx.font="10px "+uiFont(); dctx.textBaseline="middle";
+  for(let k=0;k<=4;k++){
+    const v=lo+(hi-lo)*k/4, y=Y(v);
+    dctx.strokeStyle="rgba(88,99,114,.18)"; dctx.lineWidth=1;
+    dctx.beginPath(); dctx.moveTo(padL,y); dctx.lineTo(dw-padR,y); dctx.stroke();
+    dctx.fillStyle="rgba(34,38,43,.75)"; dctx.textAlign="right";
+    dctx.fillText(fmtSci(v), padL-7, y);
+  }
+  dctx.textAlign="center"; dctx.textBaseline="top";
+  const steps=Math.min(6,xmax);
+  for(let k=0;k<=steps;k++){
+    const it=Math.round(1+(xmax-1)*k/steps);
+    dctx.fillText(String(it), X(it), dh-padB+7);
+  }
+  //  how much it is still moving: the spread over the last fifth
+  const tail=rows.slice(Math.max(0, rows.length-Math.max(2, Math.ceil(rows.length/5))));
+  if(tail.length>1){
+    let tl=Infinity, th=-Infinity;
+    for(const r of tail){ tl=Math.min(tl,r.dp); th=Math.max(th,r.dp); }
+    dctx.fillStyle="rgba(31,111,235,.09)";
+    dctx.fillRect(padL, Y(th), dw-padL-padR, Math.max(1, Y(tl)-Y(th)));
+  }
+  dctx.strokeStyle="#0f4c81"; dctx.lineWidth=1.8; dctx.beginPath();
+  let started=false;
+  for(const r of rows){
+    if(!Number.isFinite(r.dp)) continue;
+    const x=X(r.iter), y=Y(r.dp);
+    started ? dctx.lineTo(x,y) : (dctx.moveTo(x,y), started=true);
+  }
+  dctx.stroke();
+  dctx.fillStyle="#0f4c81";
+  for(const r of rows){
+    if(!Number.isFinite(r.dp)) continue;
+    dctx.beginPath(); dctx.arc(X(r.iter), Y(r.dp), 2.1, 0, TAU); dctx.fill();
+  }
+  const last=rows[rows.length-1];
+  dctx.setLineDash([4,4]); dctx.strokeStyle="rgba(15,76,129,.45)";
+  dctx.beginPath(); dctx.moveTo(padL, Y(last.dp)); dctx.lineTo(dw-padR, Y(last.dp));
+  dctx.stroke(); dctx.setLineDash([]);
+  dctx.textAlign="left"; dctx.textBaseline="middle"; dctx.font="11px "+uiFont();
+  dctx.fillText(fmtSci(last.dp)+" Pa", dw-padR+10, Y(last.dp));
+  $("dpNow").textContent = "· " + T("dp_last")(fmtSci(last.dp));
+  let drift="";
+  if(tail.length>1){
+    let tl=Infinity, th=-Infinity;
+    for(const r of tail){ tl=Math.min(tl,r.dp); th=Math.max(th,r.dp); }
+    const rel = Math.abs(last.dp)>1e-12 ? 100*(th-tl)/Math.abs(last.dp) : 0;
+    drift = T("dp_drift")(rel.toPrecision(2));
+  }
+  $("dpNote").textContent = T("dp_n")(rows.length, fmtSci(last.p_in), fmtSci(last.p_out)) + drift
+    + (JOB && JOB.mock ? T("dp_mock") : "");
 }
 
 /* ---- residual plot : log y, iteration x -------------------------------- */
@@ -3942,6 +4072,7 @@ async function refreshFiles(){
     $("filesCount").textContent = T("f_count")(j.files.length);
     const tb=$("filesTable").querySelector("tbody");
     tb.innerHTML="";
+    renderOpenList(j.files);
     if(!j.files.length){ $("filesNote").textContent=T("f_none"); return; }
     $("filesNote").textContent = T("f_case_hint");
     for(const f of j.files){
@@ -3964,20 +4095,42 @@ async function refreshFiles(){
       }
       tr.append(nm, tg, sz, wh, ac); tb.appendChild(tr);
     }
-  }catch(e){ $("filesNote").textContent = e.message; }
+  }catch(e){ $("filesNote").textContent = e.message; $("resLoadNote").textContent = e.message; }
 }
 async function openCase(name){
   $("filesNote").textContent = T("f_loading")(name);
+  $("resLoadNote").textContent = T("f_loading")(name);
   try{
     //  same reset as starting a run: nothing from the previous one should be
     //  on screen while this one opens
     logCursor = 0; $("runLog").textContent = "";
-    JOB = null; BBOX = null; RES.data = []; drawRes(); drawResid();
+    JOB = null; BBOX = null; RES.data = []; drawRes(); drawResid(); drawDp();
     const j = await api("/api/load", {file:name, geometry:GK,
                                       params:geomParams(), settings:SET});
     JOB = j.job;
     showPane("run"); setRunBanner(); renderStages(); poll();
   }catch(e){ $("filesNote").textContent = e.message; }
+}
+/*  The same files, offered from the Results tab as well: opening an old
+    result is a Results-tab thing to want, and walking back to the Run tab to
+    find the list is a step that does not earn itself.  */
+function renderOpenList(files){
+  const host=$("resLoadList"); if(!host) return;
+  const able=(files||[]).filter(f=>f.kind==="case"||f.kind==="fields");
+  host.innerHTML="";
+  if(!able.length){ $("resLoadNote").textContent=T("rl_none"); return; }
+  $("resLoadNote").textContent=T("rl_hint");
+  for(const f of able.slice(0,12)){
+    const row=document.createElement("div"); row.className="openrow";
+    const nm=document.createElement("span"); nm.className="nm";
+    nm.textContent=f.name; nm.title=f.name+"  ·  "+fmtBytes(f.bytes)+"  ·  "+fmtWhen(f.mtime);
+    const tag=document.createElement("span");
+    tag.className="tag case"; tag.textContent=f.kind;
+    const b=document.createElement("button");
+    b.className="btn"; b.type="button"; b.textContent=T("f_load");
+    b.addEventListener("click", ()=>openCase(f.name));
+    row.append(nm, tag, b); host.appendChild(row);
+  }
 }
 $("filesRefresh").addEventListener("click", refreshFiles);
 $("outOpen").addEventListener("click", async ()=>{
@@ -4412,6 +4565,10 @@ window.__appLang = function(){
   $("resDP").textContent=T("res_dp");
   $("planeAdd").textContent=T("pl_add");
   $("resSave").textContent=T("res_save");
+  const dh=$("dpPlot").closest(".card").querySelector("h3");
+  if(dh) dh.firstChild.nodeValue = T("h_dpplot")+" ";
+  const rh=$("resLoadList").closest(".grp").querySelector("h2");
+  if(rh) rh.textContent = T("h_resload");
   $("outCopy").textContent=T("f_copy");
   $("outOpen").textContent=T("f_open");
   $("filesRefresh").textContent=T("f_refresh");
@@ -4444,7 +4601,7 @@ window.__appLang = function(){
   if(SRV){ buildSettings();
            $("setBanner").className = bannerClass();
            $("setBanner").innerHTML = bannerHTML(); }
-  renderStages(); setRunBanner(); renderMeshStats(); drawResid(); drawRes();
+  renderStages(); setRunBanner(); renderMeshStats(); drawResid(); drawDp(); drawRes();
 };
 function bannerHTML(){
   if(!SRV) return T("srv_off");
