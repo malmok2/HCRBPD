@@ -219,7 +219,7 @@ class Job(object):
             "finished": self.finished_at is not None,
             "mesh": self.mesh_stats, "mesh_path": self.mesh_path,
             "residuals": res, "log": lines, "log_next": n_lines,
-            "surfaces": self.driver.surfaces() if self._can_report() else [],
+            "surfaces": self.surface_list(),
             "planes": dict(self.planes), "loaded": self.loaded,
             "snapshot": bool(self.driver is not None
                              and getattr(self.driver, "snapshot", False)),
@@ -229,6 +229,22 @@ class Job(object):
 
     def _can_report(self):
         return self.driver is not None and self.stage in ("iterating", "finished")
+
+    def surface_list(self):
+        """Every surface the Results tab may show.
+
+        The planes are added from this job's own registry rather than taken on
+        trust from the driver: they were created here, so losing them because
+        a release will not enumerate surfaces would be the app forgetting its
+        own work.
+        """
+        if not self._can_report():
+            return []
+        names = list(self.driver.surfaces())
+        for n in self.planes:
+            if n not in names:
+                names.append(n)
+        return names
 
     def bbox(self):
         """The domain box the plane sliders span, measured once."""
@@ -539,7 +555,7 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/snapshot":
                 job = self.app.need_results()
                 want = [str(x) for x in (body.get("surfaces") or [])]
-                live = set(job.driver.surfaces())
+                live = set(job.surface_list())
                 bad = [x for x in want if x not in live]
                 if bad:
                     raise ValueError("no such surface: %s" % ", ".join(bad))
@@ -581,14 +597,14 @@ class Handler(BaseHTTPRequestHandler):
                 job.driver.make_plane(name, axis, value)
                 job.planes[name] = {"axis": axis, "value": value}
                 return self._json({"ok": True, "planes": job.planes,
-                                   "surfaces": job.driver.surfaces()})
+                                   "surfaces": job.surface_list()})
             if path == "/api/plane_delete":
                 job = self.app.need_results()
                 name = str(body.get("name") or "")
                 job.driver.drop_plane(name)
                 job.planes.pop(name, None)
                 return self._json({"ok": True, "planes": job.planes,
-                                   "surfaces": job.driver.surfaces()})
+                                   "surfaces": job.surface_list()})
             if path == "/api/journal":
                 settings = FC.merge_settings(body.get("settings"))
                 case = case_from(body.get("geometry", "rod-inline"),

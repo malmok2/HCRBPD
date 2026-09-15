@@ -828,6 +828,8 @@ class FluentDriver(BaseDriver):
         BaseDriver.__init__(self, *a, **kw)
         self.solver = None
         self.enum_warnings = []
+        self._surface_listing_errors = []
+        self._said_no_listing = False
 
     # -- lifecycle --------------------------------------------------------
     def launch(self):
@@ -1291,17 +1293,46 @@ class FluentDriver(BaseDriver):
             self.solver = None
 
     # -- results ----------------------------------------------------------
+    #  Accessors that list the surfaces a live session has, newest spelling
+    #  first.  get_surface_ids() is NOT one of them: it takes a list of names
+    #  and returns ids, so calling it bare raised every time and the result
+    #  was silently no surfaces at all - which is why a plane that had been
+    #  created never appeared.  Each entry returns an iterable of names.
+    _SURFACE_LISTERS = (
+        ("field_data._allowed_surface_names",
+         lambda S: S.fields.field_data._allowed_surface_names()),
+        ("settings.results.surfaces.plane_surface",
+         lambda S: list(S.settings.results.surfaces.plane_surface)),
+        ("field_info.get_surfaces_info",
+         lambda S: list(S.fields.field_info.get_surfaces_info())),
+    )
+
     def surfaces(self):
-        """Our own patches first, in mesh order, then anything else Fluent has
-        (planes the user made, for instance)."""
+        """Our patches in mesh order, then everything else this session has.
+
+        The boundaries are known from the mesh we wrote, so they never depend
+        on Fluent being able to enumerate anything.  Whatever else is there -
+        a plane made here, or one the user made in Fluent - comes from the
+        listing below, and if none of the accessors work that is said once
+        rather than quietly returning a short list.
+        """
         names = list(PATCHES)
-        try:
-            live = list(self.solver.fields.field_data.get_surface_ids().keys())
-        except Exception:                               # noqa: BLE001
+        live, how = [], None
+        for label, fn in self._SURFACE_LISTERS:
             try:
-                live = list(self.solver.field_info.get_surfaces_info().keys())
-            except Exception:                           # noqa: BLE001
-                live = []
+                live = [str(n) for n in fn(self.solver)]
+                how = label
+                break
+            except Exception as exc:                    # noqa: BLE001
+                self._surface_listing_errors.append("%s: %s" % (label, exc))
+        if how is None and not self._said_no_listing:
+            self._said_no_listing = True
+            self.log("  (this Fluent lists no surfaces through PyFluent; the "
+                     "boundaries are known from the mesh and planes made here "
+                     "are tracked by the app, so nothing is lost unless you "
+                     "made a surface inside Fluent itself)")
+            for e in self._surface_listing_errors[:3]:
+                self.log("      tried %s" % e)
         for n in live:
             if n not in names:
                 names.append(n)
@@ -1589,7 +1620,11 @@ class MockDriver(BaseDriver):
 
     # -- results ----------------------------------------------------------
     def surfaces(self):
-        return list(PATCHES) + sorted(self._planes)
+        #  Only the boundaries, deliberately: a real session may not be able
+        #  to enumerate the planes it holds, and the app has to survive that
+        #  by tracking its own.  Listing them here would hide the case that
+        #  actually broke - a plane created in Fluent, never shown.
+        return list(PATCHES)
 
     def variables(self):
         return list(VARIABLES)
