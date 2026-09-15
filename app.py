@@ -36,8 +36,13 @@ import sys
 import threading
 import time
 import traceback
+import re
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+#  a plane name becomes a Fluent surface name and a key in the UI, so keep it
+#  to something both can hold without quoting
+PLANE_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]{0,30}$")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -97,6 +102,64 @@ def _jsonable(x):
                     % (type(x).__name__, x))
 
 
+#  what each extension in the output folder is, so the panel can say rather
+#  than leaving the user to recognise them
+KINDS = [
+    (".cas.h5", "case", "Fluent case (mesh + set-up)"),
+    (".dat.h5", "data", "Fluent data (the solution)"),
+    (".msh", "mesh", "Fluent mesh"),
+    (".vtu", "vtu", "ParaView"),
+    (".stl", "stl", "STL"),
+    (".py", "journal", "PyFluent script"),
+]
+
+
+def kind_of(name):
+    low = name.lower()
+    for ext, key, label in KINDS:
+        if low.endswith(ext):
+            return key, label
+    return "other", ""
+
+
+def list_outputs(out_dir, limit=200):
+    """Everything the app has written, newest first."""
+    rows = []
+    try:
+        names = os.listdir(out_dir)
+    except OSError:
+        return rows
+    for n in names:
+        full = os.path.join(out_dir, n)
+        try:
+            st = os.stat(full)
+        except OSError:
+            continue
+        if not os.path.isfile(full):
+            continue
+        key, label = kind_of(n)
+        rows.append({"name": n, "path": full, "bytes": st.st_size,
+                     "mtime": st.st_mtime, "kind": key, "label": label})
+    rows.sort(key=lambda r: r["mtime"], reverse=True)
+    return rows[:limit]
+
+
+def open_in_file_manager(path):
+    """Show a folder in the desktop's own file manager.
+
+    The server is the only side that can do this, and it only ever opens its
+    own output directory - the path is not taken from the request.
+    """
+    import subprocess
+    if sys.platform.startswith("win"):
+        os.startfile(path)                      # noqa: S606  (Windows only)
+        return "explorer"
+    cmd = "open" if sys.platform == "darwin" else "xdg-open"
+    subprocess.Popen([cmd, path], stdout=subprocess.DEVNULL,
+                     stderr=subprocess.DEVNULL)
+    return cmd
+
+
 # =============================================================================
 #  THE JOB
 # =============================================================================
@@ -129,6 +192,10 @@ class Job(object):
         self.lock = threading.Lock()
         self.thread = None
         self.notes = []                 # settings the server had to correct
+        self.load_path = None           # set when reopening a saved case
+        self.loaded = False
+        self.planes = {}                # name -> {axis, value}
+        self._bbox = None
 
     # -- reporting --------------------------------------------------------
     def log(self, msg):
@@ -151,14 +218,23 @@ class Job(object):
             "mesh": self.mesh_stats, "mesh_path": self.mesh_path,
             "residuals": res, "log": lines, "log_next": n_lines,
             "surfaces": self.driver.surfaces() if self._can_report() else [],
+            "planes": dict(self.planes), "loaded": self.loaded,
+            "out_dir": self.out_dir,
         }
 
     def _can_report(self):
         return self.driver is not None and self.stage in ("iterating", "finished")
 
+    def bbox(self):
+        """The domain box the plane sliders span, measured once."""
+        if self._bbox is None:
+            self._bbox = self.driver.bbox()
+        return self._bbox
+
     # -- the run ----------------------------------------------------------
     def start(self):
-        self.thread = threading.Thread(target=self._run, name="job-" + self.id)
+        target = self._run_load if self.load_path else self._run
+        self.thread = threading.Thread(target=target, name="job-" + self.id)
         self.thread.daemon = True
         self.thread.start()
 
@@ -206,6 +282,35 @@ class Job(object):
             self.driver.iterate(int(self.settings["run"]["iterations"]))
             self.stage = "finished"
             self.log("done")
+        except Exception as exc:                        # noqa: BLE001
+            self.error = "%s: %s" % (type(exc).__name__, exc)
+            self.log("FAILED in stage %r - %s" % (self.stage, self.error))
+            for line in traceback.format_exc().splitlines()[-12:]:
+                self.log("    " + line)
+            self.stage = "finished"
+        finally:
+            self.finished_at = time.time()
+
+    def _run_load(self):
+        """Reopen a case+data that was written earlier.
+
+        Same Job, same stages, same everything downstream - it just skips
+        meshing and iterating, which is the whole point: a solution that took
+        an hour should not have to be produced twice to be looked at twice.
+        """
+        try:
+            self.log("code %s  |  server up since %s" % (version_line(VERSION), STARTED))
+            self.log("reopening %s" % os.path.basename(self.load_path))
+            self.stage = "launching"
+            self.driver = FC.make_driver(self.backend, self.case, self.settings,
+                                         self.load_path, self.log)
+            self.driver.launch()
+            self.stage = "setup"
+            self.driver.load_case(self.load_path)
+            self.mesh_path = self.load_path
+            self.stage = "finished"
+            self.loaded = True
+            self.log("done - this is a reopened solution, nothing was re-solved")
         except Exception as exc:                        # noqa: BLE001
             self.error = "%s: %s" % (type(exc).__name__, exc)
             self.log("FAILED in stage %r - %s" % (self.stage, self.error))
@@ -284,6 +389,33 @@ class App(object):
             raise ValueError("nothing has been run yet")
         return self.job
 
+    def start_load(self, body):
+        """Open a saved case+data.  The file must be one of ours, by name:
+        the request names a file IN the output folder, never a path."""
+        name = str(body.get("file") or "")
+        if not name or os.path.basename(name) != name:
+            raise ValueError("name a file in the output folder, not a path")
+        full = os.path.join(self.out_dir, name)
+        if not os.path.isfile(full):
+            raise ValueError("%s is not in %s" % (name, self.out_dir))
+        with self.lock:
+            if self.job is not None and not self.job.finished_at:
+                raise ValueError("a run is already going; stop it first")
+            if self.job is not None:
+                self.job.close()
+            self.counter += 1
+            settings = FC.merge_settings(body.get("settings"))
+            geometry = body.get("geometry", "rod-inline")
+            self.job = Job("j%d" % self.counter, geometry,
+                           body.get("params") or {}, settings,
+                           body.get("backend") or self.backend, self.out_dir)
+            #  the mock needs a Case to cut planes through; the real driver
+            #  takes its geometry from the file it is about to read
+            self.job.case = case_from(geometry, body.get("params") or {})
+            self.job.load_path = full
+            self.job.start()
+            return self.job.status()
+
     def need_results(self):
         job = self.need_job()
         if job.driver is None or job.stage not in ("iterating", "finished"):
@@ -337,6 +469,9 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(200, f.read(), "text/html; charset=utf-8")
             if path == "/api/info":
                 return self._json(self.app.info())
+            if path == "/api/files":
+                return self._json({"ok": True, "out_dir": self.app.out_dir,
+                                   "files": list_outputs(self.app.out_dir)})
             if path == "/api/job":
                 q = self.path.split("?", 1)
                 frm = 0
@@ -374,6 +509,36 @@ class Handler(BaseHTTPRequestHandler):
                                       body.get("variable", "pressure"))
                 return self._json({"ok": True, "value": v,
                                    "mock": bool(job.driver.mock)})
+            if path == "/api/load":
+                return self._json({"ok": True, "job": self.app.start_load(body)})
+            if path == "/api/open_dir":
+                how = open_in_file_manager(self.app.out_dir)
+                return self._json({"ok": True, "opened": self.app.out_dir,
+                                   "with": how})
+            if path == "/api/bbox":
+                job = self.app.need_results()
+                return self._json({"ok": True, "bbox": job.bbox()})
+            if path == "/api/plane":
+                job = self.app.need_results()
+                name = str(body.get("name") or "").strip()
+                axis = str(body.get("axis") or "x")
+                if not name or not PLANE_NAME.match(name):
+                    raise ValueError("a plane name may use letters, digits, "
+                                     "'-' and '_' only")
+                if name in FC.PATCHES:
+                    raise ValueError("%s is a boundary; pick another name" % name)
+                value = float(body.get("value"))
+                job.driver.make_plane(name, axis, value)
+                job.planes[name] = {"axis": axis, "value": value}
+                return self._json({"ok": True, "planes": job.planes,
+                                   "surfaces": job.driver.surfaces()})
+            if path == "/api/plane_delete":
+                job = self.app.need_results()
+                name = str(body.get("name") or "")
+                job.driver.drop_plane(name)
+                job.planes.pop(name, None)
+                return self._json({"ok": True, "planes": job.planes,
+                                   "surfaces": job.driver.surfaces()})
             if path == "/api/journal":
                 settings = FC.merge_settings(body.get("settings"))
                 case = case_from(body.get("geometry", "rod-inline"),

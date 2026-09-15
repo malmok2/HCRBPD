@@ -337,6 +337,34 @@
   #residPlot, #resView{display:block; width:100%; height:100%}
   .resmain{flex:1; min-width:0; position:relative; overflow:hidden}
   .reslist{display:flex; flex-direction:column; gap:2px}
+  /*  a plane the user made sits in the same list as a boundary, with the one
+      thing a boundary has no use for: a way to remove it  */
+  .reslist .chk{position:relative}
+  .reslist .kill{
+    position:absolute; right:2px; top:50%; transform:translateY(-50%);
+    border:none; background:transparent; cursor:pointer; padding:3px 5px;
+    color:var(--muted); font:600 13px/1 var(--mono); border-radius:6px;
+  }
+  .reslist .kill:hover{color:var(--bad); background:var(--glass2)}
+  /*  where the files are  */
+  .pathbar{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:9px}
+  .pathbar code{
+    flex:1; min-width:210px; font-family:var(--mono); font-size:11.5px;
+    color:var(--text); background:var(--glass2); border-radius:8px;
+    padding:7px 10px; overflow:auto; white-space:nowrap;
+    box-shadow:inset 0 1px 2px rgba(24,31,42,.10);
+  }
+  table.files{width:100%; border-collapse:collapse; font-size:12px}
+  table.files td{padding:5px 7px; border-top:1px solid var(--line); vertical-align:middle}
+  table.files td.nm{font-family:var(--mono); font-size:11.5px; word-break:break-all}
+  table.files td.sz{text-align:right; white-space:nowrap; color:var(--muted);
+                    font-variant-numeric:tabular-nums}
+  table.files td.wh{white-space:nowrap; color:var(--muted)}
+  table.files .tag{
+    display:inline-block; padding:2px 7px; border-radius:6px; font-size:10px;
+    font-weight:640; letter-spacing:.03em; background:var(--glass2); color:var(--muted);
+  }
+  table.files .tag.case{background:rgba(31,111,235,.14); color:var(--accent)}
   .reslist label{display:flex; align-items:center; gap:9px; font-size:12.5px;
                  padding:4px 0; cursor:pointer}
   .vals{width:100%; border-collapse:collapse; font-size:12.5px;
@@ -641,6 +669,17 @@
       </div>
       <div class="cards" style="grid-template-columns:repeat(auto-fill,minmax(420px,1fr))">
         <div class="card" style="grid-column:1/-1">
+          <h3>저장 위치 <span id="filesCount" style="text-transform:none;font-weight:500"></span></h3>
+          <div class="pathbar">
+            <code id="outDir">—</code>
+            <button class="btn" id="outCopy" style="width:auto;padding:6px 13px">경로 복사</button>
+            <button class="btn" id="outOpen" style="width:auto;padding:6px 13px">폴더 열기</button>
+            <button class="btn" id="filesRefresh" style="width:auto;padding:6px 13px">새로 고침</button>
+          </div>
+          <div class="note" id="filesNote"></div>
+          <table class="files" id="filesTable"><tbody></tbody></table>
+        </div>
+        <div class="card" style="grid-column:1/-1">
           <h3>잔차 <span id="residScale" style="text-transform:none;font-weight:500"></span></h3>
           <div class="plotwrap"><canvas id="residPlot"></canvas></div>
           <div class="note" id="residNote"></div>
@@ -665,6 +704,28 @@
         <div class="reslist" id="resSurfaces"></div>
       </div>
       <div class="grp">
+        <h2>단면 만들기</h2>
+        <div class="row" style="gap:7px">
+          <select id="planeAxis" style="flex:0 0 96px;font:inherit;font-size:13px;
+            padding:6px 8px;border:none;border-radius:9px;background:var(--glass2);
+            box-shadow:inset 0 1px 2px rgba(24,31,42,.10);color:var(--text)">
+            <option value="x">x = 상수</option>
+            <option value="y">y = 상수</option>
+            <option value="z">z = 상수</option>
+          </select>
+          <output id="planeAt" style="flex:1;text-align:right">—</output>
+        </div>
+        <input type="range" id="planePos" min="0" max="1" step="0.002" value="0.5" style="margin-top:9px">
+        <div class="row" style="gap:7px;margin-top:9px">
+          <input type="text" id="planeName" placeholder="cut_1" style="flex:1;font:inherit;
+            font-size:13px;padding:6px 9px;border:none;border-radius:9px;
+            background:var(--glass2);box-shadow:inset 0 1px 2px rgba(24,31,42,.10);
+            color:var(--text)">
+          <button class="btn" id="planeAdd" style="width:auto;padding:7px 15px">만들기</button>
+        </div>
+        <div class="note" id="planeNote"></div>
+      </div>
+      <div class="grp">
         <h2>변수</h2>
         <select id="resVariable" style="width:100%;font:inherit;font-size:13px;
           padding:7px 9px;border:none;border-radius:9px;background:var(--glass2);
@@ -674,6 +735,11 @@
           <input type="range" id="resOpacity" min="0.15" max="1" step="0.05" value="1">
         </div>
         <label class="chk" style="margin-top:6px"><input type="checkbox" id="resEdges"><span class="box"></span>면 격자선 표시</label>
+        <div class="ctrl" style="margin-top:12px">
+          <div class="row"><label for="resBands">컨투어 단계</label><output id="resBandsV">연속</output></div>
+          <input type="range" id="resBands" min="0" max="40" step="1" value="0">
+        </div>
+        <label class="chk" style="margin-top:6px"><input type="checkbox" id="resLines"><span class="box"></span>등고선 그리기</label>
         <button class="btn" id="resRefresh" style="margin-top:10px">다시 불러오기</button>
         <div class="note" id="resNote"></div>
       </div>
@@ -3287,11 +3353,27 @@ Object.assign(STR.ko, {
   res_loaded:(n,lo,hi)=>`면 ${n}개 · 범위 ${lo} ~ ${hi}`,
   res_mock:"MOCK — 가짜 값",
   res_opacity:"rod 벽면 투명도", res_edges:"면 격자선 표시",
+  res_holes:(n)=>` · 유한하지 않은 값 ${n}개 제외 (발산 의심)`,
   res_refresh:"다시 불러오기", res_compute:"선택한 면 계산",
   res_surf:"면", res_val:"값", res_dp:"입구 − 출구 정압",
   res_dpout:(v,u)=>`Δp = <span class="hi">${v}</span> ${u}`,
   h_surfaces:"면 선택", h_variable:"변수", h_values:"면의 값", h_dp:"번들 압력강하",
   h_resid:"잔차", h_mesh:"메시", h_log:"로그", h_journal:"생성된 스크립트",
+  h_plane:"단면 만들기", h_files:"저장 위치",
+  pl_axis:{x:"x = 상수", y:"y = 상수", z:"z = 상수"},
+  pl_add:"만들기", pl_at:(a,v)=>`${a} = ${v}`,
+  pl_made:(n)=>`단면 ${n} 생성 · 면 목록에 추가되었습니다`,
+  pl_need:"먼저 해석을 끝내거나 저장된 결과를 불러오십시오.",
+  pl_name:"이름은 영문자로 시작하고 영문·숫자·_·- 만 쓸 수 있습니다.",
+  pl_del:(n)=>`단면 ${n} 삭제`,
+  res_bands:"컨투어 단계", res_bands_cont:"연속", res_lines:"등고선 그리기",
+  f_copy:"경로 복사", f_open:"폴더 열기", f_refresh:"새로 고침",
+  f_count:(n)=>`· 파일 ${n}개`,
+  f_none:"아직 저장된 파일이 없습니다. 해석을 실행하면 여기에 나타납니다.",
+  f_copied:"경로를 복사했습니다.", f_opened:"파일 탐색기에서 열었습니다.",
+  f_load:"불러오기",
+  f_loading:(n)=>`${n} 를 Fluent에서 여는 중… 계산은 다시 하지 않습니다.`,
+  f_case_hint:"case 파일은 계산을 다시 돌리지 않고 결과만 불러옵니다.",
   reports:{"area-weighted-avg":"면적 가중 평균","facet-min":"최솟값","facet-max":"최댓값",
            "mass-flow-rate":"질량유량","area":"면적"},
   m_cells:"셀 수", m_nodes:"절점 (2-D)", m_cracks:"균열", m_maxdev:"절점 불일치",
@@ -3335,6 +3417,22 @@ Object.assign(STR.en, {
   res_surf:"Surface", res_val:"Value", res_dp:"Inlet − outlet static pressure",
   res_dpout:(v,u)=>`Δp = <span class="hi">${v}</span> ${u}`,
   h_surfaces:"Surfaces", h_variable:"Variable", h_values:"Surface values", h_dp:"Bundle pressure drop",
+  h_plane:"Cutting plane", h_files:"Where the files are",
+  pl_axis:{x:"x = const", y:"y = const", z:"z = const"},
+  pl_add:"Create", pl_at:(a,v)=>`${a} = ${v}`,
+  pl_made:(n)=>`plane ${n} created - it is in the surface list now`,
+  pl_need:"Finish a run first, or open a saved result.",
+  pl_name:"A name starts with a letter and uses letters, digits, _ and - only.",
+  pl_del:(n)=>`delete the plane ${n}`,
+  res_bands:"Contour levels", res_bands_cont:"continuous", res_lines:"Draw contour lines",
+  f_copy:"Copy path", f_open:"Open folder", f_refresh:"Refresh",
+  f_count:(n)=>`· ${n} file(s)`,
+  f_none:"Nothing written yet. Run an analysis and the files appear here.",
+  f_copied:"Path copied.", f_opened:"Opened in the file manager.",
+  f_load:"Open",
+  f_loading:(n)=>`opening ${n} in Fluent - nothing is re-solved`,
+  f_case_hint:"A case file brings the results back without solving again.",
+  res_holes:(n)=>` · ${n} non-finite value(s) left out (suspect divergence)`,
   h_resid:"Residuals", h_mesh:"Mesh", h_log:"Log", h_journal:"Generated script",
   reports:{"area-weighted-avg":"Area-weighted average","facet-min":"Minimum",
            "facet-max":"Maximum","mass-flow-rate":"Mass flow rate","area":"Area"},
@@ -3371,7 +3469,7 @@ function showPane(name){
   document.querySelectorAll("#tabs button").forEach(b=>
     b.classList.toggle("on", b.dataset.pane===name));
   if(name==="geom"){ resize(); needsDraw=true; }
-  if(name==="run"){ sizeResid(); drawResid(); }
+  if(name==="run"){ sizeResid(); drawResid(); refreshFiles(); }
   if(name==="res"){ sizeRes(); drawRes(); }
 }
 document.querySelectorAll("#tabs button").forEach(b=>
@@ -3614,7 +3712,7 @@ $("runStart").addEventListener("click", async ()=>{
   //  them, which is exactly the kind of thing to get wrong at 2am
   logCursor = 0;
   $("runLog").textContent = "";
-  JOB = null;
+  JOB = null; BBOX = null;
   setRunBanner(); renderStages(); renderMeshStats(); drawResid();
   RES.data = []; drawRes();
   $("runStart").disabled = true;
@@ -3652,7 +3750,9 @@ async function poll(){
       $("runStart").disabled = !JOB.finished;
       $("runStop").disabled = !!JOB.finished;
       setRunBanner(); renderStages(); renderMeshStats(); drawResid();
-      if(JOB.finished){ refreshSurfaces(); return; }
+      if(JOB.finished){
+        refreshSurfaces(); refreshFiles(); preparePlanes(); return;
+      }
     }
   }catch(e){ /* the server went away; the banner already says what it can */ }
   pollTimer = setTimeout(poll, 700);
@@ -3751,16 +3851,27 @@ function refreshSurfaces(){
     host.dataset.built = avail.join(",");
     const keep = new Set(chosenSurfaces());
     host.innerHTML="";
+    const planes = (JOB && JOB.planes) || {};
     for(const s of avail){
       const lab=document.createElement("label");
       const cb=document.createElement("input"); cb.type="checkbox"; cb.value=s;
-      cb.checked = keep.size ? keep.has(s) : (s==="wall_rods");
+      cb.checked = (s===PLANE_WANT) ? true
+                 : (keep.size ? keep.has(s) : (s==="wall_rods"));
       const box=document.createElement("span"); box.className="box";
       const txt=document.createTextNode(s);
       lab.className="chk"; lab.append(cb, box, txt);
       cb.addEventListener("change", loadField);
+      if(s in planes){
+        //  a plane is ours to remove; a boundary is not
+        const k=document.createElement("button");
+        k.className="kill"; k.type="button"; k.textContent="\u00d7";
+        k.title=T("pl_del")(s);
+        k.addEventListener("click", ev=>{ ev.preventDefault(); dropPlane(s); });
+        lab.appendChild(k);
+      }
       host.appendChild(lab);
     }
+    PLANE_WANT = null;
   }
   const sel=$("resVariable");
   if(!sel.options.length){
@@ -3780,6 +3891,141 @@ function refreshSurfaces(){
   }
   if(!RES.data.length) loadField();
 }
+/* ====================== where the files are, and reopening one ===========
+   The run writes a mesh, and a case+data if that is ticked.  Saying where
+   they went is half of it; the other half is being able to open one again,
+   because a solution that took an hour should not have to be produced twice
+   to be looked at twice.                                                   */
+function fmtBytes(n){
+  if(n < 1024) return n + " B";
+  const u=["KB","MB","GB"]; let v=n/1024, i=0;
+  while(v>=1024 && i<u.length-1){ v/=1024; i++; }
+  return (v>=100?v.toFixed(0):v.toFixed(1)) + " " + u[i];
+}
+function fmtWhen(t){
+  const d=new Date(t*1000), p=n=>String(n).padStart(2,"0");
+  return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+
+         " "+p(d.getHours())+":"+p(d.getMinutes());
+}
+async function refreshFiles(){
+  if(!SRV) return;
+  try{
+    const j = await api("/api/files");
+    $("outDir").textContent = j.out_dir;
+    $("filesCount").textContent = T("f_count")(j.files.length);
+    const tb=$("filesTable").querySelector("tbody");
+    tb.innerHTML="";
+    if(!j.files.length){ $("filesNote").textContent=T("f_none"); return; }
+    $("filesNote").textContent = T("f_case_hint");
+    for(const f of j.files){
+      const tr=document.createElement("tr");
+      const nm=document.createElement("td"); nm.className="nm"; nm.textContent=f.name;
+      const tg=document.createElement("td");
+      const sp=document.createElement("span");
+      sp.className="tag"+(f.kind==="case"?" case":""); sp.textContent=f.kind;
+      sp.title=f.label||""; tg.appendChild(sp);
+      const sz=document.createElement("td"); sz.className="sz"; sz.textContent=fmtBytes(f.bytes);
+      const wh=document.createElement("td"); wh.className="wh"; wh.textContent=fmtWhen(f.mtime);
+      const ac=document.createElement("td"); ac.style.textAlign="right";
+      if(f.kind==="case"){
+        const b=document.createElement("button");
+        b.className="btn"; b.type="button"; b.textContent=T("f_load");
+        b.style.cssText="width:auto;padding:5px 13px";
+        b.addEventListener("click", ()=>openCase(f.name));
+        ac.appendChild(b);
+      }
+      tr.append(nm, tg, sz, wh, ac); tb.appendChild(tr);
+    }
+  }catch(e){ $("filesNote").textContent = e.message; }
+}
+async function openCase(name){
+  $("filesNote").textContent = T("f_loading")(name);
+  try{
+    //  same reset as starting a run: nothing from the previous one should be
+    //  on screen while this one opens
+    logCursor = 0; $("runLog").textContent = "";
+    JOB = null; BBOX = null; RES.data = []; drawRes(); drawResid();
+    const j = await api("/api/load", {file:name, geometry:GK,
+                                      params:geomParams(), settings:SET});
+    JOB = j.job;
+    showPane("run"); setRunBanner(); renderStages(); poll();
+  }catch(e){ $("filesNote").textContent = e.message; }
+}
+$("filesRefresh").addEventListener("click", refreshFiles);
+$("outOpen").addEventListener("click", async ()=>{
+  try{ await api("/api/open_dir", {}); $("filesNote").textContent=T("f_opened"); }
+  catch(e){ $("filesNote").textContent=e.message; }
+});
+$("outCopy").addEventListener("click", ()=>{
+  const t=$("outDir").textContent;
+  if(navigator.clipboard) navigator.clipboard.writeText(t);
+  $("filesNote").textContent=T("f_copied");
+});
+
+/* =========================== cutting planes ==============================
+   A plane is made in Fluent and then read back like any other surface, so
+   everything downstream - the contour, the surface values, the pressure drop
+   - works on it without knowing it is not a boundary.                      */
+let BBOX = null;                 // the domain box, measured once per run
+
+function planeAxis(){ return $("planeAxis").value || "x"; }
+function planeValue(){
+  if(!BBOX) return null;
+  const k="xyz".indexOf(planeAxis()), u=+$("planePos").value;
+  return BBOX[0][k] + (BBOX[1][k]-BBOX[0][k])*u;
+}
+function showPlaneAt(){
+  const v=planeValue();
+  $("planeAt").textContent = (v===null) ? "—" : T("pl_at")(planeAxis(), fmtSci(v));
+}
+/*  Measure the domain once a run has one, so the plane slider spans
+    something real instead of 0..1 of nothing.  */
+async function preparePlanes(){
+  if(!JOB || !JOB.finished || JOB.error) return;
+  try{ await ensureBBox(); showPlaneAt(); }
+  catch(e){ $("planeNote").textContent = e.message; }
+}
+async function ensureBBox(){
+  if(BBOX) return BBOX;
+  const j = await api("/api/bbox", {});
+  BBOX = j.bbox;
+  return BBOX;
+}
+function nextPlaneName(){
+  const taken=new Set(Object.keys((JOB && JOB.planes) || {}));
+  for(let i=1;i<999;i++){ const n="cut_"+i; if(!taken.has(n)) return n; }
+  return "cut";
+}
+async function addPlane(){
+  const note=$("planeNote");
+  if(!JOB || !JOB.finished || JOB.error){ note.textContent=T("pl_need"); return; }
+  try{
+    await ensureBBox();
+    const name=($("planeName").value || "").trim() || nextPlaneName();
+    if(!/^[A-Za-z][A-Za-z0-9_\-]{0,30}$/.test(name)){ note.textContent=T("pl_name"); return; }
+    const j = await api("/api/plane",
+                        {name:name, axis:planeAxis(), value:planeValue()});
+    JOB.planes = j.planes; JOB.surfaces = j.surfaces;
+    note.textContent = T("pl_made")(name);
+    $("planeName").value = "";
+    PLANE_WANT = name;              // show it as soon as the list is rebuilt
+    refreshSurfaces();
+    loadField();                    // it was just ticked, so it has to be fetched
+  }catch(e){ note.textContent = e.message; }
+}
+let PLANE_WANT = null;
+async function dropPlane(name){
+  try{
+    const j = await api("/api/plane_delete", {name:name});
+    JOB.planes = j.planes; JOB.surfaces = j.surfaces;
+    RES.data = RES.data.filter(f=>f.surface!==name);
+    refreshSurfaces(); loadField();
+  }catch(e){ $("planeNote").textContent = e.message; }
+}
+$("planeAdd").addEventListener("click", addPlane);
+$("planeAxis").addEventListener("change", ()=>{ showPlaneAt(); });
+$("planePos").addEventListener("input", ()=>{ paintRange($("planePos")); showPlaneAt(); });
+
 function chosenSurfaces(){
   return Array.prototype.slice.call(
     $("resSurfaces").querySelectorAll("input:checked")).map(c=>c.value);
@@ -3816,9 +4062,7 @@ async function loadField(){
     RES.centre=[0,1,2].map(k=>(bb[0][k]+bb[1][k])/2);
     RES.radius=0.55*Math.hypot(bb[1][0]-bb[0][0],bb[1][1]-bb[0][1],bb[1][2]-bb[0][2])||1;
     $("resNote").textContent = T("res_loaded")(got.length, fmtSci(lo), fmtSci(hi))
-      + (holes ? (LANG==="ko"
-          ? " · 유한하지 않은 값 " + holes + "개는 제외했습니다 (발산 의심)"
-          : " · " + holes + " non-finite value(s) left out (suspect divergence)") : "");
+      + (holes ? T("res_holes")(holes) : "");
     const w=$("resWarn");
     w.classList.toggle("show", RES.mock);
     w.classList.toggle("err", RES.mock);
@@ -3841,6 +4085,42 @@ function resProject(p){
   const s=Math.min(xw,xh)*0.42/RES.radius*RES.zoom;
   return [xw/2+v[0]*s+RES.panX, xh/2-v[1]*s+RES.panY, v[2]];
 }
+/*  Contour levels.  0 bands means the continuous scale - every facet takes
+    the colour of its own mean.  With N bands the value is quantised to the
+    middle of its band before it is coloured, which is what makes a contour
+    plot read as one: flat areas of colour with a definite edge between them,
+    rather than a smear.                                                    */
+function bandCount(){ return Math.max(0, Math.round(+$("resBands").value||0)); }
+function quantise(t, n){
+  if(n <= 0) return t;                       // continuous
+  const k = Math.min(n-1, Math.max(0, Math.floor(t*n)));
+  return (k+0.5)/n;                          // the band's own colour
+}
+/*  Where the contour LINES go: the band edges, in data units.  */
+function levelValues(n){
+  const out=[];
+  for(let k=1;k<n;k++) out.push(RES.lo + (RES.hi-RES.lo)*k/n);
+  return out;
+}
+/*  One face, one level: the segment where the level crosses it.
+
+    Marching squares on an arbitrary polygon - walk the edges, note where the
+    value passes through the level, and join the crossings in pairs.  Two
+    crossings is the ordinary case; four is a saddle, and joining them in
+    edge order is one of the two valid resolutions.                         */
+function crossSegments(pts, vals, level){
+  const hits=[], n=pts.length;
+  for(let i=0;i<n;i++){
+    const j=(i+1)%n, a=vals[i], b=vals[j];
+    if((a<level) === (b<level)) continue;    // no crossing on this edge
+    const u=(level-a)/(b-a || 1e-30);
+    hits.push([pts[i][0]+(pts[j][0]-pts[i][0])*u,
+               pts[i][1]+(pts[j][1]-pts[i][1])*u]);
+  }
+  const segs=[];
+  for(let i=0;i+1<hits.length;i+=2) segs.push([hits[i], hits[i+1]]);
+  return segs;
+}
 function drawRes(){
   if(!xw) sizeRes();
   xctx.clearRect(0,0,xw,xh);
@@ -3849,6 +4129,9 @@ function drawRes(){
   const span = Math.max(1e-30, RES.hi-RES.lo);
   const opacity = +$("resOpacity").value;
   const edges = $("resEdges").checked;
+  const nb = bandCount();
+  const lines = $("resLines").checked && nb > 1;
+  const levels = lines ? levelValues(nb) : [];
   const tris=[];
   for(const f of RES.data){
     const pp = f.vertices.map(resProject);
@@ -3861,8 +4144,10 @@ function drawRes(){
         d+=pp[i][2]; val+=v;
       }
       if(!ok) continue;
+      const t=(val/face.length-RES.lo)/span;
       tris.push({pts:face.map(i=>pp[i]), depth:d/face.length,
-                 t:(val/face.length-RES.lo)/span, dim:dim});
+                 t:t, dim:dim,
+                 vals: lines ? face.map(i=>f.values[i]) : null});
     }
   }
   tris.sort((a,b)=>a.depth-b.depth);
@@ -3873,27 +4158,59 @@ function drawRes(){
     for(let i=1;i<f.pts.length;i++) xctx.lineTo(f.pts[i][0], f.pts[i][1]);
     xctx.closePath();
     xctx.globalAlpha = f.dim;
-    xctx.fillStyle = cmap(f.t, CM);
+    xctx.fillStyle = cmap(quantise(f.t, nb), CM);
     xctx.fill();
     if(edges){ xctx.globalAlpha=f.dim*0.5;
       xctx.strokeStyle="rgba(0,0,0,.25)"; xctx.lineWidth=0.4; xctx.stroke(); }
   }
-  xctx.globalAlpha=1;
-  // colour bar
-  const bw=Math.min(210, xw*0.32), bh=9, bx=xw-bw-26, by=xh-34;
-  for(let i=0;i<bw;i++){
-    xctx.fillStyle=cmap(i/bw, CM); xctx.fillRect(bx+i, by, 1, bh);
+  if(lines){
+    xctx.globalAlpha=1; xctx.strokeStyle="rgba(18,22,28,.62)"; xctx.lineWidth=0.9;
+    xctx.beginPath();
+    for(const f of tris){
+      if(!f.vals) continue;
+      for(const lv of levels)
+        for(const sg of crossSegments(f.pts, f.vals, lv)){
+          xctx.moveTo(sg[0][0], sg[0][1]); xctx.lineTo(sg[1][0], sg[1][1]);
+        }
+    }
+    xctx.stroke();
   }
-  xctx.font="11px "+uiFont(); xctx.fillStyle=getComputedStyle(document.body).color;
-  xctx.textAlign="left";  xctx.fillText(fmtSci(RES.lo), bx, by-6);
-  xctx.textAlign="right"; xctx.fillText(fmtSci(RES.hi), bx+bw, by-6);
+  xctx.globalAlpha=1;
+  drawColourBar(CM, nb);
+}
+function drawColourBar(CM, nb){
+  const bw=Math.min(240, xw*0.34), bh=10, bx=xw-bw-26, by=xh-38;
+  for(let i=0;i<bw;i++){
+    xctx.fillStyle=cmap(quantise(i/bw, nb), CM); xctx.fillRect(bx+i, by, 1, bh);
+  }
+  xctx.strokeStyle="rgba(24,31,42,.28)"; xctx.lineWidth=1;
+  xctx.strokeRect(bx+0.5, by+0.5, bw-1, bh-1);
+  xctx.font="10px "+uiFont(); xctx.fillStyle=getComputedStyle(document.body).color;
+  //  label the band edges when there are few enough to read, otherwise five
+  //  ticks - a bar with forty numbers on it is not a scale
+  const ticks = (nb>1 && nb<=10) ? nb : 4;
+  xctx.textBaseline="alphabetic";
+  for(let k=0;k<=ticks;k++){
+    const u=k/ticks, x=bx+bw*u;
+    xctx.strokeStyle="rgba(24,31,42,.34)";
+    xctx.beginPath(); xctx.moveTo(x, by); xctx.lineTo(x, by-3); xctx.stroke();
+    xctx.textAlign = k===0 ? "left" : (k===ticks ? "right" : "center");
+    xctx.fillText(fmtSci(RES.lo+(RES.hi-RES.lo)*u), x, by-6);
+  }
   xctx.textAlign="center";
   const vd=SRV.variables[RES.variable];
-  xctx.fillText(L(vd)+" ["+vd.unit+"]", bx+bw/2, by+bh+11);
+  xctx.font="11px "+uiFont();
+  xctx.fillText(L(vd)+" ["+vd.unit+"]"+(nb>0?"  ·  "+nb:""), bx+bw/2, by+bh+12);
 }
 $("resVariable").addEventListener("change", loadField);
 $("resRefresh").addEventListener("click", loadField);
 $("resEdges").addEventListener("change", drawRes);
+$("resLines").addEventListener("change", drawRes);
+$("resBands").addEventListener("input", ()=>{
+  const n=bandCount();
+  $("resBandsV").textContent = n ? String(n) : T("res_bands_cont");
+  paintRange($("resBands")); drawRes();
+});
 $("resOpacity").addEventListener("input", ()=>{
   $("resOpacityV").textContent=(+$("resOpacity").value).toFixed(2);
   paintRange($("resOpacity")); drawRes();
@@ -3968,7 +4285,14 @@ window.__appLang = function(){
   $("resRefresh").textContent=T("res_refresh");
   $("resCompute").textContent=T("res_compute");
   $("resDP").textContent=T("res_dp");
-  const hs={resSurfaces:"h_surfaces", resVariable:"h_variable",
+  $("planeAdd").textContent=T("pl_add");
+  $("outCopy").textContent=T("f_copy");
+  $("outOpen").textContent=T("f_open");
+  $("filesRefresh").textContent=T("f_refresh");
+  for(const o of $("planeAxis").options) o.textContent=T("pl_axis")[o.value];
+  const fh=$("filesTable").closest(".card").querySelector("h3");
+  if(fh) fh.firstChild.nodeValue = T("h_files")+" ";
+  const hs={resSurfaces:"h_surfaces", planeAxis:"h_plane", resVariable:"h_variable",
             resReport:"h_values", resDP:"h_dp"};
   for(const id in hs){
     const el=$(id); if(!el) continue;
@@ -3977,6 +4301,13 @@ window.__appLang = function(){
   }
   const lab=document.querySelector('label[for="resOpacity"]');
   if(lab) lab.textContent=T("res_opacity");
+  const lb=document.querySelector('label[for="resBands"]');
+  if(lb) lb.textContent=T("res_bands");
+  const ln=$("resLines");
+  if(ln && ln.parentElement.lastChild.nodeType===3)
+    ln.parentElement.lastChild.nodeValue=T("res_lines");
+  $("resBandsV").textContent = bandCount() ? String(bandCount()) : T("res_bands_cont");
+  showPlaneAt(); refreshFiles();
   const ed=$("resEdges");
   if(ed && ed.parentElement.lastChild.nodeType===3)
     ed.parentElement.lastChild.nodeValue=T("res_edges");
@@ -4043,7 +4374,9 @@ function stampVersion(){
       + SET_DROPPED.join(", ");
   }
   buildSettings();
-  paintRange($("resOpacity"));
+  paintRange($("resOpacity")); paintRange($("resBands")); paintRange($("planePos"));
+  $("resBandsV").textContent = T("res_bands_cont");
+  refreshFiles();
   renderStages(); setRunBanner();
   poll();                       // pick up a run that is already going
 })();

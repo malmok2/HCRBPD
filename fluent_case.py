@@ -144,6 +144,7 @@ PATHS = {
 
     "read_mesh":       "file.read_mesh",
     "write_case_data": "file.write_case_data",
+    "read_case_data":  "file.read_case_data",
 
     "si_area_avg":     "results.report.surface_integrals.get_area_weighted_avg|"
                        "results.report.surface_integrals.area_weighted_avg",
@@ -742,7 +743,8 @@ def audit_paths(versions=("242", "251", "252", "261", "271")):
         for f in g["fields"]:
             for key in f.get("paths", ()):
                 used.setdefault(key, set()).add(g["id"] + "." + f["id"])
-    for key in ("read_mesh", "write_case_data", "set_zone_type", "iterate",
+    for key in ("read_mesh", "write_case_data", "read_case_data",
+                "set_zone_type", "iterate",
                 "interrupt", "si_area_avg", "si_mass_flow", "si_facet_min",
                 "si_facet_max", "si_area", "plane_surface", "inlet_components",
                 "hybrid_init", "standard_init", "init_type", "residual_eqs",
@@ -803,6 +805,10 @@ class BaseDriver(object):
     def close(self):         pass
     # results ------------------------------------------------------------
     def surfaces(self):                       raise NotImplementedError
+    def load_case(self, path):                raise NotImplementedError
+    def bbox(self):                           raise NotImplementedError
+    def make_plane(self, name, axis, value):  raise NotImplementedError
+    def drop_plane(self, name):               raise NotImplementedError
     def variables(self):                      raise NotImplementedError
     def field(self, surface, variable):       raise NotImplementedError
     def report(self, kind, surfaces, variable): raise NotImplementedError
@@ -1301,6 +1307,83 @@ class FluentDriver(BaseDriver):
                 names.append(n)
         return names
 
+    #  method name per axis: the plane is the one the OTHER two axes span.
+    #  The same spelling in every release from 2024 R2 to 2027 R1.
+    PLANE_METHOD = {"x": "yz-plane", "y": "zx-plane", "z": "xy-plane"}
+
+    def make_plane(self, name, axis, value):
+        """A constant-x, -y or -z cut through the domain, as a named surface.
+
+        Fluent then treats it exactly like a boundary patch, so the contour,
+        the surface integrals and the field request need no special case for
+        it - a plane is just another name in the surface list.
+        """
+        if axis not in self.PLANE_METHOD:
+            raise DriverError("axis must be x, y or z, not %r" % axis)
+        ps = self._obj("plane_surface")
+        ps[name] = {}                          # create, then configure
+        pl = ps[name]
+        self._soft("plane method",
+                   lambda: setattr(pl, "method", self.PLANE_METHOD[axis]))
+        setattr(pl, axis, float(value))
+        self.log("plane %s: %s = %g" % (name, axis, value))
+        return name
+
+    def drop_plane(self, name):
+        ps = self._obj("plane_surface")
+        try:
+            del ps[name]
+            return True
+        except Exception as exc:                        # noqa: BLE001
+            self.log("  could not delete the plane %s (%s)" % (name, exc))
+            return False
+
+    def bbox(self):
+        """The domain's bounding box in Fluent's own coordinates.
+
+        Every boundary except the rods together wrap the domain, so their
+        vertices bound it exactly - and they are small patches, which is why
+        this asks for those rather than for the cells.
+        """
+        import ansys.fluent.core as pf
+        want = [n for n in PATCHES if n != "wall_rods"]
+        lo = [1e30] * 3
+        hi = [-1e30] * 3
+        fd = self.solver.fields.field_data
+        for name in want:
+            try:
+                geo = fd.get_field_data(pf.SurfaceFieldDataRequest(
+                    surfaces=[name], data_types=[pf.SurfaceDataType.Vertices]))
+                verts = _as_list(getattr(geo[name], "vertices", None))
+            except Exception as exc:                    # noqa: BLE001
+                self.log("  (no vertices for %s: %s)" % (name, exc))
+                continue
+            for q in verts:
+                for k in range(3):
+                    if q[k] is None:
+                        continue
+                    if q[k] < lo[k]:
+                        lo[k] = q[k]
+                    if q[k] > hi[k]:
+                        hi[k] = q[k]
+        if lo[0] > hi[0]:
+            raise DriverError("could not measure the domain: no boundary "
+                              "vertices came back from Fluent")
+        return [lo, hi]
+
+    def load_case(self, path):
+        """Reopen a written case+data instead of meshing and iterating again.
+
+        Everything downstream - surfaces, planes, fields, reports - works off
+        the loaded solution exactly as it does off a fresh one, because none
+        of it knows or cares how the data got into Fluent.
+        """
+        self.log("reading case and data: %s" % path)
+        self._obj("read_case_data")(file_name=path)
+        self.log("loaded; surfaces: %s" % ", ".join(self.surfaces()[:8]))
+        self.collect_residuals(quiet=True)
+        return True
+
     def variables(self):
         return list(VARIABLES)
 
@@ -1458,6 +1541,7 @@ class MockDriver(BaseDriver):
         BaseDriver.__init__(self, *a, **kw)
         self.mesh = None
         self._surf = {}
+        self._planes = {}
 
     def launch(self):
         self.log("MOCK backend - no Fluent is being launched")
@@ -1505,13 +1589,142 @@ class MockDriver(BaseDriver):
 
     # -- results ----------------------------------------------------------
     def surfaces(self):
-        return list(PATCHES)
+        return list(PATCHES) + sorted(self._planes)
 
     def variables(self):
         return list(VARIABLES)
 
+    #  planes the mock has been asked for: name -> (axis, exported value)
+    def make_plane(self, name, axis, value):
+        if axis not in ("x", "y", "z"):
+            raise DriverError("axis must be x, y or z, not %r" % axis)
+        self._planes[name] = (axis, float(value))
+        self._surf.pop(name, None)
+        self.log("MOCK plane %s: %s = %g" % (name, axis, value))
+        return name
+
+    def drop_plane(self, name):
+        self._planes.pop(name, None)
+        self._surf.pop(name, None)
+        return True
+
+    def load_case(self, path):
+        self.log("MOCK: pretending to read %s" % os.path.basename(path))
+        if self.mesh is None:
+            self.setup()
+        return True
+
+    def bbox(self):
+        """The domain's exported bounding box, which the plane sliders span."""
+        if self.mesh is None:
+            self.setup()
+        c = self.case
+        lo = [1e30] * 3
+        hi = [-1e30] * 3
+        for q in self.mesh.points:
+            e = c.XP(q)
+            for k in range(3):
+                if e[k] < lo[k]:
+                    lo[k] = e[k]
+                if e[k] > hi[k]:
+                    hi[k] = e[k]
+        return [lo, hi]
+
+    def _flat_axis(self, axis, want):
+        """The FLAT coordinate whose exported image is `want` on this axis.
+
+        The mock cuts the mesh in its own flat space, but the UI works in the
+        exported coordinates Fluent would use, so the two have to be tied
+        together.  For the rod family the map is a scale and this is exact;
+        for a rolled coil the export mixes the axes and this is the value at
+        the middle of the other two, which is why a mock plane on a coil is
+        indicative rather than exact.  It is a mock.
+        """
+        c = self.case
+        k = "xyz".index(axis)
+        span = {"x": c.l_tot, "y": c.W, "z": c.H}[axis]
+        mid = [c.l_tot * 0.5, c.W * 0.5, c.H * 0.5]
+
+        def exported(t):
+            q = list(mid)
+            q[k] = t
+            return c.XP(q)[k]
+
+        lo, hi = 0.0, span
+        f_lo, f_hi = exported(lo), exported(hi)
+        if f_hi < f_lo:
+            lo, hi, f_lo, f_hi = hi, lo, f_hi, f_lo
+        if want <= f_lo:
+            return lo
+        if want >= f_hi:
+            return hi
+        for _ in range(60):                       # monotonic: plain bisection
+            mid_t = 0.5 * (lo + hi)
+            if exported(mid_t) < want:
+                lo = mid_t
+            else:
+                hi = mid_t
+        return 0.5 * (lo + hi)
+
+    def _plane_geometry(self, name):
+        """A structured cut across the domain, with the rods punched out.
+
+        Built in flat space and then exported, so the rod footprint is a plain
+        ellipse test and the cut of a rolled coil comes out curved, the way
+        the real one does.
+        """
+        axis, want = self._planes[name]
+        c, m = self.case, self.mesh
+        k = "xyz".index(axis)
+        t = self._flat_axis(axis, want)
+        free = [i for i in range(3) if i != k]
+        span = [c.l_tot, c.W, c.H]
+        n = [132, 88]
+        idx, verts, faces = {}, [], []
+
+        def node(a, b):
+            key = (a, b)
+            j = idx.get(key)
+            if j is None:
+                q = [0.0, 0.0, 0.0]
+                q[k] = t
+                q[free[0]] = span[free[0]] * a / n[0]
+                q[free[1]] = span[free[1]] * b / n[1]
+                j = len(verts)
+                idx[key] = j
+                verts.append(list(c.XP(q)))
+            return j
+
+        def in_rod(a, b):
+            """Is the centre of this cell inside a rod footprint?"""
+            q = [0.0, 0.0, 0.0]
+            q[k] = t
+            q[free[0]] = span[free[0]] * (a + 0.5) / n[0]
+            q[free[1]] = span[free[1]] * (b + 0.5) / n[1]
+            for (cx, cy) in m.centres:
+                if ((q[0] - cx) / c.aE) ** 2 + ((q[1] - cy) / c.bE) ** 2 < 1.0:
+                    return True
+            return False
+
+        for a in range(n[0]):
+            for b in range(n[1]):
+                if in_rod(a, b):
+                    continue                    # a hole, not a cell
+                faces.append([node(a, b), node(a + 1, b),
+                              node(a + 1, b + 1), node(a, b + 1)])
+        return verts, faces
+
     def _patch_geometry(self, surface):
-        """Vertices and quad connectivity of one patch, in exported metres."""
+        """Vertices and quad connectivity of one surface, in exported metres.
+
+        A plane the user made is a surface like any other from here on, which
+        is what lets the field, the contour and the reports treat it the same
+        way Fluent does.
+        """
+        if surface in self._planes:
+            if surface not in self._surf:
+                self._surf[surface] = self._plane_geometry(surface)
+            return self._surf[surface]
         if surface in self._surf:
             return self._surf[surface]
         m, c = self.mesh, self.case

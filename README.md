@@ -58,8 +58,23 @@ than a guess, and turns orange when the checkout has uncommitted edits.
 
 It serves the same page on `127.0.0.1` (loopback only) and opens it. The
 Settings tab configures the Fluent case, the Run tab meshes, launches Fluent and
-plots residuals live, and the Results tab pulls fields back and draws contours on
-any patch, with area-weighted averages, mass flows and the bundle pressure drop.
+plots residuals live, and the Results tab pulls fields back and draws contours,
+with area-weighted averages, mass flows and the bundle pressure drop.
+
+**Contours on a plane, not just on the boundary.** The Results tab cuts a
+constant-x, -y or -z plane through the domain — the slider moves it in real
+coordinates over the measured extent of the case — and Fluent then treats that
+plane as a surface like any other, so the contour, the surface values and the
+reports all work on it with no special case. Levels are continuous by default;
+set a band count and the fill quantises to those bands, optionally with the
+contour lines drawn on the band edges, and the colour bar labels them.
+
+**Where the files went, and getting them back.** The Run tab opens with the
+output folder, its path ready to copy, a button that opens it in the file
+manager, and everything written so far with its kind, size and time. A case file
+carries an Open button: it reopens that case and its data in Fluent and lands in
+the Results tab with nothing re-solved, because a solution that took an hour
+should not have to be produced twice to be looked at twice.
 `python3 app.py --backend mock` runs the whole thing with an invented field and
 no Fluent, which is how the plumbing is tested; anything it produces is labelled
 MOCK on screen and must not be quoted as a result.
