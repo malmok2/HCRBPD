@@ -383,6 +383,7 @@ class App(object):
             "fluent_available": FC.fluent_available(),
             "fluent_installed": installed,
             "fluent_detail": detail,
+            "versions": FC.installed_versions(),
             "effective_backend": ("mock" if self.backend == "mock"
                                   else ("fluent" if installed else "mock")),
             "backend": self.backend,
@@ -738,6 +739,10 @@ def main(argv=None):
         print(" backend        : mock (forced) - nothing it produces is a result")
     elif installed:
         print(" backend        : %s -> Fluent %s" % (a.backend, detail))
+        have = [r["label"] for r in FC.installed_versions() if r["installed"]]
+        if len(have) > 1:
+            print(" releases       : %s  (pick one on the Settings tab)"
+                  % ", ".join(have))
     else:
         print(" backend        : %s -> no Fluent found, the MOCK will be used" % a.backend)
         print("                  %s" % detail)

@@ -3445,6 +3445,7 @@ Object.assign(STR.ko, {
   cm_div_note:"가운데가 가장 밝고 양쪽으로 어두워집니다. 기준값이 있는 양(출구 대비 압력 등)에 적합합니다.",
   cm_rain_note:"밝기가 단조롭지 않아 데이터에 없는 경계가 보입니다. 색각 이상에서는 순서를 읽을 수 없습니다.",
   cm_walls:"y+는 벽면에만 있습니다. 벽면이 아닌 면에서는 값이 오지 않습니다.",
+  v_here:"설치됨", v_absent:"이 PC에 없음",
   res_save:"선택한 면 저장 (모든 변수)",
   res_saving:"저장 중… 변수마다 한 번씩 읽어옵니다.",
   res_saved:(f,mb)=>`${f} 저장 · ${mb} MB · Fluent 없이 다시 열 수 있습니다`,
@@ -3527,6 +3528,7 @@ Object.assign(STR.en, {
   cm_div_note:"Lightest in the middle, darker both ways. For a quantity with a meaningful zero, such as pressure about the outlet.",
   cm_rain_note:"Lightness is not monotonic, so it shows edges the data does not have, and the order cannot be read with colour-blindness.",
   cm_walls:"y+ exists on walls only; a non-wall surface returns nothing for it.",
+  v_here:"installed", v_absent:"not on this machine",
   res_save:"Save the chosen surfaces (all variables)",
   res_saving:"saving - one read per variable…",
   res_saved:(f,mb)=>`${f} saved · ${mb} MB · reopens with no Fluent`,
@@ -3608,6 +3610,26 @@ function fieldVisible(f){
 }
 function L(o){ return (LANG==="ko" ? o.ko : o.en) || o.en || o.ko || o.id; }
 
+/*  Mark the Fluent releases this machine actually has.  The schema offers
+    every release the app knows - that list is static so the audit can check
+    it - and the server says which are installed, which is a property of the
+    workstation and changes when a licence or an install does.              */
+function markInstalledVersions(){
+  const sel = $("s_launch_version");
+  if(!sel || !SRV || !SRV.versions) return;
+  const by = {};
+  for(const r of SRV.versions) by[r.key] = r;
+  for(const o of sel.options){
+    const r = by[o.value];
+    if(!r) continue;
+    const base = o.textContent.replace(/\s*[·—].*$/, "");
+    o.textContent = base + (r.installed ? "  · " + T("v_here") : "  — " + T("v_absent"));
+    o.title = r.detail || "";
+  }
+  const cur = by[sel.value];
+  const note = document.querySelector('.note[data-for-field="version"]');
+  if(note && cur) note.title = cur.detail || "";
+}
 function buildSettings(){
   const host = $("setCards");
   host.innerHTML = "";
@@ -4775,7 +4797,7 @@ window.__appLang = function(){
   if(ed && ed.parentElement.lastChild.nodeType===3)
     ed.parentElement.lastChild.nodeValue=T("res_edges");
   document.querySelectorAll('.card h3').forEach(()=>{});
-  if(SRV){ buildSettings();
+  if(SRV){ buildSettings(); markInstalledVersions();
            $("setBanner").className = bannerClass();
            $("setBanner").innerHTML = bannerHTML(); }
   renderStages(); setRunBanner(); renderMeshStats(); drawResid(); drawDp(); drawRes();
@@ -4837,7 +4859,7 @@ function stampVersion(){
       + SET_DROPPED.join(", ");
   }
   buildSettings();
-  buildCmapPicker(); paintCmapBar();
+  buildCmapPicker(); paintCmapBar(); markInstalledVersions();
   paintRange($("resOpacity")); paintRange($("resBands")); paintRange($("planePos"));
   $("resBandsV").textContent = T("res_bands_cont");
   refreshFiles();

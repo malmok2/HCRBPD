@@ -212,9 +212,23 @@ SETTINGS = [
              "ko": "정밀도", "en": "Precision",
              "choices": _c(("double", "배정밀도", "Double"),
                            ("single", "단정밀도", "Single"))},
-            {"id": "version", "kind": "text", "default": "",
-             "ko": "Fluent 버전 (빈칸 = 자동)", "en": "Fluent version (blank = auto)",
-             "hint_ko": "예: 26.1.0", "hint_en": "e.g. 26.1.0"},
+            #  The choices are static so the panel and the audit agree on them;
+            #  which ones are actually INSTALLED is a property of the machine,
+            #  so the server reports that separately and the panel marks them.
+            {"id": "version", "kind": "choice", "default": "",
+             "ko": "Fluent 버전", "en": "Fluent version",
+             "choices": _c(("", "자동 (설치된 최신)", "Automatic (newest installed)"),
+                           ("271", "2027 R1", "2027 R1"),
+                           ("261", "2026 R1", "2026 R1"),
+                           ("252", "2025 R2", "2025 R2"),
+                           ("251", "2025 R1", "2025 R1"),
+                           ("242", "2024 R2", "2024 R2")),
+             "note_ko": "이 버전으로 Fluent를 띄우고, 생성되는 스크립트도 같은 "
+                        "릴리스의 settings API 철자로 씁니다. 설치된 버전은 "
+                        "목록에 표시됩니다.",
+             "note_en": "Launches Fluent at this release, and writes the generated "
+                        "script against the same release's settings-API spelling. "
+                        "Which releases are installed is marked in the list."},
             {"id": "ui_mode", "kind": "choice", "default": "no_gui",
              "ko": "UI 모드", "en": "UI mode",
              "choices": _c(("no_gui", "GUI 없음", "No GUI"),
@@ -542,6 +556,16 @@ def merge_settings(user, notes=None):
 def validate(s):
     """Problems that would waste a solver run.  Returns a list of messages."""
     msgs = []
+    want = str(s.get("launch", {}).get("version", "") or "").strip()
+    if want:
+        rows = {r["key"]: r for r in installed_versions()}
+        row = rows.get(want)
+        if row is not None and not row["installed"]:
+            here = [r["label"] for r in rows.values() if r["installed"]]
+            msgs.append("Fluent %s was chosen but is not installed here (%s)%s"
+                        % (row["label"], row["detail"],
+                           ("; installed: " + ", ".join(here)) if here
+                           else "; no release was found at all"))
     if s["material"]["density"] <= 0:
         msgs.append("density must be positive")
     if s["material"]["viscosity"] <= 0:
@@ -876,8 +900,16 @@ class FluentDriver(BaseDriver):
                   processor_count=int(L.get("processors", 4)),
                   mode="solver", dimension=3,
                   ui_mode=("gui" if L.get("ui_mode") == "gui" else "no_gui"))
-        if str(L.get("version", "")).strip():
-            kw["product_version"] = str(L["version"]).strip()
+        want = str(L.get("version", "")).strip()
+        if want:
+            #  the panel stores '251'; PyFluent's own spelling is '25.1.0', and
+            #  passing that rather than relying on its abbreviation rules keeps
+            #  the log readable and the intent explicit
+            row = next((r for r in RELEASES if r[0] == want), None)
+            kw["product_version"] = row[1] if row else want
+            self.log("asked for Fluent %s" % (row[2] if row else want))
+        else:
+            self.log("no release chosen; PyFluent will take the newest installed")
         self.log("launch_fluent(%s)" % ", ".join("%s=%r" % kv for kv in sorted(kw.items())))
         try:
             self.solver = pf.launch_fluent(**kw)
@@ -888,7 +920,14 @@ class FluentDriver(BaseDriver):
                 "(PyFluent finds it that way) and that a licence is reachable.\n"
                 "  To work on the app itself without Fluent, restart with "
                 "--backend mock." % exc)
-        self.log("connected: %s" % getattr(self.solver, "get_fluent_version", lambda: "?")())
+        got = getattr(self.solver, "get_fluent_version", lambda: "?")()
+        self.log("connected: %s" % got)
+        if want:
+            row = next((r for r in RELEASES if r[0] == want), None)
+            if row and row[1] not in str(got) and row[2] not in str(got):
+                self.log("  NOTE: %s was asked for but %s answered - the run and "
+                         "the generated script may not be the same release"
+                         % (row[2], got))
 
     def check_enums(self):
         """Ask the live Fluent about every enum string this run will send.
@@ -1977,6 +2016,55 @@ def fluent_available():
         return True
     except Exception:                                   # noqa: BLE001
         return False
+
+
+#  The releases this app knows, newest first.  The same five the settings-path
+#  audit covers, which is not a coincidence: a release the audit cannot check
+#  is a release this should not silently offer to launch.
+RELEASES = [
+    ("271", "27.1.0", "2027 R1"),
+    ("261", "26.1.0", "2026 R1"),
+    ("252", "25.2.0", "2025 R2"),
+    ("251", "25.1.0", "2025 R1"),
+    ("242", "24.2.0", "2024 R2"),
+]
+
+
+def installed_versions():
+    """Which of the releases are actually on this machine.
+
+    PyFluent finds Fluent through AWP_ROOT<nnn>, then checks the executable is
+    really there - so the same two steps here, per release, rather than only
+    asking for the newest.  A lab licence on one release and a student one on
+    another is the normal case, not an edge case.
+
+    Returns a list of dicts, newest first, each with `installed` set.
+    """
+    out = []
+    try:
+        from ansys.fluent.core.utils.fluent_version import FluentVersion
+    except Exception:                                   # noqa: BLE001
+        FluentVersion = None
+    for key, value, label in RELEASES:
+        row = {"key": key, "value": value, "label": label,
+               "installed": False, "detail": ""}
+        if FluentVersion is not None:
+            try:
+                member = FluentVersion(value)
+                root = os.environ.get(member.awp_var)
+                if root:
+                    row["detail"] = member.awp_var + " = " + root
+                    try:
+                        member.get_fluent_exe_path()
+                        row["installed"] = True
+                    except Exception as exc:            # noqa: BLE001
+                        row["detail"] += "  (%s)" % str(exc).split("\n")[0]
+                else:
+                    row["detail"] = member.awp_var + " is not set"
+            except Exception as exc:                    # noqa: BLE001
+                row["detail"] = str(exc).split("\n")[0]
+        out.append(row)
+    return out
 
 
 def fluent_installed():

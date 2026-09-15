@@ -43,6 +43,18 @@ Note the `-b`: the work is on that branch, not on `main`. The files the app
 writes are LF on every platform, including Windows, so a polyMesh written on a
 Windows workstation drops straight onto a Linux cluster.
 
+**Two Fluent releases on one machine is the normal case** — a lab licence on
+one, a student install on another — so the release is a setting, not a guess.
+The Settings tab lists every release the app knows and marks which are actually
+here, found the way PyFluent finds them (`AWP_ROOT<nnn>`, then the executable),
+with the variable and its value on the tooltip. Picking one launches Fluent at
+that release *and* writes the generated script against the same release's
+settings-API spelling, which is not cosmetic: 2024 R2 keeps the discretisation
+schemes shallower and 2027 R1 calls `models.viscous` `models.turbulence`.
+Choosing a release that is not installed is said in the run log before Fluent
+is launched, not a minute into it, and the log says so again if a different
+release answers than the one asked for.
+
 `app.py` prints what it found before serving — `backend: auto -> Fluent 26.1.0`
 if it can drive the real thing, or the reason it cannot. PyFluent locates Fluent
 through the `AWP_ROOT<version>` environment variable that the Ansys installer
