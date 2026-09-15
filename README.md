@@ -81,6 +81,15 @@ The Settings tab also emits the equivalent standalone PyFluent script, written
 for the release you pick, so a case can be reproduced and archived without the
 app.
 
+One unit is worth knowing: the settings API takes turbulent intensity as a
+**fraction** while the panel asks for a percentage, and this is documented in
+neither the API nor the shipped examples. It was settled by measurement —
+0.05 written through the API shows as 5 in the Turbulent Intensity box of
+Fluent 2025 R1 — so the app divides the panel value by 100. Every run re-reads
+it back out of Fluent and compares, and says so if a release ever changes the
+convention, rather than quietly running the case at a hundredth of the
+intended turbulence.
+
 ## Four geometries, one tool
 
 Pick the geometry from the panel at the top left. They differ in two

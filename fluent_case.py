@@ -788,11 +788,16 @@ class FluentDriver(BaseDriver):
 
         Writing a setting is not the same as Fluent holding what you meant, and
         a wrong turbulent intensity is invisible in the residuals and obvious
-        only in the answer.  In particular the settings API takes intensity as
-        a FRACTION - the panel asks for a percentage and this divides by 100 -
-        which is documented nowhere in the API itself.  Printing what Fluent
-        actually holds turns that assumption into something the first run
-        confirms or refutes, instead of a guess nobody ever checks.
+        only in the answer.
+
+        The intensity unit is the case in point.  The settings API takes it as
+        a FRACTION while the panel asks for a percentage, so this divides by
+        100 - and that is documented in neither the API nor the shipped
+        examples.  It was settled by measurement instead: writing 0.05 through
+        the API put 5 in the Turbulent Intensity box of Fluent 2025 R1.  The
+        read-back below is checked against what was sent, so if a release ever
+        changes the convention this says so rather than quietly running a case
+        at a hundredth of the intended turbulence.
         """
         S, s = self.solver.settings, self.s
         lam = s["turbulence"]["viscous"] == "laminar"
@@ -820,7 +825,9 @@ class FluentDriver(BaseDriver):
                     float(s["inlet"]["intensity"]) / 100.0),
                  lambda: inl.turbulence.turbulent_intensity())
             read("outlet turb spec", lambda: out.turbulence.turbulence_specification())
-            read("outlet backflow intensity",
+            read("outlet backflow intensity  (sent %g%% as %g)"
+                 % (float(s["outlet"]["backflow_intensity"]),
+                    float(s["outlet"]["backflow_intensity"]) / 100.0),
                  lambda: out.turbulence.backflow_turbulent_intensity())
         read("viscous model", lambda: resolve_obj(S, PATHS["viscous_model"])())
         zones = S.setup.cell_zone_conditions.fluid
@@ -829,10 +836,48 @@ class FluentDriver(BaseDriver):
 
         self.log("--- what Fluent holds after set-up ---")
         for label, val in rows:
-            self.log("    %-38s %s" % (label, val))
-        self.log("    (intensity is a FRACTION in the settings API: 0.05 = 5%."
-                 " If Fluent's panel shows 0.05 % rather than 5 %, say so and"
-                 " the conversion comes out.)")
+            self.log("    %-46s %s" % (label, val))
+        if not lam:
+            self.check_intensity_unit(rows)
+
+    def check_intensity_unit(self, rows):
+        """Did Fluent keep the intensity we sent, in the unit we sent it in?
+
+        Verified against Fluent 2025 R1: 0.05 written through the settings API
+        shows as 5 in the panel's Turbulent Intensity box, so the API unit is
+        the fraction and the /100 here is right.  Nothing in the API states
+        that, though, so it is worth one comparison per run: if a release ever
+        switched to percent the read-back would come back a hundred times the
+        value sent, and a case would silently run at 0.05 % turbulence.
+        """
+        bad, seen = [], 0
+        for label, val in rows:
+            if "(sent " not in label or not isinstance(val, (int, float)):
+                continue
+            seen += 1
+            sent = float(label.rsplit(" as ", 1)[1].rstrip(")"))
+            if sent <= 0:
+                continue
+            if abs(val - sent) <= 1e-9 + 1e-6 * sent:
+                continue                                # holding what we sent
+            bad.append((label.split("  (sent")[0].strip(), sent, val,
+                        "looks like PERCENT, not the fraction"
+                        if abs(val - 100.0 * sent) <= 1e-6 * 100.0 * sent
+                        else "neither the fraction nor the percentage"))
+        if not seen:
+            #  nothing came back to compare against - say that, rather than
+            #  reporting a check that never happened
+            self.log("    intensity unit NOT checked: Fluent returned no value")
+            return
+        if not bad:
+            self.log("    intensity unit checked: Fluent is holding the "
+                     "fraction that was sent (0.05 = 5 %)")
+            return
+        for what, sent, got, why in bad:
+            self.log("  [WARNING] %s: sent %g, Fluent holds %g - %s."
+                     % (what, sent, got, why))
+        self.log("  [WARNING] the turbulence level of this run is NOT what the "
+                 "Settings tab asked for; treat the result as suspect.")
 
     def apply_zone_types(self):
         z, set_type = self.s["zones"], self._obj("set_zone_type")
@@ -863,6 +908,9 @@ class FluentDriver(BaseDriver):
             #  specification first, then the inputs it activates
             self._soft("inlet turbulence specification", lambda: setattr(
                 inl.turbulence, "turbulence_specification", i["turb_spec"]))
+            #  a FRACTION, not a percentage: 0.05 written here shows as 5 in
+            #  the panel's Turbulent Intensity box (measured on 2025 R1).  The
+            #  API says nothing about the unit, so verify_setup re-reads it.
             self._soft("inlet turbulent intensity", lambda: setattr(
                 inl.turbulence, "turbulent_intensity", float(i["intensity"]) / 100.0))
             if i["turb_spec"] == "Intensity and Viscosity Ratio":
@@ -888,7 +936,7 @@ class FluentDriver(BaseDriver):
                 out.turbulence, "turbulence_specification", i["turb_spec"]))
             self._soft("backflow turbulent intensity", lambda: setattr(
                 out.turbulence, "backflow_turbulent_intensity",
-                float(o["backflow_intensity"]) / 100.0))
+                float(o["backflow_intensity"]) / 100.0))   # fraction, as above
             if i["turb_spec"] == "Intensity and Viscosity Ratio":
                 self._soft("backflow turbulent viscosity ratio", lambda: setattr(
                     out.turbulence, "backflow_turbulent_viscosity_ratio",
@@ -1445,7 +1493,9 @@ def journal(geometry, params, settings, mesh_path, version=None):
         w("#  the specification method activates the inputs below it, so it")
         w("#  has to be set first or Fluent refuses them as 'not active'")
         w("inlet.turbulence.turbulence_specification = %r" % i["turb_spec"])
-        w("inlet.turbulence.turbulent_intensity = %g" % (float(i["intensity"]) / 100.0))
+        w("#  intensity is a FRACTION here: 0.05 is the 5 % the panel shows")
+        w("inlet.turbulence.turbulent_intensity = %g   # %g %%"
+          % (float(i["intensity"]) / 100.0, float(i["intensity"])))
         if i["turb_spec"] == "Intensity and Viscosity Ratio":
             w("inlet.turbulence.turbulent_viscosity_ratio = %g" % float(i["visc_ratio"]))
         else:
@@ -1456,8 +1506,8 @@ def journal(geometry, params, settings, mesh_path, version=None):
     w("outlet.momentum.prevent_reverse_flow = %r" % bool(o["prevent_reverse_flow"]))
     if not lam:
         w("outlet.turbulence.turbulence_specification = %r" % i["turb_spec"])
-        w("outlet.turbulence.backflow_turbulent_intensity = %g"
-          % (float(o["backflow_intensity"]) / 100.0))
+        w("outlet.turbulence.backflow_turbulent_intensity = %g   # %g %%"
+          % (float(o["backflow_intensity"]) / 100.0, float(o["backflow_intensity"])))
         if i["turb_spec"] == "Intensity and Viscosity Ratio":
             w("outlet.turbulence.backflow_turbulent_viscosity_ratio = %g"
               % float(o["backflow_visc_ratio"]))
