@@ -8,8 +8,47 @@ ParaView and STL — all in the browser, no mesher.
 
 | File | What it is |
 |---|---|
-| `mesh_explorer.html` | the tool — open it directly in a browser, nothing to install |
-| `mesh_explorer.py` | the standalone twin — same mesh, separate code, for scripting and cross-checking |
+| `mesh_explorer.html` | the front end — four tabs: Geometry, Settings, Run, Results |
+| `mesh_explorer.py` | the mesh generator, standalone — same mesh as the browser, separate code |
+| `fluent_case.py` | the Fluent layer — settings schema, PyFluent driver, offline mock, journal writer |
+| `app.py` | the local server that ties them together and launches Fluent |
+
+## Two ways to use it
+
+**As a mesh tool** — open `mesh_explorer.html` in a browser. Nothing to install,
+nothing to run. The Geometry tab works exactly as before and every export format
+is there. The other three tabs explain why they need a server.
+
+**As a CFD app** — `pip install ansys-fluent-core`, then:
+
+```
+python3 app.py
+```
+
+That serves the same page on `127.0.0.1` (loopback only) and opens it. The
+Settings tab configures the Fluent case, the Run tab meshes, launches Fluent and
+plots residuals live, and the Results tab pulls fields back and draws contours on
+any patch, with area-weighted averages, mass flows and the bundle pressure drop.
+`python3 app.py --backend mock` runs the whole thing with an invented field and
+no Fluent, which is how the plumbing is tested; anything it produces is labelled
+MOCK on screen and must not be quoted as a result.
+
+### The Fluent settings are declared once
+
+`fluent_case.py` holds one schema: for each setting, its type, default, choices
+and the settings-API path it drives. The Settings panel is generated from that
+schema over the API and the driver writes those same paths, so a setting cannot
+appear in the panel without a path, or be applied to a path the panel never
+showed. `python3 fluent_case.py --audit` walks every path against the settings
+trees PyFluent ships for Fluent 2024 R2 through 2027 R1. The API does move
+between releases — 2024 R2 keeps the discretisation schemes and the surface
+integrals shallower, 2027 R1 renames `models.viscous` to `models.turbulence` —
+so each path carries its alternates and the audit requires one to resolve in
+every release. `--schema` prints the whole contract as JSON.
+
+The Settings tab also emits the equivalent standalone PyFluent script, written
+for the release you pick, so a case can be reproduced and archived without the
+app.
 
 ## Four geometries, one tool
 

@@ -256,6 +256,90 @@
   }
   #bigview{display:block; width:100%; height:100%}
 
+  /* --- tab bar ---------------------------------------------------------- */
+  .tabs{display:flex; gap:3px; padding:3px; border-radius:12px; margin-left:4px;
+        background:var(--sunk); box-shadow:inset 0 1px 3px rgba(0,0,0,.14)}
+  .tabs button{
+    border:none; background:transparent; color:var(--muted); font:inherit;
+    font-size:12.5px; font-weight:560; padding:6px 15px; border-radius:9px;
+    cursor:pointer; transition:background .13s ease, color .13s ease;
+  }
+  .tabs button:hover{color:var(--text)}
+  .tabs button.on{background:var(--bg); color:var(--accent); font-weight:660;
+                  box-shadow:var(--sh-1)}
+  .tabs button[disabled]{opacity:.4; cursor:default}
+  .tabs button .dot{display:inline-block; width:6px; height:6px; border-radius:50%;
+                    background:var(--ok); margin-left:7px; vertical-align:1px}
+  .tabpane{display:flex; flex:1; min-height:0}
+  .tabpane[hidden]{display:none}
+
+  /* --- wide form panes (settings / run / results) ----------------------- */
+  .pane{flex:1; min-width:0; overflow-y:auto; padding:16px 20px 30px;
+        scrollbar-width:thin}
+  .cards{display:grid; gap:12px; align-items:start;
+         grid-template-columns:repeat(auto-fill, minmax(310px, 1fr))}
+  .card{
+    background:var(--glass); -webkit-backdrop-filter:var(--blur);
+    backdrop-filter:var(--blur); box-shadow:var(--sh-2), inset 0 1px 0 var(--hl);
+    border-radius:16px; padding:15px 16px 16px;
+  }
+  .card h3{margin:0 0 12px; font-size:11px; font-weight:640; color:var(--muted);
+           letter-spacing:.06em; text-transform:uppercase}
+  .fld{display:flex; align-items:center; justify-content:space-between; gap:10px;
+       margin-bottom:9px; min-height:26px}
+  .fld:last-child{margin-bottom:0}
+  .fld > label{font-size:12.5px; color:var(--text); flex:1; min-width:0}
+  .fld em{font-style:normal; font-size:11px; color:var(--muted); margin-left:5px}
+  .fld input[type=text], .fld input[type=number], .fld select{
+    width:130px; flex:none; font:inherit; font-size:12.5px; text-align:right;
+    font-variant-numeric:tabular-nums; color:var(--text); background:var(--glass2);
+    border:none; border-radius:8px; padding:5px 8px;
+    box-shadow:inset 0 1px 2px rgba(24,31,42,.10);
+  }
+  .fld select{text-align:left; width:168px; cursor:pointer}
+  .fld input:focus, .fld select:focus{outline:none; box-shadow:0 0 0 3px var(--focus)}
+  .card .note{margin-top:10px}
+  .banner{
+    display:flex; gap:11px; align-items:flex-start; border-radius:14px;
+    padding:12px 15px; margin-bottom:13px; font-size:12.5px; line-height:1.6;
+    background:var(--glass); box-shadow:var(--sh-1), inset 3px 0 0 var(--accent);
+  }
+  .banner.warn{box-shadow:var(--sh-1), inset 3px 0 0 var(--caution)}
+  .banner.bad{box-shadow:var(--sh-1), inset 3px 0 0 var(--bad)}
+  .banner b{color:var(--text)}
+  .banner code{font-size:12px; background:var(--glass3); padding:2px 7px;
+               border-radius:6px}
+  .mockbadge{display:inline-block; font-size:10px; font-weight:700; letter-spacing:.08em;
+             background:var(--bad); color:#fff; border-radius:6px; padding:3px 8px;
+             margin-left:9px; vertical-align:2px}
+  .runbar{display:flex; gap:9px; align-items:center; margin-bottom:13px; flex-wrap:wrap}
+  .runbar .btn{width:auto; padding:9px 18px}
+  .stages{display:flex; gap:5px; flex-wrap:wrap; margin-left:auto}
+  .stages span{font-size:11px; padding:4px 10px; border-radius:8px;
+               background:var(--glass2); color:var(--muted)}
+  .stages span.on{background:var(--accent-soft); color:var(--accent); font-weight:640}
+  .stages span.done{color:var(--ok)}
+  .logbox{
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11.5px;
+    line-height:1.65; white-space:pre-wrap; word-break:break-word;
+    background:var(--glass2); border-radius:12px; padding:12px 14px;
+    max-height:300px; overflow-y:auto; color:var(--muted);
+    box-shadow:inset 0 1px 2px rgba(24,31,42,.10);
+  }
+  .plotwrap{position:relative; height:330px; border-radius:14px; overflow:hidden;
+            background:var(--glass); box-shadow:var(--sh-2), inset 0 1px 0 var(--hl)}
+  #residPlot, #resView{display:block; width:100%; height:100%}
+  .resmain{flex:1; min-width:0; position:relative; overflow:hidden}
+  .reslist{display:flex; flex-direction:column; gap:2px}
+  .reslist label{display:flex; align-items:center; gap:9px; font-size:12.5px;
+                 padding:4px 0; cursor:pointer}
+  .vals{width:100%; border-collapse:collapse; font-size:12.5px;
+        font-variant-numeric:tabular-nums}
+  .vals th{text-align:left; font-weight:600; color:var(--muted); font-size:10.5px;
+           letter-spacing:.05em; text-transform:uppercase; padding:5px 6px}
+  .vals td{padding:5px 6px; box-shadow:inset 0 1px 0 var(--line)}
+  .vals td.n{text-align:right; font-family:var(--mono)}
+
   /* --- geometry selector : four choices, two per line ------------------- */
   .seg.two{flex-wrap:wrap}
   .seg.two button{flex:1 1 46%; padding:7px 4px; line-height:1.25}
@@ -279,10 +363,16 @@
   <header>
     <h1 id="title">In-line Rod Bundle</h1>
     <span class="tag" id="tag">Parametric CAD + Mesh</span>
+    <nav class="tabs" id="tabs">
+      <button data-pane="geom" class="on">형상</button>
+      <button data-pane="set">세팅</button>
+      <button data-pane="run">해석</button>
+      <button data-pane="res">결과</button>
+    </nav>
     <button class="btn lang" id="langBtn" type="button">EN</button>
     <p>파라미터를 조절하면 형상과 격자가 즉시 갱신됩니다 · 드래그 회전 · 휠 확대</p>
   </header>
-  <div class="main">
+  <div class="main tabpane" data-pane="geom">
     <aside>
       <div class="grp geo">
         <h2 data-h2="geom">형상</h2>
@@ -510,6 +600,93 @@
         <div class="cell"><div class="k">최대 왜곡각</div><div class="v" id="sSkew">—</div></div>
         <div class="cell"><div class="k">최대 AR</div><div class="v" id="sAR">—</div></div>
       </div>
+    </div>
+  </div>
+
+  <!-- ================= 세팅 : Fluent case set-up ===================== -->
+  <div class="tabpane" data-pane="set" hidden>
+    <div class="pane">
+      <div class="banner" id="setBanner"></div>
+      <div class="cards" id="setCards"></div>
+      <div style="display:flex; gap:9px; margin-top:16px; flex-wrap:wrap">
+        <button class="btn" id="setReset" style="width:auto;padding:9px 18px">설정 초기화</button>
+        <button class="btn" id="setSeed" style="width:auto;padding:9px 18px">형상 탭에서 물성·속도 가져오기</button>
+        <button class="btn" id="setJournal" style="width:auto;padding:9px 18px">PyFluent 스크립트 보기</button>
+      </div>
+      <div class="card" id="journalCard" hidden style="margin-top:13px">
+        <h3>생성된 스크립트</h3>
+        <div class="note" id="journalNote"></div>
+        <div class="logbox" id="journalBox" style="max-height:460px"></div>
+        <button class="btn" id="journalCopy" style="width:auto;padding:8px 16px;margin-top:11px">복사</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 해석 : run ==================================== -->
+  <div class="tabpane" data-pane="run" hidden>
+    <div class="pane">
+      <div class="banner" id="runBanner"></div>
+      <div class="runbar">
+        <button class="btn primary" id="runStart" style="width:auto;padding:9px 22px">해석 시작</button>
+        <button class="btn" id="runStop" style="width:auto;padding:9px 18px" disabled>중지</button>
+        <button class="btn" id="runMeshOnly" style="width:auto;padding:9px 18px">메시만 저장</button>
+        <div class="stages" id="runStages"></div>
+      </div>
+      <div class="cards" style="grid-template-columns:repeat(auto-fill,minmax(420px,1fr))">
+        <div class="card" style="grid-column:1/-1">
+          <h3>잔차 <span id="residScale" style="text-transform:none;font-weight:500"></span></h3>
+          <div class="plotwrap"><canvas id="residPlot"></canvas></div>
+          <div class="note" id="residNote"></div>
+        </div>
+        <div class="card">
+          <h3>메시</h3>
+          <table class="vals" id="meshStats"><tbody></tbody></table>
+        </div>
+        <div class="card">
+          <h3>로그</h3>
+          <div class="logbox" id="runLog"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 결과 : fields and surface values =============== -->
+  <div class="tabpane" data-pane="res" hidden>
+    <aside style="width:310px">
+      <div class="grp">
+        <h2>면 선택</h2>
+        <div class="reslist" id="resSurfaces"></div>
+      </div>
+      <div class="grp">
+        <h2>변수</h2>
+        <select id="resVariable" style="width:100%;font:inherit;font-size:13px;
+          padding:7px 9px;border:none;border-radius:9px;background:var(--glass2);
+          box-shadow:inset 0 1px 2px rgba(24,31,42,.10);color:var(--text)"></select>
+        <div class="ctrl" style="margin-top:13px">
+          <div class="row"><label for="resOpacity">rod 벽면 투명도</label><output id="resOpacityV">1.00</output></div>
+          <input type="range" id="resOpacity" min="0.15" max="1" step="0.05" value="1">
+        </div>
+        <label class="chk" style="margin-top:6px"><input type="checkbox" id="resEdges"><span class="box"></span>면 격자선 표시</label>
+        <button class="btn" id="resRefresh" style="margin-top:10px">다시 불러오기</button>
+        <div class="note" id="resNote"></div>
+      </div>
+      <div class="grp">
+        <h2>면의 값</h2>
+        <select id="resReport" style="width:100%;font:inherit;font-size:13px;
+          padding:7px 9px;border:none;border-radius:9px;background:var(--glass2);
+          box-shadow:inset 0 1px 2px rgba(24,31,42,.10);color:var(--text)"></select>
+        <button class="btn" id="resCompute" style="margin-top:9px">선택한 면 계산</button>
+        <table class="vals" id="resValues" style="margin-top:11px"><tbody></tbody></table>
+      </div>
+      <div class="grp">
+        <h2>번들 압력강하</h2>
+        <button class="btn" id="resDP">입구 − 출구 정압</button>
+        <div class="phys" id="resDPOut"></div>
+      </div>
+    </aside>
+    <div class="resmain">
+      <canvas id="resView"></canvas>
+      <div class="warn" id="resWarn" style="left:16px"><span id="resWarnMsg"></span></div>
     </div>
   </div>
 </div>
@@ -820,6 +997,7 @@ function setLang(l){
   flowNote();
   renderNote();
   modeNote(); syncLabels(); updateStats();
+  if(window.__appLang) window.__appLang();      // the solver tabs, if they exist
 }
 
 /* Switch geometry.  Only the panel and the five geometry functions change;
@@ -3054,4 +3232,743 @@ CHECKS.forEach(id=>$(id).addEventListener("change",saveState));
 
 applyGeometry(GK,{quiet:true});      // show the right controls before the first draw
 resize(); rebuild(); setLang(LANG); frame();
+
+/* ==========================================================================
+   THE SOLVER TABS : 세팅 / 해석 / 결과
+   ==========================================================================
+   Everything above this line is the mesh tool and runs from a plain file with
+   no server.  Everything below talks to app.py, which is what can actually
+   launch Fluent.  If that server is not there the three tabs say so and the
+   Geometry tab carries on exactly as before - opening the file directly must
+   never stop working.
+
+   The Settings panel is BUILT FROM THE SCHEMA the server sends.  Nothing about
+   a Fluent setting is written twice: fluent_case.py declares it, the panel
+   draws it, the driver applies it.                                          */
+
+Object.assign(STR.ko, {
+  tabs:{geom:"형상", set:"세팅", run:"해석", res:"결과"},
+  srv_off:"<b>서버가 없습니다.</b> 이 페이지를 파일로 직접 열면 형상 탭만 동작합니다. " +
+          "Fluent를 돌리려면 저장소에서 <code>python3 app.py</code> 를 실행하고 " +
+          "그 주소로 다시 여십시오.",
+  srv_mock:"<b>Fluent 없이 mock 백엔드로 동작 중입니다.</b> 잔차도 유동장도 " +
+           "진짜가 아닙니다 — 화면과 데이터 경로를 확인하기 위한 가짜 값입니다. " +
+           "숫자를 인용하지 마십시오.",
+  srv_ok:s=>`<b>서버 연결됨.</b> 백엔드 <b>${s}</b> · 결과는 <code>runs/</code> 에 저장됩니다.`,
+  set_intro:"Fluent 케이스 설정입니다. 아래 값은 그대로 PyFluent 설정 경로에 기록되고, " +
+            "같은 내용으로 독립 실행 스크립트도 만들 수 있습니다.",
+  setReset:"설정 초기화", setSeed:"형상 탭에서 물성·속도 가져오기",
+  setJournal:"PyFluent 스크립트 보기", copy:"복사", copied:"복사됨",
+  jr_note:v=>`Fluent settings API v${v} 기준으로 작성되었습니다. 앱 없이 그대로 실행할 수 있습니다.`,
+  runStart:"해석 시작", runStop:"중지", runMeshOnly:"메시만 저장",
+  stages:{queued:"대기", meshing:"메시", launching:"Fluent 시작", setup:"설정",
+          initialising:"초기화", iterating:"반복", finished:"완료"},
+  r_none:"아직 실행한 해석이 없습니다.",
+  r_running:st=>`진행 중 — ${st}`,
+  r_done:s=>`완료 (${s}초)`,
+  r_fail:e=>`실패 — ${e}`,
+  r_mesh:"메시만 생성 중…",
+  r_meshok:(n,mb,c)=>`메시 저장 완료 — ${n} · ${mb} MB · ${c} 셀`,
+  resid_scale:"세로축 로그", resid_wait:"반복이 시작되면 잔차가 그려집니다.",
+  resid_n:(n,e)=>`${n}회 · ${e}`,
+  res_none:"해석이 끝나면 결과를 불러올 수 있습니다.",
+  res_pick:"왼쪽에서 면을 하나 이상 고르십시오.",
+  res_load:"불러오는 중…",
+  res_loaded:(n,lo,hi)=>`면 ${n}개 · 범위 ${lo} ~ ${hi}`,
+  res_mock:"MOCK — 가짜 값",
+  res_opacity:"rod 벽면 투명도", res_edges:"면 격자선 표시",
+  res_refresh:"다시 불러오기", res_compute:"선택한 면 계산",
+  res_surf:"면", res_val:"값", res_dp:"입구 − 출구 정압",
+  res_dpout:(v,u)=>`Δp = <span class="hi">${v}</span> ${u}`,
+  h_surfaces:"면 선택", h_variable:"변수", h_values:"면의 값", h_dp:"번들 압력강하",
+  h_resid:"잔차", h_mesh:"메시", h_log:"로그", h_journal:"생성된 스크립트",
+  reports:{"area-weighted-avg":"면적 가중 평균","facet-min":"최솟값","facet-max":"최댓값",
+           "mass-flow-rate":"질량유량","area":"면적"},
+  m_cells:"셀 수", m_nodes:"절점 (2-D)", m_cracks:"균열", m_maxdev:"절점 불일치",
+  m_volerr:"체적 오차", m_skew:"최대 왜곡각", m_ar:"최대 AR"
+});
+Object.assign(STR.en, {
+  tabs:{geom:"Geometry", set:"Settings", run:"Run", res:"Results"},
+  srv_off:"<b>No server.</b> Opened as a plain file, only the Geometry tab works. " +
+          "To drive Fluent, run <code>python3 app.py</code> in the repository and " +
+          "open the address it prints.",
+  srv_mock:"<b>Running on the mock backend, with no Fluent.</b> Neither the " +
+           "residuals nor the field are real - they are invented so the screens " +
+           "and the data path can be checked. Do not quote a number from them.",
+  srv_ok:s=>`<b>Server connected.</b> Backend <b>${s}</b> · results are written to <code>runs/</code>.`,
+  set_intro:"The Fluent case. Each value below is written to the settings path named " +
+            "in the schema, and the same set can be emitted as a standalone script.",
+  setReset:"Reset settings", setSeed:"Take the fluid and speed from the Geometry tab",
+  setJournal:"Show the PyFluent script", copy:"Copy", copied:"Copied",
+  jr_note:v=>`Written for Fluent settings API v${v}. It runs on its own, without this app.`,
+  runStart:"Start", runStop:"Stop", runMeshOnly:"Write the mesh only",
+  stages:{queued:"queued", meshing:"mesh", launching:"launch", setup:"set up",
+          initialising:"initialise", iterating:"iterate", finished:"done"},
+  r_none:"Nothing has been run yet.",
+  r_running:st=>`running — ${st}`,
+  r_done:s=>`finished in ${s} s`,
+  r_fail:e=>`failed — ${e}`,
+  r_mesh:"writing the mesh…",
+  r_meshok:(n,mb,c)=>`mesh written — ${n} · ${mb} MB · ${c} cells`,
+  resid_scale:"log scale", resid_wait:"Residuals appear once the iterations start.",
+  resid_n:(n,e)=>`${n} iterations · ${e}`,
+  res_none:"Results can be loaded once a run has finished.",
+  res_pick:"Pick at least one surface on the left.",
+  res_load:"loading…",
+  res_loaded:(n,lo,hi)=>`${n} surface(s) · range ${lo} to ${hi}`,
+  res_mock:"MOCK — invented values",
+  res_opacity:"Rod wall opacity", res_edges:"Show face edges",
+  res_refresh:"Reload", res_compute:"Compute for the selected surfaces",
+  res_surf:"Surface", res_val:"Value", res_dp:"Inlet − outlet static pressure",
+  res_dpout:(v,u)=>`Δp = <span class="hi">${v}</span> ${u}`,
+  h_surfaces:"Surfaces", h_variable:"Variable", h_values:"Surface values", h_dp:"Bundle pressure drop",
+  h_resid:"Residuals", h_mesh:"Mesh", h_log:"Log", h_journal:"Generated script",
+  reports:{"area-weighted-avg":"Area-weighted average","facet-min":"Minimum",
+           "facet-max":"Maximum","mass-flow-rate":"Mass flow rate","area":"Area"},
+  m_cells:"Cells", m_nodes:"Nodes (2-D)", m_cracks:"Cracks", m_maxdev:"Node mismatch",
+  m_volerr:"Volume error", m_skew:"Max skew", m_ar:"Max AR"
+});
+
+/* --------------------------- server plumbing ---------------------------- */
+let SRV = null;            // /api/info payload, or null when there is no server
+let SET = null;            // the current settings object
+let JOB = null;            // the last job status
+let logCursor = 0, pollTimer = 0;
+
+async function api(path, body){
+  const opt = body===undefined ? {} :
+    {method:"POST", headers:{"Content-Type":"application/json"},
+     body:JSON.stringify(body)};
+  const r = await fetch(path, opt);
+  let j;
+  try{ j = await r.json(); }
+  catch(e){ throw new Error("server returned "+r.status); }
+  if(j && j.ok === false) throw new Error(j.error || "request failed");
+  return j;
+}
+
+/* --------------------------- tab switching ------------------------------ */
+let PANE = "geom";
+function showPane(name){
+  if(!SRV && name!=="geom") name = "geom";
+  PANE = name;
+  document.querySelectorAll(".tabpane").forEach(p=>{
+    p.hidden = (p.dataset.pane !== name);
+  });
+  document.querySelectorAll("#tabs button").forEach(b=>
+    b.classList.toggle("on", b.dataset.pane===name));
+  if(name==="geom"){ resize(); needsDraw=true; }
+  if(name==="run"){ sizeResid(); drawResid(); }
+  if(name==="res"){ sizeRes(); drawRes(); }
+}
+document.querySelectorAll("#tabs button").forEach(b=>
+  b.addEventListener("click", ()=>showPane(b.dataset.pane)));
+
+/* ======================= 세팅 : the settings panel ======================= */
+function findField(fid){
+  for(const g of (SRV ? SRV.settings : []))
+    for(const f of g.fields) if(f.id===fid) return [g.id, f];
+  return [null, null];
+}
+function settingValue(fid){
+  const [gid] = findField(fid);
+  return gid && SET ? SET[gid][fid] : undefined;
+}
+/* show_if: {field:[allowed...]} shows only for those values;
+            {"~field":[values]} hides for those values.  One rule per key. */
+function fieldVisible(f){
+  const cond = f.show_if;
+  if(!cond) return true;
+  for(const key in cond){
+    const neg = key.charAt(0)==="~";
+    const v = settingValue(neg ? key.slice(1) : key);
+    const hit = cond[key].indexOf(v) >= 0;
+    if(neg ? hit : !hit) return false;
+  }
+  return true;
+}
+function L(o){ return (LANG==="ko" ? o.ko : o.en) || o.en || o.ko || o.id; }
+
+function buildSettings(){
+  const host = $("setCards");
+  host.innerHTML = "";
+  for(const g of SRV.settings){
+    const card = document.createElement("div");
+    card.className = "card"; card.dataset.group = g.id;
+    const h = document.createElement("h3"); h.textContent = L(g); card.appendChild(h);
+    for(const f of g.fields){
+      const row = document.createElement("div");
+      row.className = "fld"; row.dataset.field = f.id;
+      const lab = document.createElement("label");
+      lab.textContent = L(f);
+      if(f.unit){ const em=document.createElement("em"); em.textContent=f.unit; lab.appendChild(em); }
+      row.appendChild(lab);
+      let inp;
+      if(f.kind==="choice"){
+        inp = document.createElement("select");
+        for(const c of f.choices){
+          const o=document.createElement("option");
+          o.value=c.v; o.textContent=L(c); inp.appendChild(o);
+        }
+      }else if(f.kind==="bool"){
+        const wrap=document.createElement("label"); wrap.className="chk";
+        inp=document.createElement("input"); inp.type="checkbox";
+        const box=document.createElement("span"); box.className="box";
+        wrap.append(inp, box); row.appendChild(wrap);
+      }else{
+        inp = document.createElement("input");
+        inp.type = "text"; inp.inputMode = "decimal";
+      }
+      inp.id = "s_"+g.id+"_"+f.id;
+      if(f.kind!=="bool") row.appendChild(inp);
+      inp.addEventListener("change", ()=>{
+        const cur = SET[g.id];
+        if(f.kind==="bool") cur[f.id]=inp.checked;
+        else if(f.kind==="choice") cur[f.id]=inp.value;
+        else if(f.kind==="text") cur[f.id]=inp.value;
+        else{
+          const v=parseFloat(String(inp.value).replace(/[^\d.eE+-]/g,""));
+          if(isFinite(v)) cur[f.id] = f.int ? Math.round(v) : v;
+        }
+        saveSettings(); syncSettings();
+      });
+      card.appendChild(row);
+      if(f.note_ko || f.note_en){
+        const n=document.createElement("div"); n.className="note";
+        n.textContent = LANG==="ko" ? (f.note_ko||f.note_en) : (f.note_en||f.note_ko);
+        n.dataset.forField = f.id;
+        card.appendChild(n);
+      }
+    }
+    if(g.note_ko || g.note_en){
+      const n=document.createElement("div"); n.className="note"; n.dataset.groupNote="1";
+      n.textContent = LANG==="ko" ? (g.note_ko||g.note_en) : (g.note_en||g.note_ko);
+      card.appendChild(n);
+    }
+    host.appendChild(card);
+  }
+  syncSettings();
+}
+function syncSettings(){
+  if(!SRV || !SET) return;
+  for(const g of SRV.settings) for(const f of g.fields){
+    const inp = $("s_"+g.id+"_"+f.id);
+    if(!inp) continue;
+    const v = SET[g.id][f.id];
+    if(f.kind==="bool") inp.checked = !!v;
+    else if(document.activeElement!==inp) inp.value = v;
+    const vis = fieldVisible(f);
+    const row = inp.closest(".fld");
+    if(row) row.style.display = vis ? "" : "none";
+    const note = document.querySelector('.note[data-for-field="'+f.id+'"]');
+    if(note) note.style.display = vis ? "" : "none";
+  }
+}
+function saveSettings(){
+  try{ localStorage.setItem("bmSettings", JSON.stringify(SET)); }catch(e){}
+}
+function loadSettings(){
+  SET = JSON.parse(JSON.stringify(SRV.defaults));
+  let restored = false;
+  try{
+    const raw = localStorage.getItem("bmSettings");
+    if(raw){
+      const saved = JSON.parse(raw);
+      for(const gid in SET) if(saved[gid])
+        for(const fid in SET[gid]) if(fid in saved[gid]) SET[gid][fid]=saved[gid][fid];
+      restored = true;
+    }
+  }catch(e){}
+  //  The geometry tab already knows the fluid and the inlet speed, so the
+  //  first visit starts from those rather than from a generic default.  Only
+  //  the first: after that this panel owns them, and re-seeding would quietly
+  //  undo whatever was typed here.  "Seed from the geometry tab" puts them
+  //  back on demand.
+  if(!restored) seedFromGeometry();
+}
+function seedFromGeometry(){
+  SET.material.density   = P.rho;
+  SET.material.viscosity = +(P.rho * P.nu * 1e-6).toPrecision(6);
+  SET.inlet.velocity     = P.vel;
+}
+$("setReset").addEventListener("click", ()=>{
+  SET = JSON.parse(JSON.stringify(SRV.defaults));
+  saveSettings(); syncSettings();
+});
+$("setSeed").addEventListener("click", ()=>{
+  seedFromGeometry(); saveSettings(); syncSettings();
+});
+$("setJournal").addEventListener("click", async ()=>{
+  try{
+    const j = await api("/api/journal",
+      {geometry:GK, params:geomParams(), settings:SET});
+    $("journalCard").hidden = false;
+    $("journalBox").textContent = j.script;
+    const m = /settings API v(\d+)/.exec(j.script);
+    $("journalNote").textContent = T("jr_note")(m?m[1]:"?");
+  }catch(e){ alert(e.message); }
+});
+$("journalCopy").addEventListener("click", async ()=>{
+  const b=$("journalCopy");
+  try{ await navigator.clipboard.writeText($("journalBox").textContent); }catch(e){}
+  b.textContent = T("copied"); setTimeout(()=>b.textContent=T("copy"), 1400);
+});
+
+/* the geometry parameters the server needs to rebuild this exact mesh */
+function geomParams(){
+  const keys=["D","ST","SL","nRows","nCols","lIn","lOut","H","helix","rMid","sector",
+              "nAz","nRad","firstLayer","nZ","nxIn","nxOut"];
+  const o={};
+  for(const k of keys) o[k]=P[k];
+  o.halfRods=P.halfRods; o.firstOffset=P.firstOffset; o.wrap=P.wrap; o.unit=P.unit;
+  return o;
+}
+
+/* ========================== 해석 : the run tab ========================== */
+const STAGE_ORDER = ["meshing","launching","setup","initialising","iterating","finished"];
+function renderStages(){
+  const host=$("runStages"); host.innerHTML="";
+  const cur = JOB ? JOB.stage : null;
+  const at = STAGE_ORDER.indexOf(cur);
+  STAGE_ORDER.forEach((st,i)=>{
+    const s=document.createElement("span");
+    s.textContent = T("stages")[st] || st;
+    if(st===cur) s.className="on";
+    else if(at>=0 && i<at) s.className="done";
+    host.appendChild(s);
+  });
+}
+function renderMeshStats(){
+  const tb=$("meshStats").querySelector("tbody"); tb.innerHTML="";
+  const m = JOB && JOB.mesh;
+  if(!m) return;
+  const rows=[["m_cells", m.cells.toLocaleString()],
+              ["m_nodes", m.nodes2d.toLocaleString()],
+              ["m_cracks", String(m.cracks)],
+              ["m_maxdev", m.maxdev.toExponential(1)],
+              ["m_volerr", m.vol_err.toExponential(1)],
+              ["m_skew", m.dev_max.toFixed(1)+"°"],
+              ["m_ar", m.ar_max.toFixed(1)]];
+  for(const [k,v] of rows){
+    const tr=document.createElement("tr");
+    const a=document.createElement("td"); a.textContent=T(k);
+    const b=document.createElement("td"); b.className="n"; b.textContent=v;
+    tr.append(a,b); tb.appendChild(tr);
+  }
+  if(m.patches){
+    for(const pn of SRV.patches){
+      const tr=document.createElement("tr");
+      const a=document.createElement("td"); a.textContent=pn;
+      a.style.color="var(--muted)"; a.style.fontSize="11.5px";
+      const b=document.createElement("td"); b.className="n";
+      b.textContent=(m.patches[pn]||0).toLocaleString();
+      tr.append(a,b); tb.appendChild(tr);
+    }
+  }
+}
+function setRunBanner(){
+  const el=$("runBanner");
+  if(!JOB){ el.className="banner"; el.innerHTML=T("r_none"); return; }
+  if(JOB.error){ el.className="banner bad"; el.innerHTML=T("r_fail")(JOB.error); return; }
+  if(!JOB.finished){ el.className="banner"; el.innerHTML=T("r_running")(T("stages")[JOB.stage]||JOB.stage); return; }
+  el.className = JOB.mock ? "banner warn" : "banner";
+  el.innerHTML = T("r_done")(JOB.elapsed.toFixed(1)) +
+    (JOB.mock ? '<span class="mockbadge">MOCK</span>' : "");
+}
+$("runStart").addEventListener("click", async ()=>{
+  //  clear the previous run first: leaving its residuals and mesh on screen
+  //  while the new one meshes reads as if the new one had already produced
+  //  them, which is exactly the kind of thing to get wrong at 2am
+  logCursor = 0;
+  $("runLog").textContent = "";
+  JOB = null;
+  setRunBanner(); renderStages(); renderMeshStats(); drawResid();
+  RES.data = []; drawRes();
+  $("runStart").disabled = true;
+  try{
+    const j = await api("/api/run", {geometry:GK, params:geomParams(), settings:SET});
+    JOB = j.job; poll();
+  }catch(e){
+    $("runStart").disabled = false;
+    $("runBanner").className="banner bad"; $("runBanner").textContent=e.message;
+  }
+});
+$("runStop").addEventListener("click", async ()=>{
+  try{ await api("/api/stop", {}); }catch(e){ }
+});
+$("runMeshOnly").addEventListener("click", async ()=>{
+  const el=$("runBanner"); el.className="banner"; el.textContent=T("r_mesh");
+  try{
+    const j = await api("/api/mesh", {geometry:GK, params:geomParams()});
+    el.innerHTML = T("r_meshok")(j.mesh.name, j.mesh.mb, j.mesh.cells.toLocaleString());
+  }catch(e){ el.className="banner bad"; el.textContent=e.message; }
+});
+async function poll(){
+  clearTimeout(pollTimer);
+  try{
+    const j = await api("/api/job?log_from="+logCursor);
+    if(j.job){
+      JOB = j.job;
+      if(JOB.log && JOB.log.length){
+        const box=$("runLog");
+        const stick = box.scrollTop + box.clientHeight >= box.scrollHeight - 30;
+        box.textContent += JOB.log.join("\n")+"\n";
+        logCursor = JOB.log_next;
+        if(stick) box.scrollTop = box.scrollHeight;
+      }
+      $("runStart").disabled = !JOB.finished;
+      $("runStop").disabled = !!JOB.finished;
+      setRunBanner(); renderStages(); renderMeshStats(); drawResid();
+      if(JOB.finished){ refreshSurfaces(); return; }
+    }
+  }catch(e){ /* the server went away; the banner already says what it can */ }
+  pollTimer = setTimeout(poll, 700);
+}
+
+/* ---- residual plot : log y, iteration x -------------------------------- */
+const residC=$("residPlot"), rctx=residC.getContext("2d");
+let rw=0, rh=0;
+const RES_COL=["#0f4c81","#a83f2b","#1d7048","#7d580f","#5a4b9c","#2f7d8c",
+               "#9c4b7a","#4b6b9c"];
+function sizeResid(){
+  const r=residC.getBoundingClientRect();
+  rw=r.width; rh=r.height;
+  residC.width=Math.round(rw*dpr); residC.height=Math.round(rh*dpr);
+  rctx.setTransform(dpr,0,0,dpr,0,0);
+}
+function drawResid(){
+  if(!rw) sizeResid();
+  rctx.clearRect(0,0,rw,rh);
+  const rows = JOB && JOB.residuals ? JOB.residuals : [];
+  $("residScale").textContent = rows.length ? "· "+T("resid_scale") : "";
+  if(!rows.length){ $("residNote").textContent=T("resid_wait"); return; }
+  const eqs = Object.keys(rows[rows.length-1]).filter(k=>k!=="iter");
+  let lo=Infinity, hi=-Infinity, xmax=1;
+  for(const r of rows){
+    xmax=Math.max(xmax, r.iter);
+    for(const e of eqs){ const v=r[e];
+      if(typeof v==="number" && v>0){ lo=Math.min(lo,v); hi=Math.max(hi,v); } }
+  }
+  if(!isFinite(lo)||!isFinite(hi)){ $("residNote").textContent=T("resid_wait"); return; }
+  lo=Math.max(lo, hi*1e-12);
+  const y0=Math.floor(Math.log10(lo)), y1=Math.ceil(Math.log10(hi));
+  const padL=58, padR=118, padT=14, padB=28;
+  const X=i=>padL+(rw-padL-padR)*(i-1)/Math.max(1,xmax-1);
+  const Y=v=>padT+(rh-padT-padB)*(1-(Math.log10(v)-y0)/Math.max(1e-9,(y1-y0)));
+  rctx.font="10px "+uiFont(); rctx.textBaseline="middle";
+  rctx.strokeStyle="rgba(88,99,114,.18)"; rctx.lineWidth=1;
+  for(let e=y0;e<=y1;e++){
+    const y=Y(Math.pow(10,e));
+    rctx.beginPath(); rctx.moveTo(padL,y); rctx.lineTo(rw-padR,y); rctx.stroke();
+    rctx.fillStyle="rgba(34,38,43,.75)"; rctx.textAlign="right";
+    rctx.fillText("1e"+e, padL-7, y);
+  }
+  rctx.textAlign="center"; rctx.textBaseline="top";
+  const steps=Math.min(6,xmax);
+  for(let k=0;k<=steps;k++){
+    const it=Math.round(1+(xmax-1)*k/steps);
+    rctx.fillText(String(it), X(it), rh-padB+7);
+  }
+  // the convergence criterion, so the plot says whether it was met
+  const crit = SET ? +SET.run.residual_criterion : 0;
+  if(crit>0 && crit>=Math.pow(10,y0) && crit<=Math.pow(10,y1)){
+    rctx.setLineDash([4,4]); rctx.strokeStyle="rgba(168,63,43,.55)";
+    const y=Y(crit); rctx.beginPath(); rctx.moveTo(padL,y); rctx.lineTo(rw-padR,y);
+    rctx.stroke(); rctx.setLineDash([]);
+  }
+  eqs.forEach((e,i)=>{
+    rctx.strokeStyle=RES_COL[i%RES_COL.length]; rctx.lineWidth=1.4;
+    rctx.beginPath(); let started=false;
+    for(const r of rows){
+      const v=r[e]; if(!(typeof v==="number" && v>0)) continue;
+      const x=X(r.iter), y=Y(v);
+      started ? rctx.lineTo(x,y) : (rctx.moveTo(x,y), started=true);
+    }
+    rctx.stroke();
+    rctx.fillStyle=RES_COL[i%RES_COL.length]; rctx.textAlign="left";
+    rctx.textBaseline="middle";
+    rctx.fillText(e, rw-padR+10, padT+12+i*15);
+  });
+  const last=rows[rows.length-1];
+  const worst=Math.max.apply(null, eqs.map(e=>last[e]||0));
+  $("residNote").textContent = T("resid_n")(rows.length, worst.toExponential(2));
+}
+
+/* ========================== 결과 : fields ============================== */
+const RES = {surfaces:[], variable:"pressure", data:[], lo:0, hi:1, mock:false,
+             yaw:-0.62, pitch:0.92, zoom:1, panX:0, panY:0, centre:[0,0,0], radius:1};
+const resC=$("resView"), xctx=resC.getContext("2d");
+let xw=0, xh=0;
+
+function sizeRes(){
+  const r=resC.getBoundingClientRect();
+  xw=r.width; xh=r.height;
+  resC.width=Math.round(xw*dpr); resC.height=Math.round(xh*dpr);
+  xctx.setTransform(dpr,0,0,dpr,0,0);
+}
+function refreshSurfaces(){
+  const host=$("resSurfaces");
+  const avail = (JOB && JOB.surfaces && JOB.surfaces.length) ? JOB.surfaces : [];
+  if(!avail.length){ host.innerHTML=""; $("resNote").textContent=T("res_none"); return; }
+  //  Rebuild the list only when the surfaces themselves changed - but ALWAYS
+  //  fall through to the load below.  A second run over the same geometry
+  //  offers the same surfaces, and an early return here would leave the view
+  //  empty holding the previous run's selection.
+  if(host.dataset.built !== avail.join(",")){
+    host.dataset.built = avail.join(",");
+    const keep = new Set(chosenSurfaces());
+    host.innerHTML="";
+    for(const s of avail){
+      const lab=document.createElement("label");
+      const cb=document.createElement("input"); cb.type="checkbox"; cb.value=s;
+      cb.checked = keep.size ? keep.has(s) : (s==="wall_rods");
+      const box=document.createElement("span"); box.className="box";
+      const txt=document.createTextNode(s);
+      lab.className="chk"; lab.append(cb, box, txt);
+      cb.addEventListener("change", loadField);
+      host.appendChild(lab);
+    }
+  }
+  const sel=$("resVariable");
+  if(!sel.options.length){
+    for(const v in SRV.variables){
+      const o=document.createElement("option");
+      o.value=v; o.textContent=L(SRV.variables[v])+" ("+SRV.variables[v].unit+")";
+      sel.appendChild(o);
+    }
+    sel.value = RES.variable;
+  }
+  const rep=$("resReport");
+  if(!rep.options.length){
+    for(const k of SRV.reports){
+      const o=document.createElement("option"); o.value=k;
+      o.textContent=T("reports")[k]||k; rep.appendChild(o);
+    }
+  }
+  if(!RES.data.length) loadField();
+}
+function chosenSurfaces(){
+  return Array.prototype.slice.call(
+    $("resSurfaces").querySelectorAll("input:checked")).map(c=>c.value);
+}
+async function loadField(){
+  const want = chosenSurfaces();
+  RES.variable = $("resVariable").value || RES.variable;
+  if(!want.length){ RES.data=[]; $("resNote").textContent=T("res_pick"); drawRes(); return; }
+  $("resNote").textContent = T("res_load");
+  try{
+    const got=[];
+    for(const s of want){
+      const j = await api("/api/field", {surface:s, variable:RES.variable});
+      got.push(j.field);
+    }
+    RES.data = got;
+    RES.mock = got.some(f=>f.mock);
+    let lo=Infinity, hi=-Infinity, bb=[[1e30,1e30,1e30],[-1e30,-1e30,-1e30]];
+    for(const f of got){
+      for(const v of f.values){ if(v<lo)lo=v; if(v>hi)hi=v; }
+      for(const p of f.vertices) for(let k=0;k<3;k++){
+        if(p[k]<bb[0][k]) bb[0][k]=p[k];
+        if(p[k]>bb[1][k]) bb[1][k]=p[k];
+      }
+    }
+    RES.lo=lo; RES.hi=hi;
+    RES.centre=[0,1,2].map(k=>(bb[0][k]+bb[1][k])/2);
+    RES.radius=0.55*Math.hypot(bb[1][0]-bb[0][0],bb[1][1]-bb[0][1],bb[1][2]-bb[0][2])||1;
+    $("resNote").textContent = T("res_loaded")(got.length, fmtSci(lo), fmtSci(hi));
+    const w=$("resWarn");
+    w.classList.toggle("show", RES.mock);
+    w.classList.toggle("err", RES.mock);
+    if(RES.mock) $("resWarnMsg").textContent = T("res_mock");
+    drawRes();
+  }catch(e){ $("resNote").textContent=e.message; }
+}
+function fmtSci(v){
+  if(!isFinite(v)) return "—";
+  const a=Math.abs(v);
+  return (a>=1e5||(a<1e-2&&a>0)) ? v.toExponential(2) : v.toFixed(a>=100?1:3);
+}
+function resProject(p){
+  const c=RES.centre;
+  const cy=Math.cos(RES.yaw), sy=Math.sin(RES.yaw);
+  const cp=Math.cos(RES.pitch), sp=Math.sin(RES.pitch);
+  const x=p[0]-c[0], y=p[1]-c[1], z=p[2]-c[2];
+  const x1=x*cy-y*sy, y1=x*sy+y*cy;
+  const v=[x1, y1*cp-z*sp, y1*sp+z*cp];
+  const s=Math.min(xw,xh)*0.42/RES.radius*RES.zoom;
+  return [xw/2+v[0]*s+RES.panX, xh/2-v[1]*s+RES.panY, v[2]];
+}
+function drawRes(){
+  if(!xw) sizeRes();
+  xctx.clearRect(0,0,xw,xh);
+  if(!RES.data.length) return;
+  const CM = /pressure/.test(RES.variable) ? CMAP_P : CMAP_V;
+  const span = Math.max(1e-30, RES.hi-RES.lo);
+  const opacity = +$("resOpacity").value;
+  const edges = $("resEdges").checked;
+  const tris=[];
+  for(const f of RES.data){
+    const pp = f.vertices.map(resProject);
+    const dim = (f.surface==="wall_rods") ? opacity : 1;
+    for(const face of f.faces){
+      let d=0, val=0;
+      for(const i of face){ d+=pp[i][2]; val+=f.values[i]; }
+      tris.push({pts:face.map(i=>pp[i]), depth:d/face.length,
+                 t:(val/face.length-RES.lo)/span, dim:dim});
+    }
+  }
+  tris.sort((a,b)=>a.depth-b.depth);
+  xctx.lineJoin="round";
+  for(const f of tris){
+    xctx.beginPath();
+    xctx.moveTo(f.pts[0][0], f.pts[0][1]);
+    for(let i=1;i<f.pts.length;i++) xctx.lineTo(f.pts[i][0], f.pts[i][1]);
+    xctx.closePath();
+    xctx.globalAlpha = f.dim;
+    xctx.fillStyle = cmap(f.t, CM);
+    xctx.fill();
+    if(edges){ xctx.globalAlpha=f.dim*0.5;
+      xctx.strokeStyle="rgba(0,0,0,.25)"; xctx.lineWidth=0.4; xctx.stroke(); }
+  }
+  xctx.globalAlpha=1;
+  // colour bar
+  const bw=Math.min(210, xw*0.32), bh=9, bx=xw-bw-26, by=xh-34;
+  for(let i=0;i<bw;i++){
+    xctx.fillStyle=cmap(i/bw, CM); xctx.fillRect(bx+i, by, 1, bh);
+  }
+  xctx.font="11px "+uiFont(); xctx.fillStyle=getComputedStyle(document.body).color;
+  xctx.textAlign="left";  xctx.fillText(fmtSci(RES.lo), bx, by-6);
+  xctx.textAlign="right"; xctx.fillText(fmtSci(RES.hi), bx+bw, by-6);
+  xctx.textAlign="center";
+  const vd=SRV.variables[RES.variable];
+  xctx.fillText(L(vd)+" ["+vd.unit+"]", bx+bw/2, by+bh+11);
+}
+$("resVariable").addEventListener("change", loadField);
+$("resRefresh").addEventListener("click", loadField);
+$("resEdges").addEventListener("change", drawRes);
+$("resOpacity").addEventListener("input", ()=>{
+  $("resOpacityV").textContent=(+$("resOpacity").value).toFixed(2);
+  paintRange($("resOpacity")); drawRes();
+});
+(function(){
+  let drag=false, px=0, py=0, pan=false;
+  resC.addEventListener("pointerdown", e=>{
+    drag=true; pan=(e.button===1||e.shiftKey||e.ctrlKey);
+    px=e.clientX; py=e.clientY; resC.setPointerCapture(e.pointerId);
+  });
+  resC.addEventListener("pointermove", e=>{
+    if(!drag) return;
+    if(pan){ RES.panX+=e.clientX-px; RES.panY+=e.clientY-py; }
+    else{ RES.yaw+=(e.clientX-px)*0.008; RES.pitch+=(e.clientY-py)*0.008; }
+    px=e.clientX; py=e.clientY; drawRes();
+  });
+  resC.addEventListener("pointerup", ()=>{drag=false;});
+  resC.addEventListener("pointercancel", ()=>{drag=false;});
+  resC.addEventListener("wheel", e=>{
+    e.preventDefault();
+    RES.zoom*=Math.exp(-e.deltaY*0.0011);
+    RES.zoom=Math.max(0.2,Math.min(12,RES.zoom)); drawRes();
+  }, {passive:false});
+  resC.addEventListener("dblclick", ()=>{
+    RES.yaw=-0.62; RES.pitch=0.92; RES.zoom=1; RES.panX=0; RES.panY=0; drawRes();
+  });
+})();
+
+$("resCompute").addEventListener("click", async ()=>{
+  const surfaces = chosenSurfaces();
+  const kind = $("resReport").value;
+  const tb=$("resValues").querySelector("tbody"); tb.innerHTML="";
+  if(!surfaces.length){ $("resNote").textContent=T("res_pick"); return; }
+  const head=document.createElement("tr");
+  const h1=document.createElement("th"); h1.textContent=T("res_surf");
+  const h2=document.createElement("th"); h2.textContent=T("res_val");
+  h2.style.textAlign="right"; head.append(h1,h2); tb.appendChild(head);
+  for(const s of surfaces){
+    let txt;
+    try{
+      const j=await api("/api/report",{kind:kind, surfaces:[s], variable:RES.variable});
+      txt = fmtSci(j.value);
+    }catch(e){ txt = "—"; }
+    const tr=document.createElement("tr");
+    const a=document.createElement("td"); a.textContent=s;
+    const b=document.createElement("td"); b.className="n"; b.textContent=txt;
+    tr.append(a,b); tb.appendChild(tr);
+  }
+});
+$("resDP").addEventListener("click", async ()=>{
+  const el=$("resDPOut");
+  try{
+    const a=await api("/api/report",{kind:"area-weighted-avg",surfaces:["inlet"],variable:"pressure"});
+    const b=await api("/api/report",{kind:"area-weighted-avg",surfaces:["outlet"],variable:"pressure"});
+    const dp=a.value-b.value;
+    el.innerHTML = T("res_dpout")(fmtSci(dp), "Pa") +
+      (a.mock ? '<span class="mockbadge">MOCK</span>' : "");
+  }catch(e){ el.textContent=e.message; }
+});
+
+/* --------------------- language, and bringing it up --------------------- */
+window.__appLang = function(){
+  document.querySelectorAll("#tabs button").forEach(b=>
+    b.textContent = T("tabs")[b.dataset.pane]);
+  $("setReset").textContent=T("setReset");
+  $("setSeed").textContent=T("setSeed");
+  $("setJournal").textContent=T("setJournal");
+  $("journalCopy").textContent=T("copy");
+  $("runStart").textContent=T("runStart");
+  $("runStop").textContent=T("runStop");
+  $("runMeshOnly").textContent=T("runMeshOnly");
+  $("resRefresh").textContent=T("res_refresh");
+  $("resCompute").textContent=T("res_compute");
+  $("resDP").textContent=T("res_dp");
+  const hs={resSurfaces:"h_surfaces", resVariable:"h_variable",
+            resReport:"h_values", resDP:"h_dp"};
+  for(const id in hs){
+    const el=$(id); if(!el) continue;
+    const h=el.closest(".grp") && el.closest(".grp").querySelector("h2");
+    if(h) h.textContent=T(hs[id]);
+  }
+  const lab=document.querySelector('label[for="resOpacity"]');
+  if(lab) lab.textContent=T("res_opacity");
+  const ed=$("resEdges");
+  if(ed && ed.parentElement.lastChild.nodeType===3)
+    ed.parentElement.lastChild.nodeValue=T("res_edges");
+  document.querySelectorAll('.card h3').forEach(()=>{});
+  if(SRV){ buildSettings(); $("setBanner").innerHTML = bannerHTML(); }
+  renderStages(); setRunBanner(); renderMeshStats(); drawResid(); drawRes();
+};
+function bannerHTML(){
+  if(!SRV) return T("srv_off");
+  return (SRV.backend==="mock" || !SRV.fluent_available)
+    ? T("srv_mock") : T("srv_ok")(SRV.backend);
+}
+function offlineBanners(){
+  for(const id of ["setBanner","runBanner"]){
+    const el=$(id); el.className="banner warn"; el.innerHTML=T("srv_off");
+  }
+  $("resNote").textContent = T("srv_off").replace(/<[^>]+>/g,"");
+  document.querySelectorAll("#tabs button").forEach(b=>{
+    if(b.dataset.pane!=="geom") b.disabled=true;
+  });
+}
+(async function initApp(){
+  document.querySelectorAll("#tabs button").forEach(b=>
+    b.textContent = T("tabs")[b.dataset.pane]);
+  //  opened straight off the disk there is nothing to talk to, and trying
+  //  anyway just prints a fetch error the user cannot act on
+  if(location.protocol === "file:"){ SRV=null; offlineBanners(); return; }
+  try{
+    SRV = await api("/api/info");
+  }catch(e){
+    SRV = null; offlineBanners(); return;
+  }
+  loadSettings();
+  const b=$("setBanner");
+  b.className = (SRV.backend==="mock"||!SRV.fluent_available) ? "banner warn" : "banner";
+  b.innerHTML = bannerHTML();
+  buildSettings();
+  paintRange($("resOpacity"));
+  renderStages(); setRunBanner();
+  poll();                       // pick up a run that is already going
+})();
+
 </script>

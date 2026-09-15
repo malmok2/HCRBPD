@@ -657,7 +657,10 @@ class Mesh(object):
             self.add_block(ns, nx, pos, key, zone)
 
     # -- the whole build ---------------------------------------------------
-    def build(self):
+    def build_section(self):
+        """The 2-D part: cells, canonical corners, and the counts that follow
+        from them.  Cheap, and enough to NAME the case - which is what anything
+        predicting the output filename needs, without meshing the volume."""
         c = self.c
         cells = lattice(c)
         polys = [(cx, cy, rod, cell_polygon(c, cx, cy, row))
@@ -667,7 +670,12 @@ class Mesh(object):
             self.pcell.append((cx, cy, rod, [self.vertex_id(p) for p in pg]))
         #  a rod-free wall cell forces a fixed count per side (see side_div)
         self.uniform_div = c.stagger and any(not x[2] for x in self.pcell)
+        #  the azimuthal total depends only on the section, so it is known here
+        self.az_full = self.whole_tube_divisions()
 
+    def build(self):
+        c = self.c
+        self.build_section()
         self.q_rad = growth_ratio(c.clearance, c.first_layer, c.n_rad)
         self.fr_rad = fractions(self.q_rad, c.n_rad)
         fr_a = fractions(c.x_scale ** (1.0 / max(1, c.n_x_in - 1)), c.n_x_in)
@@ -680,7 +688,6 @@ class Mesh(object):
         if self.maxdev > c.tol:
             fail("blocks disagree on a shared node by %.2e -> topology keys are wrong"
                  % self.maxdev)
-        self.az_full = self.whole_tube_divisions()
         self.check_watertight_2d()
         self.extrude()
         self.classify_patches()
@@ -804,6 +811,18 @@ class Mesh(object):
                   if not all(self.on_rod(self.points[i]) for i in e[0]))
         if bad:
             fail("%d faces classified as rod wall are not on any rod" % bad)
+
+
+def quick_az(case):
+    """Azimuthal divisions around a whole tube, without meshing the volume.
+
+    The case name carries that count and the file on disk is called after it,
+    so anything that has to predict the filename - the generated journal, for
+    one - can get it without paying for the full build.
+    """
+    m = Mesh(case)
+    m.build_section()
+    return m.az_full
 
 
 # =============================================================================

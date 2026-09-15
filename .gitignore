@@ -7,6 +7,12 @@
 *.zip
 *.skill
 
+# solver runs: meshes, cases and data the app writes.  Everything in here is
+# reproducible from the geometry parameters plus the settings.
+runs/
+*.cas.h5
+*.dat.h5
+
 # python
 __pycache__/
 *.pyc
