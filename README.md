@@ -71,7 +71,15 @@ and the settings-API path it drives. The Settings panel is generated from that
 schema over the API and the driver writes those same paths, so a setting cannot
 appear in the panel without a path, or be applied to a path the panel never
 showed. `python3 fluent_case.py --audit` walks every path against the settings
-trees PyFluent ships for Fluent 2024 R2 through 2027 R1. The API does move
+trees PyFluent ships for Fluent 2024 R2 through 2027 R1, and then the enum
+**values** those settings are given — a path that resolves can still be handed
+a string the setting will not take, which is how `least-squares-cell-based`
+survived for a scheme Fluent calls `least-square-cell-based`. Roughly half the
+values the shipped trees publish; the rest the live driver asks the running
+Fluent about, after the mesh is read and before it writes any of them, so one
+run names every bad string instead of dying on the first. `--audit -v` lists
+what no release publishes, so what stands unverified is visible rather than
+implied. The API does move
 between releases — 2024 R2 keeps the discretisation schemes and the surface
 integrals shallower, 2027 R1 renames `models.viscous` to `models.turbulence` —
 so each path carries its alternates and the audit requires one to resolve in

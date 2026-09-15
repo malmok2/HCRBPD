@@ -28,15 +28,22 @@ path named below against those static trees, so a path that a Fluent upgrade
 moves or renames is caught here rather than half way through a solver run.
 Run it with ``python3 fluent_case.py --audit``.
 
-What CANNOT be checked without Fluent: the string values of the enumerated
-settings (``viscous.model = "k-omega"`` and friends).  Fluent supplies those at
-runtime.  They are written once in ``_ENUM`` below, and the live driver calls
-``allowed_values()`` on connect and reports any that the running Fluent does
-not recognise, rather than failing deep inside the setup.
+The enumerated VALUES are audited the same way, by ``audit_choices()``: a path
+that resolves can still be handed a string the setting will not take, and that
+is a separate failure.  About half of them the shipped trees do publish, and
+those are checked offline; the rest the release keeps to itself, so the live
+driver asks the running Fluent - once the mesh is read and the objects are
+active - about every value THIS run will send, before it sends any of them.
+One run then names every bad string instead of dying on the first.
+
+The schema in ``SETTINGS`` is the only place these strings are written down.
+A second copy that nothing compares against is how ``least-squares-cell-based``
+survived for a scheme Fluent calls ``least-square-cell-based``.
 """
 
 from __future__ import annotations
 
+import difflib
 import importlib
 import json
 import math
@@ -52,32 +59,6 @@ PATCHES = ME.PATCH_ORDER          # inlet, outlet, wall_rods, wall_side_*, wall_
 WALL_PATCHES = [p for p in PATCHES if p.startswith("wall")]
 
 
-# =============================================================================
-#  ENUMERATED VALUES
-# =============================================================================
-#  These are the strings Fluent expects.  They are NOT in the static settings
-#  tree - Fluent serves them at runtime - so they cannot be audited offline.
-#  FluentDriver.check_enums() compares them against the live allowed_values()
-#  and reports the difference instead of guessing.
-_ENUM = {
-    "viscous": ["laminar", "k-epsilon", "k-omega", "spalart-allmaras",
-                "reynolds-stress", "les", "inviscid"],
-    "k_omega_variant": ["standard", "sst", "bsl", "geko"],
-    "k_epsilon_variant": ["standard", "realizable", "rng"],
-    "wall_treatment": ["standard-wall-fn", "scalable-wall-fn",
-                       "non-equilibrium-wall-fn", "enhanced-wall-treatment",
-                       "menter-lechner", "user-defined-wall-functions"],
-    "flow_scheme": ["SIMPLE", "SIMPLEC", "PISO", "Coupled"],
-    "gradient": ["green-gauss-cell-based", "green-gauss-node-based",
-                 "least-squares-cell-based"],
-    "pressure_disc": ["standard", "second-order", "presto!", "linear",
-                      "body-force-weighted"],
-    "upwind": ["first-order-upwind", "second-order-upwind", "quick",
-               "third-order-muscl", "power-law"],
-    "zone_type": ["wall", "symmetry", "periodic"],
-    "turb_spec": ["Intensity and Viscosity Ratio", "Intensity and Hydraulic Diameter",
-                  "K and Omega", "K and Epsilon"],
-}
 
 
 # =============================================================================
@@ -280,7 +261,8 @@ SETTINGS = [
              "show_if": {"viscous": ["k-epsilon"]},
              "choices": _c(("", "기본값", "Default"),
                            ("standard-wall-fn", "표준 벽함수", "Standard wall functions"),
-                           ("scalable-wall-fn", "Scalable 벽함수", "Scalable wall functions"),
+                           ("scalable-wall-functions", "Scalable 벽함수",
+                            "Scalable wall functions"),
                            ("enhanced-wall-treatment", "Enhanced wall treatment",
                             "Enhanced wall treatment")),
              "paths": ["wall_treatment"]},
@@ -310,6 +292,12 @@ SETTINGS = [
              "ko": "속도 지정 방식", "en": "Velocity specification",
              "choices": _c(("components", "성분 (U,0,0)", "Components (U,0,0)"),
                            ("magnitude-normal", "크기 · 면 법선", "Magnitude, normal to boundary")),
+             #  these two keys are OURS - each drives a different pair of
+             #  writes, so the driver cannot just pass the choice through.
+             #  api_values names what Fluent is actually given, so the choice
+             #  audit checks those strings rather than skipping the field.
+             "api_values": {"components": "Components",
+                            "magnitude-normal": "Magnitude, Normal to Boundary"},
              "paths": ["inlet_spec"],
              "note_ko": "이 메시는 입구면이 유동에 정확히 수직이므로 두 방식이 같은 결과를 줍니다. "
                         "성분 지정이 기울기에 영향을 받지 않아 더 안전합니다.",
@@ -407,9 +395,11 @@ SETTINGS = [
              "choices": _c(("Coupled", "Coupled", "Coupled"), ("SIMPLE", "SIMPLE", "SIMPLE"),
                            ("SIMPLEC", "SIMPLEC", "SIMPLEC"), ("PISO", "PISO", "PISO")),
              "paths": ["flow_scheme"]},
-            {"id": "gradient", "kind": "choice", "default": "least-squares-cell-based",
+            #  Fluent spells it "least-SQUARE-cell-based", singular - the
+            #  plural is rejected outright.  audit_choices checks it now.
+            {"id": "gradient", "kind": "choice", "default": "least-square-cell-based",
              "ko": "구배 계산", "en": "Gradient",
-             "choices": _c(("least-squares-cell-based", "Least squares cell based",
+             "choices": _c(("least-square-cell-based", "Least squares cell based",
                             "Least squares cell based"),
                            ("green-gauss-node-based", "Green-Gauss node based",
                             "Green-Gauss node based"),
@@ -554,6 +544,161 @@ def _resolve_spec(root, spec):
     return False, "; ".join(fails)
 
 
+def field(group_id, field_id):
+    """One field out of the schema, by group and id."""
+    for g in SETTINGS:
+        if g["id"] != group_id:
+            continue
+        for f in g["fields"]:
+            if f["id"] == field_id:
+                return f
+    raise KeyError("%s.%s" % (group_id, field_id))
+
+
+def api_values(group_id, field_id):
+    """What Fluent is given for each of a field's choices.
+
+    Most choices ARE the Fluent string.  A few are ours - the inlet
+    specification picks between two different sets of writes, not between two
+    values of one setting - and those declare an api_values map.  Going
+    through here means the string the audit checks is the string the driver
+    sends, rather than the two agreeing by inspection.
+    """
+    f = field(group_id, field_id)
+    m = f.get("api_values")
+    return dict(m) if m else {c["v"]: c["v"] for c in f["choices"]}
+
+
+#  Enum values the driver writes as literals, outside any choice field, with
+#  the PATHS key they are written to.  audit_choices checks these too, so a
+#  spelling like "unsteady" - which is not an allowed value, "transient" is -
+#  is caught here rather than 70 seconds into a run.
+LITERAL_ENUMS = [
+    ("solver_time", "steady"),          # solver_time() returns one of these
+    ("solver_time", "transient"),
+    ("init_type", "standard"),
+    ("init_type", "hybrid"),
+]
+
+
+def solver_time(settings):
+    """The value setup.general.solver.time takes for this case.
+
+    "unsteady" is NOT one of them - the list is steady / transient /
+    unsteady-1st-order / unsteady-2nd-order / unsteady-2nd-order-bounded.
+    Driver, journal and audit all read it from here so they cannot drift.
+    """
+    return "steady" if settings["general"]["steady"] else "transient"
+
+
+def setting_value(settings, field_id):
+    """A field's current value, found by id across the groups (ids are unique)."""
+    for g in SETTINGS:
+        for f in g["fields"]:
+            if f["id"] == field_id:
+                return settings.get(g["id"], {}).get(field_id, f.get("default"))
+    return None
+
+
+def visible(field_def, settings):
+    """The Python twin of the page's fieldVisible().
+
+    show_if is {field: [values]} to show only for those values, or
+    {"~field": [values]} to hide for them.  Both sides evaluate it, so a field
+    the panel hides is also a field this does not send or check.
+    """
+    cond = field_def.get("show_if")
+    if not cond:
+        return True
+    for key, allowed in cond.items():
+        neg = key.startswith("~")
+        v = setting_value(settings, key[1:] if neg else key)
+        hit = v in allowed
+        if (hit if neg else not hit):
+            return False
+    return True
+
+
+def planned_enums(settings):
+    """Every enumerated string one run will send, with the path it goes to.
+
+    Offline, audit_choices checks the whole schema against the shipped trees.
+    This is the same question asked of a run: only the values it will actually
+    use, so a live session can be asked about exactly those.
+    """
+    out = []
+    for g in SETTINGS:
+        got = settings.get(g["id"], {})
+        for f in g["fields"]:
+            if f.get("kind") != "choice" or not f.get("paths"):
+                continue
+            v = got.get(f["id"], f.get("default"))
+            v = api_values(g["id"], f["id"]).get(v, v)
+            if v == "" or v is None:
+                continue
+            if not visible(f, settings):
+                continue
+            out.append(("%s.%s" % (g["id"], f["id"]), f["paths"][0], v))
+    #  the only enum the driver derives rather than passing through
+    out.append(("general.steady", "solver_time", solver_time(settings)))
+    return out
+
+
+def audit_choices(versions=("242", "251", "252", "261", "271")):
+    """Check every enum STRING the app can send against the shipped trees.
+
+    audit_paths proves the setting exists; this proves the value is one the
+    setting will take.  They fail differently and they failed separately in
+    practice - the paths audit was green while the gradient scheme was spelled
+    'least-squares-cell-based' for a scheme Fluent calls 'least-square-...'.
+
+    Not every release publishes its allowed values statically: where a setting
+    does not carry them, it is reported as unchecked rather than passed.
+    Returns (n_checked, unchecked_set, {version: [(what, detail)]}).
+    """
+    wanted = []                       # (label, paths-key, value)
+    for g in SETTINGS:
+        for f in g["fields"]:
+            if f.get("kind") != "choice" or not f.get("paths"):
+                continue
+            amap = api_values(g["id"], f["id"])
+            for c in f["choices"]:
+                v = amap.get(c["v"], c["v"])
+                if v == "":           # blank means "leave Fluent's default"
+                    continue
+                wanted.append(("%s.%s" % (g["id"], f["id"]), f["paths"][0], v))
+    for key, v in LITERAL_ENUMS:
+        wanted.append(("driver." + key, key, v))
+
+    report, checked, unchecked = {}, set(), set()
+    for ver in versions:
+        try:
+            mod = importlib.import_module(
+                "ansys.fluent.core.generated.solver.settings_" + ver)
+        except Exception as exc:                       # noqa: BLE001
+            report[ver] = [("<module>", str(exc))]
+            continue
+        bad = []
+        for label, key, val in wanted:
+            cls = None
+            for alt in PATHS[key].split("|"):
+                cls, _ = _resolve(mod.root, alt)
+                if cls is not None:
+                    break
+            allowed = getattr(cls, "_allowed_values", None) if cls is not None else None
+            if not allowed:
+                unchecked.add((label, val))
+                continue
+            checked.add((label, val))
+            if val not in allowed:
+                near = difflib.get_close_matches(val, allowed, n=1, cutoff=0.6)
+                bad.append((label, "%r is not allowed%s; allowed: %s"
+                            % (val, (" (did you mean %r?)" % near[0]) if near else "",
+                               ", ".join(allowed))))
+        report[ver] = bad
+    return len(checked), unchecked - checked, report
+
+
 def audit_paths(versions=("242", "251", "252", "261", "271")):
     """Check every path the driver can write against the shipped settings trees.
 
@@ -670,33 +815,50 @@ class FluentDriver(BaseDriver):
                 "  To work on the app itself without Fluent, restart with "
                 "--backend mock." % exc)
         self.log("connected: %s" % getattr(self.solver, "get_fluent_version", lambda: "?")())
-        self.check_enums()
 
     def check_enums(self):
-        """Ask the live Fluent which strings it accepts, and say so if ours differ.
+        """Ask the live Fluent about every enum string this run will send.
 
-        The static settings tree carries no allowed values, so this is the only
-        place the enumerated strings can be confirmed.  A mismatch is reported,
-        not raised: Fluent may legitimately offer a different set per release
-        or per enabled model.
+        audit_choices settles offline what the shipped settings trees publish,
+        but they publish only about half of it, and a value can move between
+        releases.  This asks the session in front of us, about exactly the
+        values it is about to be given.
+
+        Two things matter about WHEN.  The objects have to be active, which
+        means after the mesh is read - asked any earlier, Fluent answers
+        "setup.models is currently inactive" and nothing is checked at all.
+        And every value is checked before any is written, so one run reports
+        every bad string instead of dying on the first and hiding the rest.
+
+        Reported, not raised: Fluent legitimately offers different sets per
+        release and per enabled model, and the write that follows will fail
+        on its own if the value really is wrong - by which point the log
+        already says so, with the spelling Fluent wants.
         """
-        checks = [("viscous_model", _ENUM["viscous"]),
-                  ("flow_scheme", _ENUM["flow_scheme"])]
-        for path, ours in checks:
-            try:
-                obj = self._obj(path)
-                live = obj.allowed_values()
-            except Exception as exc:                   # noqa: BLE001
-                self.log("  (could not read allowed values for %s: %s)" % (path, exc))
+        rows, seen = planned_enums(self.s), {}
+        for label, key, val in rows:
+            if key not in PATHS:
                 continue
-            if not live:
+            if key not in seen:
+                try:
+                    seen[key] = list(self._obj(key).allowed_values() or [])
+                except Exception as exc:               # noqa: BLE001
+                    seen[key] = None
+                    self.log("  (no allowed values for %s: %s)" % (key, exc))
+            live = seen[key]
+            if not live or val in live:
                 continue
-            unknown = [v for v in ours if v not in live]
-            if unknown:
-                msg = ("%s: this Fluent does not list %s; it offers %s"
-                       % (path, unknown, list(live)))
-                self.enum_warnings.append(msg)
-                self.log("  WARNING " + msg)
+            near = difflib.get_close_matches(val, live, n=1, cutoff=0.6)
+            msg = ("%s: this Fluent does not accept %r%s (it offers %s)"
+                   % (label, val, (" - did you mean %r?" % near[0]) if near else "",
+                      ", ".join(live)))
+            self.enum_warnings.append(msg)
+            self.log("  WARNING " + msg)
+        n = sum(1 for k in seen if seen[k])
+        self.log("  checked %d enum value(s) against this Fluent across %d setting(s)%s"
+                 % (sum(1 for l, k, v in rows if seen.get(k)), n,
+                    "" if not self.enum_warnings
+                    else " - %d PROBLEM(S) above" % len(self.enum_warnings)))
 
     # every settings write goes through these two, so the alternates in PATHS
     # are honoured everywhere and nothing hardcodes one release's spelling
@@ -738,9 +900,11 @@ class FluentDriver(BaseDriver):
         s, S = self.s, self.solver.settings
         self.log("reading mesh: %s" % self.mesh_path)
         self._obj("read_mesh")(file_name=self.mesh_path)
+        #  only now are the model and method objects active enough to answer
+        self.check_enums()
 
         g = s["general"]
-        self._set("solver_time", "steady" if g["steady"] else "unsteady")
+        self._set("solver_time", solver_time(s))
         self._set("op_pressure", float(g["operating_pressure"]))
         self._set("energy", bool(g["energy"]))
 
@@ -893,8 +1057,9 @@ class FluentDriver(BaseDriver):
 
         inl = S.setup.boundary_conditions.velocity_inlet["inlet"]
         i = s["inlet"]
+        spec = api_values("inlet", "spec")          # the audited strings
         if i["spec"] == "components":
-            inl.momentum.velocity_specification_method = "Components"
+            inl.momentum.velocity_specification_method = spec["components"]
             # the flat streamwise direction maps exactly to +X for every
             # geometry this tool makes, rolled or not
             comp = inl.momentum.velocity_components
@@ -902,7 +1067,7 @@ class FluentDriver(BaseDriver):
             comp[1] = 0.0
             comp[2] = 0.0
         else:
-            inl.momentum.velocity_specification_method = "Magnitude, Normal to Boundary"
+            inl.momentum.velocity_specification_method = spec["magnitude-normal"]
             inl.momentum.velocity_magnitude = float(i["velocity"])
         if not lam:
             #  specification first, then the inputs it activates
@@ -1449,7 +1614,7 @@ def journal(geometry, params, settings, mesh_path, version=None):
     w("S = solver.settings")
     w("")
     w("S.%s(file_name=%r)" % (P_("read_mesh"), mesh_path))
-    w("S.%s = %r" % (P_("solver_time"), "steady" if g["steady"] else "unsteady"))
+    w("S.%s = %r" % (P_("solver_time"), solver_time(s)))
     w("S.%s = %g" % (P_("op_pressure"), float(g["operating_pressure"])))
     w("S.%s = %r" % (P_("energy"), bool(g["energy"])))
     w("S.%s = %r" % (P_("viscous_model"), t["viscous"]))
@@ -1480,14 +1645,16 @@ def journal(geometry, params, settings, mesh_path, version=None):
         w("")
     w("inlet = S.setup.boundary_conditions.velocity_inlet['inlet']")
     if i["spec"] == "components":
-        w("inlet.momentum.velocity_specification_method = 'Components'")
+        w("inlet.momentum.velocity_specification_method = %r"
+          % api_values("inlet", "spec")["components"])
         w("#  the mesh keeps the inlet plane perpendicular to the flow, and the")
         w("#  streamwise direction maps exactly to +X, rolled or not")
         w("inlet.momentum.velocity_components[0] = %g" % float(i["velocity"]))
         w("inlet.momentum.velocity_components[1] = 0.0")
         w("inlet.momentum.velocity_components[2] = 0.0")
     else:
-        w("inlet.momentum.velocity_specification_method = 'Magnitude, Normal to Boundary'")
+        w("inlet.momentum.velocity_specification_method = %r"
+          % api_values("inlet", "spec")["magnitude-normal"])
         w("S.%s = %g" % (P_("inlet_magnitude"), float(i["velocity"])))
     if not lam:
         w("#  the specification method activates the inputs below it, so it")
@@ -1584,6 +1751,29 @@ if __name__ == "__main__":
                     print("  %s" % k)
                     for v in sorted(picks):
                         print("     v%s  %s" % (v, picks[v]))
+
+        #  a path that resolves can still be handed a value it will not take,
+        #  so the two audits run together and both have to pass
+        nc, unchecked, crep = audit_choices()
+        print("\nauditing the enum values those settings are given")
+        print("  %d value(s) checked, %d not published by any release"
+              % (nc, len(unchecked)))
+        if "-v" in sys.argv and unchecked:
+            print("  no release publishes an allowed list for these, so they "
+                  "stand unverified:")
+            for label in sorted({l for l, _ in unchecked}):
+                vals = sorted(v for l, v in unchecked if l == label)
+                print("     %-24s %s" % (label, ", ".join(vals)))
+        for v in ("242", "251", "252", "261", "271"):
+            problems = crep.get(v, [])
+            if not problems:
+                continue
+            bad += len(problems)
+            print("  v%s   %d PROBLEM(S)" % (v, len(problems)))
+            for owner, msg in problems:
+                print("        %-22s %s" % (owner, msg))
+        if not any(crep.get(v) for v in crep):
+            print("  every release that publishes its allowed values agrees")
         sys.exit(1 if bad else 0)
     if "--schema" in sys.argv:
         print(json.dumps({"settings": SETTINGS, "defaults": default_settings(),
