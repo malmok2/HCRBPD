@@ -3480,15 +3480,33 @@ function syncSettings(){
 function saveSettings(){
   try{ localStorage.setItem("bmSettings", JSON.stringify(SET)); }catch(e){}
 }
+let SET_DROPPED = [];      // saved choices this version no longer offers
+function fieldById(gid, fid){
+  for(const g of SRV.settings) if(g.id===gid)
+    for(const f of g.fields) if(f.id===fid) return f;
+  return null;
+}
 function loadSettings(){
   SET = JSON.parse(JSON.stringify(SRV.defaults));
   let restored = false;
+  const dropped = [];
   try{
     const raw = localStorage.getItem("bmSettings");
     if(raw){
       const saved = JSON.parse(raw);
       for(const gid in SET) if(saved[gid])
-        for(const fid in SET[gid]) if(fid in saved[gid]) SET[gid][fid]=saved[gid][fid];
+        for(const fid in SET[gid]) if(fid in saved[gid]){
+          //  A saved case outlives a correction to the schema: a choice that
+          //  was valid when it was saved can be one this version no longer
+          //  offers, and restoring it would send Fluent a string it rejects.
+          //  Keep the default instead, and say which ones were dropped.
+          const f = fieldById(gid, fid), v = saved[gid][fid];
+          if(f && f.kind === "choice" && !f.choices.some(c => c.v === v)){
+            dropped.push(gid + "." + fid + ": " + JSON.stringify(v));
+            continue;
+          }
+          SET[gid][fid] = v;
+        }
       restored = true;
     }
   }catch(e){}
@@ -3498,6 +3516,8 @@ function loadSettings(){
   //  undo whatever was typed here.  "Seed from the geometry tab" puts them
   //  back on demand.
   if(!restored) seedFromGeometry();
+  SET_DROPPED = dropped;
+  if(dropped.length) saveSettings();      // do not hand the stale value back
 }
 function seedFromGeometry(){
   SET.material.density   = P.rho;
@@ -4000,6 +4020,13 @@ function stampVersion(){
   const b=$("setBanner");
   b.className = bannerClass();
   b.innerHTML = bannerHTML();
+  if(SET_DROPPED.length){
+    b.className = "banner warn";
+    b.innerHTML += "<br>" + (LANG==="ko"
+      ? "저장된 설정 중 이 버전에 없는 선택지는 기본값으로 되돌렸습니다: "
+      : "Saved choices this version no longer offers were reset to the default: ")
+      + SET_DROPPED.join(", ");
+  }
   buildSettings();
   paintRange($("resOpacity"));
   renderStages(); setRunBanner();

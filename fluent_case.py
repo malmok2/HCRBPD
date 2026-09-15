@@ -343,16 +343,22 @@ SETTINGS = [
              "paths": ["outlet_pressure"]},
             {"id": "prevent_reverse_flow", "kind": "bool", "default": True,
              "ko": "역류 방지", "en": "Prevent reverse flow",
+             "note_ko": "켜 두면 역류가 없으므로 Fluent가 아래 역류 난류 입력을 "
+                        "비활성화합니다. 그래서 이 항목들도 함께 숨겨집니다.",
+             "note_en": "With this on there is no backflow, so Fluent deactivates the "
+                        "backflow turbulence inputs below - which is why they are hidden.",
              "paths": ["outlet_no_reverse"]},
+            #  hidden, and not sent, while reverse flow is prevented: Fluent
+            #  refuses every write to the backflow group in that state
             {"id": "backflow_intensity", "kind": "number", "default": 5.0, "min": 0.01,
              "max": 100, "step": 0.1, "unit": "%",
              "ko": "역류 난류 강도", "en": "Backflow turbulent intensity",
-             "show_if": {"~viscous": ["laminar"]},
+             "show_if": {"~viscous": ["laminar"], "~prevent_reverse_flow": [True]},
              "paths": ["outlet_bf_intensity"]},
             {"id": "backflow_visc_ratio", "kind": "number", "default": 10.0, "min": 1e-3,
              "max": 1e5, "step": 1, "ko": "역류 난류 점성비",
              "en": "Backflow turbulent viscosity ratio",
-             "show_if": {"~viscous": ["laminar"]},
+             "show_if": {"~viscous": ["laminar"], "~prevent_reverse_flow": [True]},
              "paths": ["outlet_bf_visc_ratio"]},
         ],
     },
@@ -485,14 +491,37 @@ def default_settings():
     return out
 
 
-def merge_settings(user):
-    """Defaults overlaid with whatever the browser sent, ignoring unknown keys."""
+def merge_settings(user, notes=None):
+    """Defaults overlaid with whatever the browser sent, ignoring unknown keys.
+
+    A choice the schema does not offer is dropped back to the default rather
+    than passed through.  The browser keeps the last case in local storage, so
+    a value that WAS valid survives a correction to the schema and gets sent
+    again long after the code stopped offering it - which is how
+    'least-squares-cell-based' reached Fluent once more after it was fixed.
+    Coercions are appended to `notes` if one is given: silently changing a
+    setting behind the user's back would be worse than the stale value.
+    """
     s = default_settings()
+    allowed = {}
+    for g in SETTINGS:
+        for f in g["fields"]:
+            if f.get("kind") == "choice":
+                allowed[(g["id"], f["id"])] = ([c["v"] for c in f["choices"]],
+                                               f["default"])
     for gid, grp in (user or {}).items():
-        if gid in s and isinstance(grp, dict):
-            for fid, v in grp.items():
-                if fid in s[gid]:
-                    s[gid][fid] = v
+        if gid not in s or not isinstance(grp, dict):
+            continue
+        for fid, v in grp.items():
+            if fid not in s[gid]:
+                continue
+            ok, dflt = allowed.get((gid, fid), (None, None))
+            if ok is not None and v not in ok:
+                if notes is not None:
+                    notes.append("%s.%s: %r is not one of this version's "
+                                 "choices; using %r" % (gid, fid, v, dflt))
+                continue                       # leave the default in place
+            s[gid][fid] = v
     return s
 
 
@@ -988,11 +1017,13 @@ class FluentDriver(BaseDriver):
                  % (float(s["inlet"]["intensity"]),
                     float(s["inlet"]["intensity"]) / 100.0),
                  lambda: inl.turbulence.turbulent_intensity())
-            read("outlet turb spec", lambda: out.turbulence.turbulence_specification())
-            read("outlet backflow intensity  (sent %g%% as %g)"
-                 % (float(s["outlet"]["backflow_intensity"]),
-                    float(s["outlet"]["backflow_intensity"]) / 100.0),
-                 lambda: out.turbulence.backflow_turbulent_intensity())
+            if not s["outlet"]["prevent_reverse_flow"]:
+                read("outlet turb spec",
+                     lambda: out.turbulence.turbulence_specification())
+                read("outlet backflow intensity  (sent %g%% as %g)"
+                     % (float(s["outlet"]["backflow_intensity"]),
+                        float(s["outlet"]["backflow_intensity"]) / 100.0),
+                     lambda: out.turbulence.backflow_turbulent_intensity())
         read("viscous model", lambda: resolve_obj(S, PATHS["viscous_model"])())
         zones = S.setup.cell_zone_conditions.fluid
         read("cell zone material",
@@ -1090,8 +1121,17 @@ class FluentDriver(BaseDriver):
         out = S.setup.boundary_conditions.pressure_outlet["outlet"]
         o = s["outlet"]
         out.momentum.gauge_pressure = float(o["gauge_pressure"])
-        out.momentum.prevent_reverse_flow = bool(o["prevent_reverse_flow"])
-        if not lam:
+        no_backflow = bool(o["prevent_reverse_flow"])
+        out.momentum.prevent_reverse_flow = no_backflow
+        if not lam and no_backflow:
+            #  With reverse flow prevented there IS no backflow, so Fluent
+            #  deactivates the whole backflow turbulence group - specification
+            #  method included - and refuses every write to it.  Writing them
+            #  anyway produced three "the object is not active" errors per run
+            #  for values that could not have had any effect.
+            self.log("  outlet: reverse flow is prevented, so Fluent has no "
+                     "backflow turbulence to set; skipping those three inputs")
+        if not lam and not no_backflow:
             #  The specification method has to be chosen FIRST: until it is,
             #  Fluent keeps the backflow inputs inactive and rejects a write to
             #  them with "the object is not active".  The outlet follows the
@@ -1671,7 +1711,10 @@ def journal(geometry, params, settings, mesh_path, version=None):
     w("outlet = S.setup.boundary_conditions.pressure_outlet['outlet']")
     w("outlet.momentum.gauge_pressure = %g" % float(o["gauge_pressure"]))
     w("outlet.momentum.prevent_reverse_flow = %r" % bool(o["prevent_reverse_flow"]))
-    if not lam:
+    if not lam and o["prevent_reverse_flow"]:
+        w("#  reverse flow is prevented, so Fluent deactivates the backflow")
+        w("#  turbulence inputs and refuses every write to them")
+    if not lam and not o["prevent_reverse_flow"]:
         w("outlet.turbulence.turbulence_specification = %r" % i["turb_spec"])
         w("outlet.turbulence.backflow_turbulent_intensity = %g   # %g %%"
           % (float(o["backflow_intensity"]) / 100.0, float(o["backflow_intensity"])))

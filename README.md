@@ -85,6 +85,15 @@ integrals shallower, 2027 R1 renames `models.viscous` to `models.turbulence` —
 so each path carries its alternates and the audit requires one to resolve in
 every release. `--schema` prints the whole contract as JSON.
 
+A setting Fluent has deactivated is not written at all. Preventing reverse
+flow at the outlet means there is no backflow, so Fluent greys out the whole
+backflow turbulence group; the panel hides those fields to match, and neither
+the driver nor the generated script touches them. And because the browser keeps
+the last case in local storage, a saved choice can outlive a correction to the
+schema — those are dropped back to the default on load and on arrival at the
+server, both of which say which ones, rather than being sent to Fluent as a
+string it rejects.
+
 The Settings tab also emits the equivalent standalone PyFluent script, written
 for the release you pick, so a case can be reproduced and archived without the
 app.

@@ -109,6 +109,7 @@ class Job(object):
         self.case = None
         self.lock = threading.Lock()
         self.thread = None
+        self.notes = []                 # settings the server had to correct
 
     # -- reporting --------------------------------------------------------
     def log(self, msg):
@@ -147,6 +148,8 @@ class Job(object):
             #  first line of every log: paste one back and the code that made
             #  it is not in doubt
             self.log("code %s  |  server up since %s" % (version_line(VERSION), STARTED))
+            for n in self.notes:
+                self.log("settings corrected: " + n)
             self.stage = "meshing"
             self.case = case_from(self.geometry, self.params)
             self.case.validate()
@@ -246,10 +249,14 @@ class App(object):
             if self.job is not None:
                 self.job.close()
             self.counter += 1
-            settings = FC.merge_settings(body.get("settings"))
+            #  the browser keeps the last case in local storage, so a choice
+            #  the schema has since corrected can still arrive here
+            notes = []
+            settings = FC.merge_settings(body.get("settings"), notes)
             backend = body.get("backend") or self.backend
             self.job = Job("j%d" % self.counter, body.get("geometry", "rod-inline"),
                            body.get("params") or {}, settings, backend, self.out_dir)
+            self.job.notes = notes
             self.job.start()
             return self.job.status()
 
