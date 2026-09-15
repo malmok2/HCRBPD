@@ -3254,7 +3254,10 @@ Object.assign(STR.ko, {
   srv_mock:"<b>Fluent 없이 mock 백엔드로 동작 중입니다.</b> 잔차도 유동장도 " +
            "진짜가 아닙니다 — 화면과 데이터 경로를 확인하기 위한 가짜 값입니다. " +
            "숫자를 인용하지 마십시오.",
-  srv_ok:s=>`<b>서버 연결됨.</b> 백엔드 <b>${s}</b> · 결과는 <code>runs/</code> 에 저장됩니다.`,
+  srv_ok:s=>`<b>Fluent 연결 준비됨</b> (${s}). 결과는 <code>runs/</code> 에 저장됩니다.`,
+  srv_nofluent:d=>`<b>Fluent 설치를 찾지 못해 mock 으로 동작합니다.</b> ${d}<br>` +
+    `PyFluent는 <code>AWP_ROOT&lt;버전&gt;</code> 환경변수로 Fluent를 찾습니다. ` +
+    `이 상태에서 나오는 잔차와 유동장은 전부 가짜입니다.`,
   set_intro:"Fluent 케이스 설정입니다. 아래 값은 그대로 PyFluent 설정 경로에 기록되고, " +
             "같은 내용으로 독립 실행 스크립트도 만들 수 있습니다.",
   setReset:"설정 초기화", setSeed:"형상 탭에서 물성·속도 가져오기",
@@ -3295,7 +3298,10 @@ Object.assign(STR.en, {
   srv_mock:"<b>Running on the mock backend, with no Fluent.</b> Neither the " +
            "residuals nor the field are real - they are invented so the screens " +
            "and the data path can be checked. Do not quote a number from them.",
-  srv_ok:s=>`<b>Server connected.</b> Backend <b>${s}</b> · results are written to <code>runs/</code>.`,
+  srv_ok:s=>`<b>Ready to drive Fluent</b> (${s}). Results are written to <code>runs/</code>.`,
+  srv_nofluent:d=>`<b>No Fluent found, so the mock is in use.</b> ${d}<br>` +
+    `PyFluent locates Fluent through <code>AWP_ROOT&lt;version&gt;</code>. ` +
+    `Every residual and every field you see in this state is invented.`,
   set_intro:"The Fluent case. Each value below is written to the settings path named " +
             "in the schema, and the same set can be emitted as a standalone script.",
   setReset:"Reset settings", setSeed:"Take the fluid and speed from the Geometry tab",
@@ -3933,13 +3939,19 @@ window.__appLang = function(){
   if(ed && ed.parentElement.lastChild.nodeType===3)
     ed.parentElement.lastChild.nodeValue=T("res_edges");
   document.querySelectorAll('.card h3').forEach(()=>{});
-  if(SRV){ buildSettings(); $("setBanner").innerHTML = bannerHTML(); }
+  if(SRV){ buildSettings();
+           $("setBanner").className = bannerClass();
+           $("setBanner").innerHTML = bannerHTML(); }
   renderStages(); setRunBanner(); renderMeshStats(); drawResid(); drawRes();
 };
 function bannerHTML(){
   if(!SRV) return T("srv_off");
-  return (SRV.backend==="mock" || !SRV.fluent_available)
-    ? T("srv_mock") : T("srv_ok")(SRV.backend);
+  if(SRV.backend === "mock") return T("srv_mock");          // forced with --backend mock
+  if(!SRV.fluent_installed) return T("srv_nofluent")(SRV.fluent_detail || "");
+  return T("srv_ok")(SRV.fluent_detail || SRV.backend);
+}
+function bannerClass(){
+  return (!SRV || SRV.backend==="mock" || !SRV.fluent_installed) ? "banner warn" : "banner";
 }
 function offlineBanners(){
   for(const id of ["setBanner","runBanner"]){
@@ -3963,7 +3975,7 @@ function offlineBanners(){
   }
   loadSettings();
   const b=$("setBanner");
-  b.className = (SRV.backend==="mock"||!SRV.fluent_available) ? "banner warn" : "banner";
+  b.className = bannerClass();
   b.innerHTML = bannerHTML();
   buildSettings();
   paintRange($("resOpacity"));

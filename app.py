@@ -215,9 +215,14 @@ class App(object):
         self.lock = threading.Lock()
 
     def info(self):
+        installed, detail = FC.fluent_installed()
         return {
             "ok": True,
             "fluent_available": FC.fluent_available(),
+            "fluent_installed": installed,
+            "fluent_detail": detail,
+            "effective_backend": ("mock" if self.backend == "mock"
+                                  else ("fluent" if installed else "mock")),
             "backend": self.backend,
             "out_dir": self.out_dir,
             "settings": FC.SETTINGS,
@@ -408,12 +413,16 @@ def main(argv=None):
     httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     url = "http://127.0.0.1:%d/" % port
 
-    have = FC.fluent_available()
+    installed, detail = FC.fluent_installed()
     print("=" * 66)
     print(" bundle CFD app   %s" % url)
-    print(" backend        : %s%s" % (a.backend,
-                                      "" if have else "   (ansys-fluent-core NOT installed"
-                                                      " - the mock will be used)"))
+    if a.backend == "mock":
+        print(" backend        : mock (forced) - nothing it produces is a result")
+    elif installed:
+        print(" backend        : %s -> Fluent %s" % (a.backend, detail))
+    else:
+        print(" backend        : %s -> no Fluent found, the MOCK will be used" % a.backend)
+        print("                  %s" % detail)
     print(" writing to     : %s" % out_dir)
     if port != a.port:
         print(" note           : port %d was busy" % a.port)

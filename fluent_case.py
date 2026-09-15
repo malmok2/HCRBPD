@@ -646,7 +646,15 @@ class FluentDriver(BaseDriver):
         if str(L.get("version", "")).strip():
             kw["product_version"] = str(L["version"]).strip()
         self.log("launch_fluent(%s)" % ", ".join("%s=%r" % kv for kv in sorted(kw.items())))
-        self.solver = pf.launch_fluent(**kw)
+        try:
+            self.solver = pf.launch_fluent(**kw)
+        except Exception as exc:                       # noqa: BLE001
+            raise DriverError(
+                "Fluent would not start: %s\n"
+                "  If Fluent is installed, check that AWP_ROOT<version> points at it "
+                "(PyFluent finds it that way) and that a licence is reachable.\n"
+                "  To work on the app itself without Fluent, restart with "
+                "--backend mock." % exc)
         self.log("connected: %s" % getattr(self.solver, "get_fluent_version", lambda: "?")())
         self.check_enums()
 
@@ -1165,6 +1173,8 @@ def _quad_area(p):
 
 
 def fluent_available():
+    """Is the PyFluent module importable?  That is NOT the same as having
+    Fluent - see fluent_installed()."""
     try:
         importlib.import_module("ansys.fluent.core")
         return True
@@ -1172,16 +1182,40 @@ def fluent_available():
         return False
 
 
+def fluent_installed():
+    """Is there an actual Fluent for PyFluent to launch?
+
+    ansys-fluent-core installs happily from PyPI on a machine with no Ansys on
+    it at all, so importing it proves nothing.  PyFluent finds the real thing
+    through AWP_ROOT<ver> environment variables; ask it, and report what it
+    found, so the app can say up front that it will have to use the mock rather
+    than discovering it half a minute into a run.
+
+    Returns (ok, detail).
+    """
+    if not fluent_available():
+        return False, "ansys-fluent-core is not installed (pip install ansys-fluent-core)"
+    try:
+        from ansys.fluent.core.utils.fluent_version import FluentVersion
+        v = FluentVersion.get_latest_installed()
+        return True, str(v)
+    except Exception as exc:                            # noqa: BLE001
+        return False, str(exc).split("\n")[0]
+
+
 def make_driver(backend, case, settings, mesh_path, log):
     """backend: 'fluent' | 'mock' | 'auto'"""
     if backend == "mock":
         return MockDriver(case, settings, mesh_path, log)
     if backend == "fluent":
-        if not fluent_available():
-            raise DriverError("ansys-fluent-core is not installed")
+        ok, detail = fluent_installed()
+        if not ok:
+            raise DriverError("cannot use Fluent: " + detail)
         return FluentDriver(case, settings, mesh_path, log)
-    return (FluentDriver if fluent_available() else MockDriver)(
-        case, settings, mesh_path, log)
+    ok, detail = fluent_installed()
+    if not ok:
+        log("no Fluent found (%s) - falling back to the MOCK backend" % detail)
+    return (FluentDriver if ok else MockDriver)(case, settings, mesh_path, log)
 
 
 # =============================================================================
