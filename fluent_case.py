@@ -55,6 +55,7 @@ import time
 # with it so the browser never has to upload a hundred-megabyte file
 import mesh_explorer as ME
 
+TAU = 2.0 * math.pi
 PATCHES = ME.PATCH_ORDER          # inlet, outlet, wall_rods, wall_side_*, wall_bottom/top
 WALL_PATCHES = [p for p in PATCHES if p.startswith("wall")]
 
@@ -1624,6 +1625,11 @@ VARIABLES = {
     "z-velocity":    {"fluent": "z-velocity",         "ko": "z 속도",      "en": "Z velocity",        "unit": "m/s"},
     "turb-kinetic-energy": {"fluent": "turb-kinetic-energy", "ko": "난류 운동에너지 k", "en": "Turbulent kinetic energy", "unit": "m²/s²"},
     "wall-shear":    {"fluent": "wall-shear",         "ko": "벽면 전단응력", "en": "Wall shear stress", "unit": "Pa"},
+    #  y+ exists on walls and nowhere else - Fluent returns nothing for it on
+    #  an interior plane or on the inlet - so it is marked, and the Results tab
+    #  says so rather than drawing an empty surface.
+    "y-plus":        {"fluent": "y-plus",              "ko": "벽면 y+",      "en": "Wall y+",
+                      "unit": "-", "walls_only": True},
 }
 
 
@@ -1897,6 +1903,15 @@ class MockDriver(BaseDriver):
             "turb-kinetic-energy": 1.5 * (0.05 * umag) ** 2,
             "wall-shear": 0.5 * rho * umag * umag * 0.0135,
         }
+        if variable == "y-plus":
+            #  u_tau from the same invented wall shear, and a first-cell height
+            #  from the case, so the number moves with the mesh the way the
+            #  real one does
+            mu = float(s["material"]["viscosity"])
+            tau = table["wall-shear"]
+            u_tau = math.sqrt(max(tau, 1e-12) / max(rho, 1e-12))
+            dy = 0.5 * c.first_layer * c.export_scale
+            return rho * u_tau * max(dy, 1e-12) / max(mu, 1e-12)
         return table.get(variable, 0.0)
 
     def field(self, surface, variable):
@@ -2041,6 +2056,65 @@ def path_for(version, key):
         return spec.split("|")[0]
     ok, detail = _resolve_spec(mod.root, spec)
     return detail if ok else spec.split("|")[0]
+
+
+def outline(case, n_arc=56, n_span=40):
+    """The CAD as polylines, in the exported coordinates the fields use.
+
+    Drawn behind the contour it says WHERE the plane is - a cut through a
+    bundle is hard to place without the bundle around it.  Built in flat mesh
+    space and pushed through the same XP() the mesh is, so it curves with a
+    rolled coil instead of floating beside it.
+
+    Returns a list of polylines, each a list of [x, y, z].
+    """
+    m = ME.Mesh(case)
+    m.build_section()
+    c = case
+    out = []
+
+    def curve(fn, n):
+        out.append([list(c.XP(fn(i / float(n)))) for i in range(n + 1)])
+
+    #  the four long edges, and the inlet and outlet rectangles
+    for (y, z) in ((0.0, 0.0), (c.W, 0.0), (0.0, c.H), (c.W, c.H)):
+        curve(lambda t, y=y, z=z: (c.l_tot * t, y, z), n_span)
+    for x in (0.0, c.l_tot):
+        curve(lambda t, x=x: (x, c.W * t, 0.0), 12)
+        curve(lambda t, x=x: (x, c.W * t, c.H), 12)
+        curve(lambda t, x=x: (x, 0.0, c.H * t), 8)
+        curve(lambda t, x=x: (x, c.W, c.H * t), 8)
+    #  Each rod: its footprint top and bottom, and four lines up the side.
+    #  A rod on a side wall is a HALF rod - the mesh stops at the wall - so the
+    #  arc is cut where it leaves the domain and each surviving run becomes its
+    #  own polyline.  Drawing the whole ellipse would put the silhouette
+    #  outside the box it is meant to describe.
+    eps = 1e-9 * max(c.W, 1.0)
+
+    def inside(q):
+        return -eps <= q[1] <= c.W + eps
+
+    centres = [(cx, cy) for (cx, cy, rod, _v) in m.pcell if rod]
+    for (cx, cy) in centres:
+        for z in (0.0, c.H):
+            run = []
+            for i in range(n_arc + 1):
+                q = (cx + c.aE * math.cos(TAU * i / n_arc),
+                     cy + c.bE * math.sin(TAU * i / n_arc), z)
+                if inside(q):
+                    run.append(list(c.XP(q)))
+                elif len(run) > 1:
+                    out.append(run); run = []
+                else:
+                    run = []
+            if len(run) > 1:
+                out.append(run)
+        for k in range(4):
+            a = TAU * k / 4.0
+            q0 = (cx + c.aE * math.cos(a), cy + c.bE * math.sin(a), 0.0)
+            if inside(q0):
+                curve(lambda t, q0=q0: (q0[0], q0[1], c.H * t), 8)
+    return out
 
 
 # =============================================================================

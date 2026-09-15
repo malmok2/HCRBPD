@@ -80,6 +80,29 @@ reports all work on it with no special case. Levels are continuous by default;
 set a band count and the fill quantises to those bands, optionally with the
 contour lines drawn on the band edges, and the colour bar labels them.
 
+**The colour map is a choice, and an honest one.** Ten maps, their control
+points sampled out of matplotlib rather than written from memory and reduced to
+the fewest stops that reproduce each to under ~3/255 per channel. They are
+grouped by what they are: *sequential* (viridis, magma, inferno, plasma,
+cividis) rises in lightness one way, so the order survives greyscale and colour
+blindness; *diverging* (cool-warm, RdBu, Spectral) is lightest in the middle,
+for a quantity with a meaningful zero such as pressure about the outlet; and
+*rainbow* (turbo, jet) is neither. Every claim there was measured — CIE L\*
+along each map, and again through a deuteranopia simulation — and turbo and
+jet are the only two that fail, so they are the only two marked. They are
+offered because they are asked for. Levels run to 200, and `Auto` picks a
+diverging map for pressure and a sequential one for everything else.
+
+**Wall y+** is among the variables, marked as a wall quantity: ask for it on a
+plane or an inlet and the tab says so rather than drawing an empty surface.
+
+**The CAD silhouette** draws the domain and the rods as a wireframe behind the
+field — a cut through a bundle is hard to place without the bundle around it.
+The polylines come from the same `Case` and through the same `XP()` as the mesh,
+so they register exactly and curve with a rolled coil; a half rod on a side wall
+is cut at the wall rather than drawn sticking out of the box. **A triad** in the
+corner shows where x, y and z currently point, built from the projection itself.
+
 **Drawn at the resolution it was measured at.** Fluent returns a value at
 every *node*, not one per facet, and colouring a facet with the mean of its
 corners throws that away — the contour then has exactly as many tiles as the

@@ -583,6 +583,11 @@ class Handler(BaseHTTPRequestHandler):
                 how = open_in_file_manager(self.app.out_dir)
                 return self._json({"ok": True, "opened": self.app.out_dir,
                                    "with": how})
+            if path == "/api/outline":
+                job = self.app.need_results()
+                if job.case is None:
+                    raise ValueError("this result has no geometry to outline")
+                return self._json({"ok": True, "lines": FC.outline(job.case)})
             if path == "/api/bbox":
                 job = self.app.need_results()
                 return self._json({"ok": True, "bbox": job.bbox()})

@@ -757,12 +757,22 @@
           <input type="range" id="resOpacity" min="0.15" max="1" step="0.05" value="1">
         </div>
         <label class="chk" style="margin-top:6px"><input type="checkbox" id="resEdges"><span class="box"></span>면 격자선 표시</label>
+        <div style="margin-top:12px">
+          <label for="resCmap" style="font-size:11.5px;color:var(--muted)">색상표</label>
+          <select id="resCmap" style="width:100%;font:inherit;font-size:13px;padding:7px 9px;border:none;border-radius:9px;background:var(--glass2);box-shadow:inset 0 1px 2px rgba(24,31,42,.10);color:var(--text)" style="margin-top:5px"></select>
+          <canvas id="resCmapBar" height="10" style="width:100%;height:10px;display:block;
+            margin-top:7px;border-radius:4px;box-shadow:inset 0 0 0 1px rgba(24,31,42,.12)"></canvas>
+          <div class="note" id="resCmapNote" style="margin-top:6px"></div>
+        </div>
+        <label class="chk" style="margin-top:6px"><input type="checkbox" id="resCmapRev"><span class="box"></span>색상 뒤집기</label>
         <div class="ctrl" style="margin-top:12px">
           <div class="row"><label for="resBands">컨투어 단계</label><output id="resBandsV">연속</output></div>
-          <input type="range" id="resBands" min="0" max="40" step="1" value="0">
+          <input type="range" id="resBands" min="0" max="200" step="1" value="0">
         </div>
         <label class="chk" style="margin-top:6px"><input type="checkbox" id="resLines"><span class="box"></span>등고선 그리기</label>
         <label class="chk" style="margin-top:6px"><input type="checkbox" id="resSmooth" checked><span class="box"></span>절점값 보간 (고화질)</label>
+        <label class="chk" style="margin-top:6px"><input type="checkbox" id="resOutline"><span class="box"></span>CAD 실루엣 표시</label>
+        <label class="chk" style="margin-top:6px"><input type="checkbox" id="resAxes" checked><span class="box"></span>x·y·z 축 표시</label>
         <button class="btn" id="resRefresh" style="margin-top:10px">다시 불러오기</button>
         <button class="btn" id="resSave" style="margin-top:7px">선택한 면 저장 (모든 변수)</button>
         <div class="note" id="resNote"></div>
@@ -2013,8 +2023,34 @@ function metricColor(m, b, i, j){
 const FIELD_MODE = {vel:1, pres:1};
 const FIELD_MAX = 80000;           // 2-D cells above which the estimate is skipped
 /* viridis-like, and a blue-grey-red diverging map for pressure */
-const CMAP_V=[[68,1,84],[65,68,135],[42,120,142],[47,180,124],[181,222,43],[253,231,37]];
-const CMAP_P=[[36,66,130],[78,132,190],[186,206,222],[236,233,228],[218,160,112],[176,66,44]];
+/*  Colour maps, sampled from matplotlib 3.11.2 and reduced to the fewest
+    stops that reproduce each one to under ~3/255 per channel.  Not written
+    from memory: the control points below came out of the library itself.
+
+    'seq' rises in lightness from one end to the other, so it reads as an
+    ordering even in greyscale or to a colour-blind reader.  'div' is light
+    in the middle and darkens both ways, which is what a quantity with a
+    meaningful zero - a pressure about its outlet value - wants.  'rain' is
+    neither: turbo and jet are not monotonic in lightness, so they invent
+    bands the data does not have.  They are here because they are asked for,
+    and marked because the marking is true.                                 */
+const CMAPS = {
+  viridis:{kind:"seq", ko:"Viridis", en:"Viridis", c:[[68,1,84],[71,16,99],[72,31,112],[71,45,123],[68,57,131],[64,70,136],[59,82,139],[54,93,141],[49,104,142],[44,114,142],[40,124,142],[36,134,142],[33,145,140],[31,154,138],[32,164,134],[40,174,128],[53,183,121],[72,193,110],[94,201,98],[117,208,84],[144,215,67],[173,220,48],[200,224,32],[229,228,25],[253,231,37]]},
+  magma:{kind:"seq", ko:"Magma", en:"Magma", c:[[0,0,4],[10,8,34],[29,17,71],[54,16,107],[81,18,124],[106,28,129],[131,38,129],[156,46,127],[183,55,121],[208,65,111],[231,82,99],[245,107,92],[252,137,97],[254,167,114],[254,196,136],[253,226,163],[252,253,191]]},
+  inferno:{kind:"seq", ko:"Inferno", en:"Inferno", c:[[0,0,4],[4,3,20],[13,8,41],[25,12,62],[40,11,83],[56,9,98],[71,11,106],[87,16,110],[101,21,110],[116,26,110],[130,32,108],[144,37,104],[159,42,99],[173,48,93],[188,55,84],[200,63,75],[212,72,66],[223,83,55],[232,96,45],[239,110,33],[245,125,21],[249,142,9],[252,159,7],[252,176,20],[250,194,40],[247,211,64],[243,229,93],[242,244,130],[252,255,164]]},
+  plasma:{kind:"seq", ko:"Plasma", en:"Plasma", c:[[13,8,135],[32,6,143],[46,5,149],[58,4,154],[70,3,159],[81,2,163],[92,1,166],[103,0,168],[114,1,168],[126,3,168],[136,8,166],[146,15,163],[156,23,158],[165,31,153],[173,39,147],[181,47,140],[189,55,134],[196,62,127],[204,71,120],[210,79,113],[216,87,107],[222,95,101],[227,104,95],[232,112,89],[237,121,83],[241,129,77],[245,139,71],[248,149,64],[251,159,58],[252,169,52],[253,180,47],[254,190,42],[253,202,38],[251,213,36],[248,225,37],[244,237,39],[240,249,33]]},
+  cividis:{kind:"seq", ko:"Cividis", en:"Cividis", c:[[0,34,78],[0,37,84],[0,41,93],[0,44,102],[0,48,111],[5,51,113],[20,54,112],[30,58,111],[38,61,110],[45,65,109],[51,68,109],[57,72,108],[62,75,108],[67,78,108],[71,81,108],[76,85,108],[81,88,109],[85,92,109],[90,95,110],[94,99,111],[99,102,112],[103,106,113],[108,109,114],[112,113,115],[116,116,117],[120,120,119],[125,124,120],[128,127,120],[133,130,121],[138,134,120],[143,138,120],[147,142,120],[152,146,119],[157,149,118],[162,153,117],[167,157,115],[172,161,114],[177,165,112],[183,169,110],[188,174,108],[192,177,106],[197,181,104],[203,185,101],[208,190,98],[213,194,94],[219,199,90],[224,203,86],[230,208,81],[235,212,75],[241,217,69],[247,222,62],[253,227,52],[254,232,56]]},
+  coolwarm:{kind:"div", ko:"Cool–warm", en:"Cool-warm", c:[[59,76,192],[69,92,206],[80,107,218],[91,122,229],[103,136,238],[115,150,245],[128,163,250],[141,176,254],[154,187,255],[166,196,254],[178,204,251],[190,210,246],[201,215,240],[211,219,231],[221,220,220],[230,215,207],[237,209,194],[242,201,180],[246,191,166],[247,180,151],[247,168,137],[244,152,122],[240,138,108],[233,122,95],[226,105,82],[216,86,70],[205,66,59],[193,43,48],[180,4,38]]},
+  rdbu:{kind:"div", ko:"적–청 (RdBu)", en:"Red–blue (RdBu)", c:[[5,48,97],[18,73,132],[32,101,171],[50,124,183],[67,147,195],[107,172,209],[144,196,221],[177,213,231],[209,229,240],[228,238,244],[247,246,246],[250,233,223],[253,219,199],[248,191,164],[243,164,129],[228,128,102],[214,96,77],[196,59,60],[177,24,43],[138,11,37],[103,0,31]]},
+  spectral:{kind:"div", ko:"Spectral", en:"Spectral", c:[[94,79,162],[73,106,175],[51,135,188],[75,164,177],[102,194,165],[137,208,164],[170,220,164],[200,233,158],[230,245,152],[243,250,172],[255,254,190],[255,240,166],[254,224,139],[253,199,118],[253,173,96],[248,140,81],[244,109,67],[228,85,73],[212,61,79],[184,30,72],[158,1,66]]},
+  turbo:{kind:"rain", ko:"Turbo", en:"Turbo", c:[[48,18,59],[53,30,88],[57,42,115],[61,53,139],[64,64,162],[66,75,181],[68,86,199],[70,97,214],[70,107,227],[71,118,238],[70,128,246],[69,138,252],[66,148,255],[61,158,254],[55,168,250],[47,178,244],[40,188,235],[34,197,226],[28,205,216],[25,213,205],[24,221,194],[25,227,185],[31,233,175],[39,238,164],[50,242,152],[63,246,138],[78,249,125],[93,252,111],[109,254,98],[125,255,86],[139,255,75],[153,254,66],[164,252,60],[175,250,55],[185,246,53],[195,241,52],[205,236,52],[215,229,53],[223,223,55],[231,215,57],[238,207,58],[244,199,58],[248,190,57],[251,182,55],[253,172,52],[254,161,48],[254,150,43],[253,138,38],[251,126,33],[248,114,28],[244,102,23],[240,91,18],[235,80,14],[229,71,11],[223,63,8],[216,55,6],[208,47,5],[200,40,3],[190,33,2],[180,27,1],[169,22,1],[158,16,1],[146,11,1],[133,7,2],[122,4,3]]},
+  jet:{kind:"rain", ko:"Jet", en:"Jet", c:[[0,0,128],[0,0,146],[0,0,164],[0,0,182],[0,0,200],[0,0,218],[0,0,237],[0,0,255],[0,0,255],[0,16,255],[0,32,255],[0,48,255],[0,64,255],[0,80,255],[0,96,255],[0,112,255],[0,128,255],[0,144,255],[0,160,255],[0,176,255],[0,192,255],[0,208,255],[0,224,251],[9,240,238],[22,255,225],[35,255,212],[48,255,199],[60,255,186],[73,255,173],[86,255,160],[99,255,148],[112,255,135],[125,255,122],[138,255,109],[151,255,96],[164,255,83],[177,255,70],[190,255,57],[202,255,44],[215,255,31],[228,255,19],[241,252,6],[254,237,0],[255,222,0],[255,208,0],[255,193,0],[255,178,0],[255,163,0],[255,148,0],[255,134,0],[255,119,0],[255,104,0],[255,89,0],[255,74,0],[255,59,0],[255,45,0],[255,30,0],[250,15,0],[232,0,0],[214,0,0],[196,0,0],[178,0,0],[159,0,0],[141,0,0],[128,0,0]]},
+};
+
+//  the Geometry tab's own two, unchanged: its estimate is a different picture
+//  and its colours are not the Results tab's to choose
+const CMAP_V = CMAPS.viridis.c;
+const CMAP_P = CMAPS.coolwarm.c;
 function cmap(t, C){
   t = t>0 ? (t<1 ? t : 1) : 0;
   const s=t*(C.length-1);
@@ -3401,6 +3437,14 @@ Object.assign(STR.ko, {
   pl_del:(n)=>`단면 ${n} 삭제`,
   res_bands:"컨투어 단계", res_bands_cont:"연속", res_lines:"등고선 그리기",
   res_smooth:"절점값 보간 (고화질)",
+  res_outline:"CAD 실루엣 표시", res_axes:"x·y·z 축 표시",
+  cm_label:"색상표", cm_auto:"자동 (압력은 발산형, 나머지는 순차형)",
+  cm_seq:"순차형 — 밝기가 한 방향으로", cm_div:"발산형 — 가운데가 밝음",
+  cm_rain:"무지개형 — 권장하지 않음", cm_rev:"색상 뒤집기",
+  cm_seq_note:"밝기가 한쪽으로만 올라갑니다. 흑백 인쇄나 색각 이상에서도 순서가 읽힙니다.",
+  cm_div_note:"가운데가 가장 밝고 양쪽으로 어두워집니다. 기준값이 있는 양(출구 대비 압력 등)에 적합합니다.",
+  cm_rain_note:"밝기가 단조롭지 않아 데이터에 없는 경계가 보입니다. 색각 이상에서는 순서를 읽을 수 없습니다.",
+  cm_walls:"y+는 벽면에만 있습니다. 벽면이 아닌 면에서는 값이 오지 않습니다.",
   res_save:"선택한 면 저장 (모든 변수)",
   res_saving:"저장 중… 변수마다 한 번씩 읽어옵니다.",
   res_saved:(f,mb)=>`${f} 저장 · ${mb} MB · Fluent 없이 다시 열 수 있습니다`,
@@ -3475,6 +3519,14 @@ Object.assign(STR.en, {
   pl_del:(n)=>`delete the plane ${n}`,
   res_bands:"Contour levels", res_bands_cont:"continuous", res_lines:"Draw contour lines",
   res_smooth:"Interpolate node values (high quality)",
+  res_outline:"Show the CAD silhouette", res_axes:"Show x·y·z axes",
+  cm_label:"Colour map", cm_auto:"Automatic (diverging for pressure, sequential otherwise)",
+  cm_seq:"Sequential — lightness one way", cm_div:"Diverging — light in the middle",
+  cm_rain:"Rainbow — not recommended", cm_rev:"Reverse the colours",
+  cm_seq_note:"Lightness rises one way only, so the order reads in greyscale and to a colour-blind reader.",
+  cm_div_note:"Lightest in the middle, darker both ways. For a quantity with a meaningful zero, such as pressure about the outlet.",
+  cm_rain_note:"Lightness is not monotonic, so it shows edges the data does not have, and the order cannot be read with colour-blindness.",
+  cm_walls:"y+ exists on walls only; a non-wall surface returns nothing for it.",
   res_save:"Save the chosen surfaces (all variables)",
   res_saving:"saving - one read per variable…",
   res_saved:(f,mb)=>`${f} saved · ${mb} MB · reopens with no Fluent`,
@@ -3768,7 +3820,7 @@ $("runStart").addEventListener("click", async ()=>{
   //  them, which is exactly the kind of thing to get wrong at 2am
   logCursor = 0;
   $("runLog").textContent = "";
-  JOB = null; BBOX = null;
+  JOB = null; BBOX = null; OUTLINE = null;
   setRunBanner(); renderStages(); renderMeshStats(); drawResid(); drawDp();
   RES.data = []; drawRes();
   $("runStart").disabled = true;
@@ -4104,7 +4156,7 @@ async function openCase(name){
     //  same reset as starting a run: nothing from the previous one should be
     //  on screen while this one opens
     logCursor = 0; $("runLog").textContent = "";
-    JOB = null; BBOX = null; RES.data = []; drawRes(); drawResid(); drawDp();
+    JOB = null; BBOX = null; OUTLINE = null; RES.data = []; drawRes(); drawResid(); drawDp();
     const j = await api("/api/load", {file:name, geometry:GK,
                                       params:geomParams(), settings:SET});
     JOB = j.job;
@@ -4164,6 +4216,7 @@ function showPlaneAt(){
 async function preparePlanes(){
   if(!JOB || !JOB.finished || JOB.error) return;
   if(JOB.snapshot){ $("planeNote").textContent = T("res_snap_plane"); }
+  if($("resOutline").checked) ensureOutline();
   try{ await ensureBBox(); showPlaneAt(); }
   catch(e){ $("planeNote").textContent = e.message; }
 }
@@ -4197,6 +4250,13 @@ async function addPlane(){
   }catch(e){ note.textContent = e.message; }
 }
 let PLANE_WANT = null;
+let OUTLINE = null;                 // the CAD silhouette, fetched once per result
+async function ensureOutline(){
+  if(OUTLINE || !JOB || !JOB.finished || JOB.error) return;
+  try{ OUTLINE = (await api("/api/outline", {})).lines; }
+  catch(e){ OUTLINE = null; $("resNote").textContent = e.message; }
+  drawRes();
+}
 async function dropPlane(name){
   try{
     const j = await api("/api/plane_delete", {name:name});
@@ -4245,7 +4305,11 @@ async function loadField(){
     RES.centre=[0,1,2].map(k=>(bb[0][k]+bb[1][k])/2);
     RES.radius=0.55*Math.hypot(bb[1][0]-bb[0][0],bb[1][1]-bb[0][1],bb[1][2]-bb[0][2])||1;
     $("resNote").textContent = T("res_loaded")(got.length, fmtSci(lo), fmtSci(hi))
-      + (holes ? T("res_holes")(holes) : "");
+      + (holes ? T("res_holes")(holes) : "")
+      //  y+ is a wall quantity; say so when something else is selected rather
+      //  than leaving an empty surface to be puzzled over
+      + ((SRV.variables[RES.variable] || {}).walls_only
+         && want.some(w => !/^wall/.test(w)) ? " · " + T("cm_walls") : "");
     RES.note = $("resNote").textContent;
     const w=$("resWarn");
     w.classList.toggle("show", RES.mock);
@@ -4343,11 +4407,49 @@ function subdivideQuad(pp, vv, k, out, dim){
               vals:[q[0][3],q[1][3],q[2][3],q[3][3]], dim:dim});
   }
 }
+/*  Which map, and which way round.  "auto" keeps the old behaviour - a
+    diverging map for pressure, which has a meaningful zero at the outlet, and
+    a sequential one for everything else - and anything chosen by hand wins. */
+function cmapKey(){
+  const v = $("resCmap") ? $("resCmap").value : "auto";
+  if(v !== "auto") return v;
+  return /pressure/.test(RES.variable) ? "coolwarm" : "viridis";
+}
+function activeCmap(){
+  const c = (CMAPS[cmapKey()] || CMAPS.viridis).c;
+  return ($("resCmapRev") && $("resCmapRev").checked) ? c.slice().reverse() : c;
+}
+function buildCmapPicker(){
+  const sel = $("resCmap"); if(!sel || sel.options.length) return;
+  const groups = [["auto", null], ["seq", T("cm_seq")], ["div", T("cm_div")],
+                  ["rain", T("cm_rain")]];
+  const auto = document.createElement("option");
+  auto.value = "auto"; auto.textContent = T("cm_auto"); sel.appendChild(auto);
+  for(const [kind, label] of groups.slice(1)){
+    const g = document.createElement("optgroup"); g.label = label;
+    for(const k in CMAPS) if(CMAPS[k].kind === kind){
+      const o = document.createElement("option");
+      o.value = k; o.textContent = L(CMAPS[k]); g.appendChild(o);
+    }
+    sel.appendChild(g);
+  }
+  sel.value = "auto";
+}
+function paintCmapBar(){
+  const cv = $("resCmapBar"); if(!cv) return;
+  const w = Math.max(40, cv.clientWidth||200);
+  cv.width = Math.round(w*dpr); cv.height = Math.round(10*dpr);
+  const g = cv.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0);
+  const C = activeCmap(), nb = bandCount();
+  for(let i=0;i<w;i++){ g.fillStyle = cmap(quantise(i/w, nb), C); g.fillRect(i,0,1,10); }
+  const k = CMAPS[cmapKey()];
+  $("resCmapNote").textContent = k ? T("cm_"+k.kind+"_note") : "";
+}
 function drawRes(){
   if(!xw) sizeRes();
   xctx.clearRect(0,0,xw,xh);
-  if(!RES.data.length) return;
-  const CM = /pressure/.test(RES.variable) ? CMAP_P : CMAP_V;
+  if(!RES.data.length){ drawResAxes(); return; }
+  const CM = activeCmap();
   const span = Math.max(1e-30, RES.hi-RES.lo);
   const opacity = +$("resOpacity").value;
   const edges = $("resEdges").checked;
@@ -4430,7 +4532,67 @@ function drawRes(){
     xctx.stroke();
   }
   xctx.globalAlpha=1;
+  if($("resOutline").checked) drawOutline();
   drawColourBar(CM, nb);
+  drawResAxes();
+}
+
+/*  A silhouette of the CAD behind the field.  A cut through a bundle is hard
+    to place without the bundle around it, and the boundary patches alone do
+    not say where the rods are once you have hidden them.  The polylines come
+    from the server in the same exported coordinates as the field, built from
+    the same Case, so they register exactly rather than approximately.       */
+function drawOutline(){
+  if(!OUTLINE) return;
+  xctx.globalAlpha=1;
+  xctx.strokeStyle="rgba(24,31,42,.34)"; xctx.lineWidth=0.9;
+  xctx.beginPath();
+  for(const line of OUTLINE){
+    let started=false;
+    for(const q of line){
+      const p=resProject(q);
+      started ? xctx.lineTo(p[0],p[1]) : (xctx.moveTo(p[0],p[1]), started=true);
+    }
+  }
+  xctx.stroke();
+}
+
+/*  x, y and z as they currently point.  Drawn from the projection itself, so
+    it is the view's own orientation rather than a picture of one.           */
+function drawResAxes(){
+  if(!$("resAxes").checked) return;
+  const R=44, ox=70, oy=xh-70;
+  //  the direction each unit axis takes on screen: project a point one unit
+  //  along it and subtract the origin, in the same rotation the field uses
+  const c=RES.centre, o=resProject(c);
+  const span=RES.radius||1;
+  const A=[[1,0,0],[0,1,0],[0,0,1]].map(u=>{
+    const q=resProject([c[0]+u[0]*span, c[1]+u[1]*span, c[2]+u[2]*span]);
+    const dx=q[0]-o[0], dy=q[1]-o[1], m=Math.hypot(dx,dy)||1;
+    return {x:dx/m, y:dy/m, depth:q[2]-o[2]};
+  });
+  const COL=["#a83f2b","#1d7048","#0f4c81"], NM=["x","y","z"];
+  xctx.save();
+  xctx.globalAlpha=1; xctx.lineCap="round"; xctx.lineJoin="round";
+  xctx.font="600 11px "+uiFont(); xctx.textAlign="center"; xctx.textBaseline="middle";
+  //  draw the one pointing away first, so the near ones sit on top
+  const order=[0,1,2].sort((a,b)=>A[a].depth-A[b].depth);
+  for(const i of order){
+    const a=A[i], ex=ox+a.x*R, ey=oy+a.y*R;
+    xctx.strokeStyle=COL[i]; xctx.fillStyle=COL[i]; xctx.lineWidth=2;
+    xctx.beginPath(); xctx.moveTo(ox,oy); xctx.lineTo(ex,ey); xctx.stroke();
+    //  an arrow head, so it reads as a direction and not a spoke
+    const ang=Math.atan2(a.y,a.x), h=7;
+    xctx.beginPath();
+    xctx.moveTo(ex,ey);
+    xctx.lineTo(ex-h*Math.cos(ang-0.42), ey-h*Math.sin(ang-0.42));
+    xctx.lineTo(ex-h*Math.cos(ang+0.42), ey-h*Math.sin(ang+0.42));
+    xctx.closePath(); xctx.fill();
+    xctx.fillText(NM[i], ox+a.x*(R+13), oy+a.y*(R+13));
+  }
+  xctx.strokeStyle="rgba(24,31,42,.35)"; xctx.lineWidth=1;
+  xctx.beginPath(); xctx.arc(ox,oy,2.4,0,TAU); xctx.stroke();
+  xctx.restore();
 }
 function drawColourBar(CM, nb){
   const bw=Math.min(240, xw*0.34), bh=10, bx=xw-bw-26, by=xh-38;
@@ -4461,6 +4623,12 @@ $("resRefresh").addEventListener("click", loadField);
 $("resEdges").addEventListener("change", drawRes);
 $("resLines").addEventListener("change", drawRes);
 $("resSmooth").addEventListener("change", drawRes);
+$("resAxes").addEventListener("change", drawRes);
+$("resOutline").addEventListener("change", ()=>{
+  if($("resOutline").checked && !OUTLINE) ensureOutline(); else drawRes();
+});
+$("resCmap").addEventListener("change", ()=>{ paintCmapBar(); drawRes(); });
+$("resCmapRev").addEventListener("change", ()=>{ paintCmapBar(); drawRes(); });
 /*  Save what is on screen, at every variable - so it can be reopened, and
     re-coloured by any of them, with no solver.  */
 $("resSave").addEventListener("click", async ()=>{
@@ -4478,7 +4646,7 @@ $("resSave").addEventListener("click", async ()=>{
 $("resBands").addEventListener("input", ()=>{
   const n=bandCount();
   $("resBandsV").textContent = n ? String(n) : T("res_bands_cont");
-  paintRange($("resBands")); drawRes();
+  paintRange($("resBands")); paintCmapBar(); drawRes();
 });
 $("resOpacity").addEventListener("input", ()=>{
   $("resOpacityV").textContent=(+$("resOpacity").value).toFixed(2);
@@ -4592,6 +4760,15 @@ window.__appLang = function(){
   const sm=$("resSmooth");
   if(sm && sm.parentElement.lastChild.nodeType===3)
     sm.parentElement.lastChild.nodeValue=T("res_smooth");
+  for(const [id,key] of [["resOutline","res_outline"],["resAxes","res_axes"],
+                         ["resCmapRev","cm_rev"]]){
+    const el=$(id);
+    if(el && el.parentElement.lastChild.nodeType===3)
+      el.parentElement.lastChild.nodeValue=T(key);
+  }
+  const cl=document.querySelector('label[for="resCmap"]');
+  if(cl) cl.textContent=T("cm_label");
+  $("resCmap").options.length = 0; buildCmapPicker(); paintCmapBar();
   $("resBandsV").textContent = bandCount() ? String(bandCount()) : T("res_bands_cont");
   showPlaneAt(); refreshFiles();
   const ed=$("resEdges");
@@ -4660,6 +4837,7 @@ function stampVersion(){
       + SET_DROPPED.join(", ");
   }
   buildSettings();
+  buildCmapPicker(); paintCmapBar();
   paintRange($("resOpacity")); paintRange($("resBands")); paintRange($("planePos"));
   $("resBandsV").textContent = T("res_bands_cont");
   refreshFiles();
