@@ -198,6 +198,55 @@ These are invariants that took real debugging to find. Preserve them.
   waste a solver run.
 - **Every claim in the report needs a check that could have failed.** See
   `references/verification.md`.
+- **A correlation coefficient written from memory is worse than an absent
+  one.** An absent one is a gap somebody will fill; a remembered one runs,
+  produces plausible numbers, and nothing ever flags it. `correlations.py`
+  therefore carries a `status`: `encoded` means the equations were transcribed
+  with the source in hand, `needs-source` means only the citation is there and
+  the entry refuses to be evaluated. Four of six entries are `needs-source` on
+  purpose. Where a correlation has no closed form at all — Žukauskas is a set
+  of charts — vendor somebody's digitisation with its licence and its
+  provenance in the header, and say so; do not redraw it from memory either.
+- **Two implementations of one formula need a check that runs BOTH, not a
+  third copy of it.** The page computes Jakob in JavaScript because the
+  Geometry tab works with no server; `correlations.py` computes it in Python
+  for the study. The first version of `--check` transcribed the formula into
+  the checker, which would have passed happily while the page said something
+  else. It now lifts `gapVelocity` and `lossModel` out of
+  `mesh_explorer.html` and runs them. Same reasoning as the mesh twin's
+  checksum comparison.
+- **A quantity used in two places is defined in one.** `u_max` was computed
+  from the transverse gap alone in `flow()` and from the tighter of the
+  transverse and diagonal gaps in `lossModel()`, so on a staggered bank the
+  correlation panel and the y+ first-layer height disagreed — and the
+  near-wall cell came out too thick in exactly the fastest cases. One
+  `gapVelocity()`, shared, and the Python twin tests the same branch.
+- **A class name is a namespace; check what else is in it before adding a
+  state to it.** `.banner.warn` inherited `position:absolute; display:none`
+  from `.warn`, the floating geometry tooltip, and the Settings banner flew up
+  onto the header for every mock session. CSS has no scoping: adding a
+  modifier to a class you did not write is editing everything that wears it.
+- **Adopt a running object only once it is going to run.** `start_study`
+  assigned `self.runner` before checking that its queue was non-empty, so a
+  request that FAILED left a runner that never started and never finished, and
+  every later run was refused as "busy". Build it, validate it, then adopt it.
+- **A mock number must not be able to become a result.** The mock backend
+  exists to test plumbing. Every row it produces is recorded as mock, excluded
+  from every table, plot and fit, and the report says so at the top and then
+  declines to conclude anything — rather than producing a grid-convergence
+  table from an invented field. Test that, because it is the failure that
+  would be quoted in a paper.
+- **A grid-convergence index is a published procedure, so reproduce the
+  published example.** `study.gci` follows Celik et al. (2008) / ASME V&V 20
+  including the implicit observed order, which matters here because a block
+  mesh refines by integer counts and never lands on the ratio asked for. The
+  paper's own worked example reproduces to every digit it prints; that is the
+  test, not a plausible-looking p.
+- **The representative cell size follows the directions that actually
+  refined.** With the top and bottom as symmetry planes and the z count held
+  fixed, the refinement is two-dimensional and `h` is the square root of a
+  cell's AREA. `(V/N)^(1/3)` would make every level look less refined than it
+  was and put the observed order out.
 
 ## Reference files
 

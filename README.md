@@ -8,16 +8,20 @@ ParaView and STL — all in the browser, no mesher.
 
 | File | What it is |
 |---|---|
-| `mesh_explorer.html` | the front end — five tabs: Geometry, Settings, Run, Results, Report |
+| `mesh_explorer.html` | the front end — six tabs: Geometry, Settings, Run, Results, Report, Campaign |
 | `mesh_explorer.py` | the mesh generator, standalone — same mesh as the browser, separate code |
 | `fluent_case.py` | the Fluent layer — settings schema, PyFluent driver, offline mock, journal writer |
 | `app.py` | the local server that ties them together and launches Fluent |
+| `correlations.py` | the correlation library — source, validity range and status for each |
+| `zukauskas_charts.py` | Žukauskas' four digitised charts, vendored with their provenance |
+| `study.py` | the parametric campaign — case matrices, the runner, GCI, the stage reports |
+| `studies/` | one folder per study: what is to be run, what came back, and the report |
 
 ## Two ways to use it
 
 **As a mesh tool** — open `mesh_explorer.html` in a browser. Nothing to install,
 nothing to run. The Geometry tab works exactly as before and every export format
-is there. The other three tabs explain why they need a server.
+is there. The other four tabs explain why they need a server.
 
 **As a CFD app** — get the repository, install PyFluent, run the server.
 
@@ -229,6 +233,98 @@ Fluent 2025 R1 — so the app divides the panel value by 100. Every run re-reads
 it back out of Fluent and compares, and says so if a release ever changes the
 convention, rather than quietly running the case at a hundredth of the
 intended turbulence.
+
+## The campaign
+
+The point of the tool is not one pressure drop. It is to put CFD against the
+published correlations over a matrix of arrangements and conditions, and in
+the end to fit a better one — first for straight rods, then for the helical
+coil. That is four stages, and the **파라메트릭** tab is where they run.
+
+| stage | what it settles | needs Fluent |
+|---|---|---|
+| 1 | which correlations exist, what each may be asked, and how far apart they already are | no |
+| 2 | how fine the mesh has to be before Δp stops moving | yes |
+| 3 | Δp over the arrangement/condition matrix, against the correlations | yes |
+| 4 | the coil, and a correlation of our own | yes |
+
+A study is a **definition** and its **results**, kept apart:
+`studies/<name>/study.json` says what is to be run and is written before
+anything is launched, so the matrix is a decision somebody made rather than
+whatever happened to get run; `results.json` beside it gets one record per case
+as it finishes, so a campaign that stops after nine of fifty picks up at the
+tenth. `python3 study.py --make` builds the four straight-rod studies,
+`--list` says how far each got, `--report NAME` writes its report.
+
+**Stage 1 is done and needs no solver.** `correlations.py` holds every
+correlation with its source, the range it is allowed to be asked, and a
+status: the equations are here, or only the reference to them is. Four of the
+six are `needs-source` **on purpose** — a coefficient written down from memory
+is worse than an absent one, because it runs, it looks plausible, and nothing
+ever flags it. Two are encoded:
+
+* **Jakob (1938)**, Holman's form, the one the Geometry tab has always shown.
+  `--check` lifts `gapVelocity` and `lossModel` out of `mesh_explorer.html`
+  and runs them against the Python over 96 cases and four quantities; they
+  agree to 3e-16. It runs the page's own code rather than a copy of the
+  formula, because a third copy would pass while the page said something else.
+* **Žukauskas (1972)**, off the charts. There is no closed form to transcribe,
+  so the four bicubic fits are copied verbatim from the MIT-licensed
+  [`ht`](https://github.com/CalebBell/ht) library — a digitisation of the
+  figures as reprinted in Incropera — with the licence in `third_party/` and
+  the provenance in the module header. `bisplev` is written out in plain
+  Python rather than adding scipy for four fixed tables, and matches scipy to
+  1e-14; both of `ht`'s own documented examples reproduce to the digit.
+
+Everything is converted to **one currency**, the Euler number per row, because
+the friction factors are not comparable: Jakob's appears as
+`dp = 2 f N rho u_max²` and Žukauskas' as `dp = N chi f (rho u_max²/2)`.
+`u_max` is decided once — including the staggered diagonal-gap test — instead
+of inside each correlation, and the browser and the Python now share that rule.
+
+The stage-1 report **computes** the spread between the two rather than
+asserting it, and the spread is not small: inside Jakob's quoted Re range and
+for `X ≥ 1.5` they agree to about 20 % either way; at `X = 1.25`, or outside
+`2e3 < Re < 4e4`, they part by a factor of 2.2. That is the width of the
+baseline, and it says where a CFD point is worth the most. The stage-3 matrix
+crosses both regions deliberately.
+
+**Stages 2 and 3 are defined and wired, and need a licence to produce a
+number.** Three decisions in them are worth arguing with before you press Run:
+
+*Every wall that is not a rod is a symmetry plane.* The correlations are for a
+bank that is infinitely wide and made of infinitely long tubes; a box with four
+real walls is not that, and both biases grow as the domain shrinks. With half
+rods on the sides the mirror lands on a rod centreline and gives back the bank
+the correlation describes. It also makes the case effectively two-dimensional,
+which is why sixty of them are affordable at 18k–74k cells each.
+
+*The mesh rules are applied per case rather than typed into a panel.* The first
+cell is pinned at y+ = 1, so its height follows `u_max` — which moves with both
+the velocity and the pitch — and the radial layer count is then whatever it
+takes to reach the gap at a bounded growth ratio. Holding the layer count fixed
+instead would let the growth ratio run from 1.2 at the slowest case to 3 at the
+fastest, and the fast cases would come back wrong for a reason having nothing
+to do with the physics.
+
+*X_T and X_L vary independently.* On the square diagonal the two pitch terms of
+any `(X_T-1)^-p X_L^q` form are collinear and neither coefficient can be
+identified — a sweep down the diagonal would produce a fit that cannot be
+fitted, and the mistake is invisible until the solve is singular.
+
+The mesh study answers with a **grid-convergence index** by the procedure in
+Celik et al. (2008) / ASME V&V 20, implicit observed order and all, because a
+block mesh refines by integer counts and never lands on the ratio asked for.
+Every number of that paper's own worked example reproduces — p 1.534, φ_ext
+6.1685, GCI 2.17 %. It names the **coarsest** mesh inside tolerance: the point
+of a mesh study is the cheapest adequate mesh, not the finest one that fits in
+the night.
+
+**A mock run is not a result, and the tab is built so it cannot become one.**
+Every mock row is badged MOCK, the progress counter does not count it, and the
+report says at the top that it excluded them and then declines to draw any
+conclusion rather than producing a grid-convergence table from invented
+numbers. Stages 2 and 3 must be run on a machine with a Fluent licence.
 
 ## Four geometries, one tool
 
