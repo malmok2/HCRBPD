@@ -1,0 +1,451 @@
+{
+ "name": "rod-staggered-mesh",
+ "kind": "mesh",
+ "geometry": "rod-staggered",
+ "title": "2단계 · rod-staggered 격자 민감도",
+ "created": "2026-09-16",
+ "phi": "dp_bundle",
+ "notes": [
+  "물 20 C, k-omega SST, y+ = 1, 정상상태.",
+  "rod 외 모든 벽은 대칭면 - 상관식이 기술하는 무한 다발과 같게 하기 위함.",
+  "격자는 면내 방향으로 단계당 약 1.35배 세밀해지고, 반경 방향은 첫 셀을 y+ = 1에 고정한 채 성장비를 조여서 세밀해집니다.",
+  "판정은 Celik 등(2008) / ASME V&V 20 의 GCI 절차로 합니다."
+ ],
+ "base": {
+  "params": {
+   "D": 10.0,
+   "nRows": 10,
+   "nCols": 4,
+   "lIn": 60.0,
+   "lOut": 120.0,
+   "H": 2.0,
+   "nZ": 2,
+   "halfRods": true,
+   "firstOffset": false,
+   "unit": "mm",
+   "nAz": 29,
+   "nRad": 12,
+   "firstLayer": 0.03,
+   "nxIn": 18,
+   "nxOut": 29
+  },
+  "settings": {
+   "general": {
+    "steady": true,
+    "energy": false
+   },
+   "turbulence": {
+    "viscous": "k-omega",
+    "k_omega_variant": "sst"
+   },
+   "material": {
+    "name": "water-liquid",
+    "density": 998.2,
+    "viscosity": 0.001003
+   },
+   "inlet": {
+    "spec": "components",
+    "velocity": 1.0,
+    "turb_spec": "Intensity and Viscosity Ratio",
+    "intensity": 5.0,
+    "visc_ratio": 10.0
+   },
+   "outlet": {
+    "gauge_pressure": 0.0,
+    "prevent_reverse_flow": true
+   },
+   "zones": {
+    "wall_rods": "wall",
+    "wall_side_y0": "symmetry",
+    "wall_side_ymax": "symmetry",
+    "wall_bottom": "symmetry",
+    "wall_top": "symmetry"
+   },
+   "methods": {
+    "flow_scheme": "Coupled",
+    "gradient": "least-square-cell-based",
+    "pressure": "second-order",
+    "momentum": "second-order-upwind",
+    "turb": "second-order-upwind",
+    "pseudo_time": true
+   },
+   "run": {
+    "init_method": "hybrid",
+    "iterations": 800,
+    "residual_criterion": 1e-05,
+    "monitor_every": 20,
+    "write_case": false
+   }
+  }
+ },
+ "cases": [
+  {
+   "id": "main-L1",
+   "label": "대표 조건 · representative · L1",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 14,
+    "nRad": 10,
+    "firstLayer": 0.03182,
+    "nxIn": 8,
+    "nxOut": 14,
+    "ST": 15.0,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 10,
+    "growth": 1.4242,
+    "clearance": 2.5,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 1.5,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.33493621852668126
+    }
+   },
+   "meta": {
+    "X": 1.5,
+    "Re_target": 10000.0,
+    "velocity": 0.33493621852668126
+   },
+   "ladder": "main"
+  },
+  {
+   "id": "main-L2",
+   "label": "대표 조건 · representative · L2",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 20,
+    "nRad": 12,
+    "firstLayer": 0.03182,
+    "nxIn": 12,
+    "nxOut": 20,
+    "ST": 15.0,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 12,
+    "growth": 1.3088,
+    "clearance": 2.5,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 1.5,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.33493621852668126
+    }
+   },
+   "meta": {
+    "X": 1.5,
+    "Re_target": 10000.0,
+    "velocity": 0.33493621852668126
+   },
+   "ladder": "main"
+  },
+  {
+   "id": "main-L3",
+   "label": "대표 조건 · representative · L3",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 14,
+    "firstLayer": 0.03182,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 15.0,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 14,
+    "growth": 1.2369,
+    "clearance": 2.5,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 1.5,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.33493621852668126
+    }
+   },
+   "meta": {
+    "X": 1.5,
+    "Re_target": 10000.0,
+    "velocity": 0.33493621852668126
+   },
+   "ladder": "main"
+  },
+  {
+   "id": "main-L4",
+   "label": "대표 조건 · representative · L4",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 42,
+    "nRad": 17,
+    "firstLayer": 0.03182,
+    "nxIn": 25,
+    "nxOut": 42,
+    "ST": 15.0,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 17,
+    "growth": 1.1695,
+    "clearance": 2.5,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 1.5,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.33493621852668126
+    }
+   },
+   "meta": {
+    "X": 1.5,
+    "Re_target": 10000.0,
+    "velocity": 0.33493621852668126
+   },
+   "ladder": "main"
+  },
+  {
+   "id": "main-L5",
+   "label": "대표 조건 · representative · L5",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 60,
+    "nRad": 21,
+    "firstLayer": 0.03182,
+    "nxIn": 36,
+    "nxOut": 60,
+    "ST": 15.0,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 21,
+    "growth": 1.1168,
+    "clearance": 2.5,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 1.5,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.33493621852668126
+    }
+   },
+   "meta": {
+    "X": 1.5,
+    "Re_target": 10000.0,
+    "velocity": 0.33493621852668126
+   },
+   "ladder": "main"
+  },
+  {
+   "id": "corner-L3",
+   "label": "가장 까다로운 조건 · the demanding corner · L3",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 19,
+    "firstLayer": 0.004244,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 12.5,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.004244,
+    "n_rad": 19,
+    "growth": 1.2565,
+    "clearance": 1.25,
+    "umax": 10.04808655580044,
+    "Re": 100000.0,
+    "XT": 1.25,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 2.0096173111600883
+    }
+   },
+   "meta": {
+    "X": 1.25,
+    "Re_target": 100000.0,
+    "velocity": 2.0096173111600883
+   },
+   "ladder": "corner"
+  },
+  {
+   "id": "corner-L4",
+   "label": "가장 까다로운 조건 · the demanding corner · L4",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 42,
+    "nRad": 25,
+    "firstLayer": 0.004244,
+    "nxIn": 25,
+    "nxOut": 42,
+    "ST": 12.5,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.004244,
+    "n_rad": 25,
+    "growth": 1.1705,
+    "clearance": 1.25,
+    "umax": 10.04808655580044,
+    "Re": 100000.0,
+    "XT": 1.25,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 2.0096173111600883
+    }
+   },
+   "meta": {
+    "X": 1.25,
+    "Re_target": 100000.0,
+    "velocity": 2.0096173111600883
+   },
+   "ladder": "corner"
+  },
+  {
+   "id": "corner-L5",
+   "label": "가장 까다로운 조건 · the demanding corner · L5",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 60,
+    "nRad": 32,
+    "firstLayer": 0.004244,
+    "nxIn": 36,
+    "nxOut": 60,
+    "ST": 12.5,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.004244,
+    "n_rad": 32,
+    "growth": 1.1184,
+    "clearance": 1.25,
+    "umax": 10.04808655580044,
+    "Re": 100000.0,
+    "XT": 1.25,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 2.0096173111600883
+    }
+   },
+   "meta": {
+    "X": 1.25,
+    "Re_target": 100000.0,
+    "velocity": 2.0096173111600883
+   },
+   "ladder": "corner"
+  }
+ ]
+}

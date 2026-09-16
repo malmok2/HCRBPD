@@ -16,6 +16,8 @@ body{margin:0;background:#eef1f5;padding:26px 16px;
 .paper th,.paper td{border:1px solid #e2e7ee;padding:5px 9px;text-align:left;
   vertical-align:top}
 .paper th{background:#f6f8fb;font-weight:640;width:24%;color:#33415a}
+.paper table.grid th{width:auto;white-space:nowrap}
+.paper table.grid td{white-space:nowrap}
 .paper td.n{font-variant-numeric:tabular-nums}
 .paper tr>th:first-child:empty{width:auto}
 .paper .tiles{display:flex;gap:10px;margin:16px 0 4px;flex-wrap:wrap}
@@ -29,8 +31,18 @@ body{margin:0;background:#eef1f5;padding:26px 16px;
 .paper code{background:#f2f5f9;border-radius:3px;padding:1px 5px;font-size:12px}
 .paper .foot{margin-top:30px;padding-top:12px;border-top:1px solid #dde3ea;
   color:#7a8595;font-size:11.5px}
+.paper .tile .u{font-size:12px;color:#5a6678;margin-left:3px}
+.paper .warn{background:#fff8e6;border-left:3px solid #d97706;padding:7px 11px;
+  margin:9px 0;font-size:12.5px;color:#7a4a06}
+.paper .bad{background:#fdeaea;border-left:3px solid #9b1c1c;padding:7px 11px;
+  margin:9px 0;font-size:12.5px;color:#9b1c1c;font-weight:600}
+.paper ul{margin:8px 0 8px 18px;padding:0;font-size:12.5px;color:#33415a}
+.paper li{margin:3px 0}
+.paper svg.plot{display:block;max-width:660px;margin:14px 0 6px;
+  background:#fff;border:1px solid #eef1f6;border-radius:6px}
 @media print{body{background:#fff;padding:0}
-  .paper{box-shadow:none;max-width:none;padding:0}}
+  .paper{box-shadow:none;max-width:none;padding:0}
+  .paper svg.plot{break-inside:avoid}}
 </style>
 </head>
 <body>
@@ -96,7 +108,7 @@ body{margin:0;background:#eef1f5;padding:26px 16px;
 <h2>The two evaluable correlations, against each other</h2>
 <p>Computed by this file's own code, now. Square pitch (X_T = X_L = X), 10 rows, water. The two come from independent sources, so the spread between them is the width of the baseline itself.</p>
 <h3>in-line</h3>
-<table><tr><th>X</th><th>Re<sub>max</sub></th><th>Eu<sub>row</sub> Jakob</th><th>Eu<sub>row</sub> Zukauskas</th><th>Jakob / Zukauskas</th></tr>
+<table class="grid"><tr><th>X</th><th>Re<sub>max</sub></th><th>Eu<sub>row</sub> Jakob</th><th>Eu<sub>row</sub> Zukauskas</th><th>Jakob / Zukauskas</th></tr>
 <tr><td class="n">1.25</td><td class="n">1e+03</td><td class="n">0.9645</td><td class="n">0.4379</td><td class="n">2.20</td></tr>
 <tr><td class="n">1.25</td><td class="n">3e+03</td><td class="n">0.8179</td><td class="n">0.5305</td><td class="n">1.54</td></tr>
 <tr><td class="n">1.25</td><td class="n">1e+04</td><td class="n">0.6828</td><td class="n">0.4501</td><td class="n">1.52</td></tr>
@@ -119,7 +131,7 @@ body{margin:0;background:#eef1f5;padding:26px 16px;
 <tr><td class="n">2.50</td><td class="n">1e+05</td><td class="n">0.1308</td><td class="n">0.1663</td><td class="n">0.79</td></tr>
 </table>
 <h3>staggered</h3>
-<table><tr><th>X</th><th>Re<sub>max</sub></th><th>Eu<sub>row</sub> Jakob</th><th>Eu<sub>row</sub> Zukauskas</th><th>Jakob / Zukauskas</th></tr>
+<table class="grid"><tr><th>X</th><th>Re<sub>max</sub></th><th>Eu<sub>row</sub> Jakob</th><th>Eu<sub>row</sub> Zukauskas</th><th>Jakob / Zukauskas</th></tr>
 <tr><td class="n">1.25</td><td class="n">1e+03</td><td class="n">1.0296</td><td class="n">0.8435</td><td class="n">1.22</td></tr>
 <tr><td class="n">1.25</td><td class="n">3e+03</td><td class="n">0.8637</td><td class="n">0.6751</td><td class="n">1.28</td></tr>
 <tr><td class="n">1.25</td><td class="n">1e+04</td><td class="n">0.7123</td><td class="n">0.5261</td><td class="n">1.35</td></tr>
@@ -142,7 +154,7 @@ body{margin:0;background:#eef1f5;padding:26px 16px;
 <tr><td class="n">2.50</td><td class="n">1e+05</td><td class="n">0.2068</td><td class="n">0.1859</td><td class="n">1.11</td></tr>
 </table>
 <h3>In summary</h3>
-<table><tr><th>over</th><th>in-line</th><th>staggered</th></tr>
+<table class="grid"><tr><th>over</th><th>in-line</th><th>staggered</th></tr>
 <tr><th>the whole grid</th><td class="n">0.78 – 2.20 (mean 1.21)</td><td class="n">0.79 – 1.67 (mean 1.10)</td></tr>
 <tr><th>Jakob's quoted Re, 2e3–4e4</th><td class="n">0.83 – 1.54 (mean 1.12)</td><td class="n">0.79 – 1.35 (mean 1.03)</td></tr>
 <tr><th>... and X >= 1.5</th><td class="n">0.83 – 1.23 (mean 0.98)</td><td class="n">0.79 – 1.11 (mean 0.95)</td></tr>

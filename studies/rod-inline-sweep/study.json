@@ -1,0 +1,1463 @@
+{
+ "name": "rod-inline-sweep",
+ "kind": "sweep",
+ "geometry": "rod-inline",
+ "title": "3단계 · rod-inline 압력강하 스윕",
+ "created": "2026-09-16",
+ "phi": "eu_row",
+ "notes": [
+  "물 20 C, k-omega SST, y+ = 1, 정상상태, rod 외 벽은 모두 대칭면.",
+  "격자 해상도는 2단계에서 고른 수준(L3)을 씁니다.",
+  "X_T 와 X_L 을 독립적으로 바꿉니다. 정사각 피치만 훑으면 피치 항 두 개가 서로 구분되지 않아 상관식 적합 자체가 불가능해집니다.",
+  "Re 1e5 점은 Jakob 적용 범위 밖이며, 1단계에서 두 상관식이 크게 갈라지는 것으로 확인된 영역을 일부러 지나갑니다."
+ ],
+ "base": {
+  "params": {
+   "D": 10.0,
+   "nRows": 10,
+   "nCols": 4,
+   "lIn": 60.0,
+   "lOut": 120.0,
+   "H": 2.0,
+   "nZ": 2,
+   "halfRods": true,
+   "firstOffset": false,
+   "unit": "mm",
+   "nAz": 29,
+   "nRad": 12,
+   "firstLayer": 0.03,
+   "nxIn": 18,
+   "nxOut": 29
+  },
+  "settings": {
+   "general": {
+    "steady": true,
+    "energy": false
+   },
+   "turbulence": {
+    "viscous": "k-omega",
+    "k_omega_variant": "sst"
+   },
+   "material": {
+    "name": "water-liquid",
+    "density": 998.2,
+    "viscosity": 0.001003
+   },
+   "inlet": {
+    "spec": "components",
+    "velocity": 1.0,
+    "turb_spec": "Intensity and Viscosity Ratio",
+    "intensity": 5.0,
+    "visc_ratio": 10.0
+   },
+   "outlet": {
+    "gauge_pressure": 0.0,
+    "prevent_reverse_flow": true
+   },
+   "zones": {
+    "wall_rods": "wall",
+    "wall_side_y0": "symmetry",
+    "wall_side_ymax": "symmetry",
+    "wall_bottom": "symmetry",
+    "wall_top": "symmetry"
+   },
+   "methods": {
+    "flow_scheme": "Coupled",
+    "gradient": "least-square-cell-based",
+    "pressure": "second-order",
+    "momentum": "second-order-upwind",
+    "turb": "second-order-upwind",
+    "pseudo_time": true
+   },
+   "run": {
+    "init_method": "hybrid",
+    "iterations": 800,
+    "residual_criterion": 1e-05,
+    "monitor_every": 20,
+    "write_case": false
+   }
+  }
+ },
+ "cases": [
+  {
+   "id": "T125_L125_Re2e3",
+   "label": "X_T 1.25 · X_L 1.25 · Re 2e+03",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 6,
+    "firstLayer": 0.1301,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 12.5,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.1301,
+    "n_rad": 6,
+    "growth": 1.1869,
+    "clearance": 1.25,
+    "umax": 0.20096173111600882,
+    "Re": 2000.0000000000002,
+    "XT": 1.25,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.04019234622320177
+    }
+   },
+   "meta": {
+    "XT": 1.25,
+    "XL": 1.25,
+    "Re_target": 2000.0,
+    "velocity": 0.04019234622320177
+   }
+  },
+  {
+   "id": "T125_L125_Re1e4",
+   "label": "X_T 1.25 · X_L 1.25 · Re 1e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 11,
+    "firstLayer": 0.03182,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 12.5,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 11,
+    "growth": 1.2357,
+    "clearance": 1.25,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 1.25,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.20096173111600882
+    }
+   },
+   "meta": {
+    "XT": 1.25,
+    "XL": 1.25,
+    "Re_target": 10000.0,
+    "velocity": 0.20096173111600882
+   }
+  },
+  {
+   "id": "T125_L125_Re4e4",
+   "label": "X_T 1.25 · X_L 1.25 · Re 4e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 16,
+    "firstLayer": 0.009461,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 12.5,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.009461,
+    "n_rad": 16,
+    "growth": 1.2452,
+    "clearance": 1.25,
+    "umax": 4.019234622320176,
+    "Re": 40000.0,
+    "XT": 1.25,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.8038469244640353
+    }
+   },
+   "meta": {
+    "XT": 1.25,
+    "XL": 1.25,
+    "Re_target": 40000.0,
+    "velocity": 0.8038469244640353
+   }
+  },
+  {
+   "id": "T125_L15_Re2e3",
+   "label": "X_T 1.25 · X_L 1.50 · Re 2e+03",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 6,
+    "firstLayer": 0.1301,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 12.5,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.1301,
+    "n_rad": 6,
+    "growth": 1.1869,
+    "clearance": 1.25,
+    "umax": 0.20096173111600882,
+    "Re": 2000.0000000000002,
+    "XT": 1.25,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.04019234622320177
+    }
+   },
+   "meta": {
+    "XT": 1.25,
+    "XL": 1.5,
+    "Re_target": 2000.0,
+    "velocity": 0.04019234622320177
+   }
+  },
+  {
+   "id": "T125_L15_Re1e4",
+   "label": "X_T 1.25 · X_L 1.50 · Re 1e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 11,
+    "firstLayer": 0.03182,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 12.5,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 11,
+    "growth": 1.2357,
+    "clearance": 1.25,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 1.25,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.20096173111600882
+    }
+   },
+   "meta": {
+    "XT": 1.25,
+    "XL": 1.5,
+    "Re_target": 10000.0,
+    "velocity": 0.20096173111600882
+   }
+  },
+  {
+   "id": "T125_L15_Re4e4",
+   "label": "X_T 1.25 · X_L 1.50 · Re 4e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 16,
+    "firstLayer": 0.009461,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 12.5,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.009461,
+    "n_rad": 16,
+    "growth": 1.2452,
+    "clearance": 1.25,
+    "umax": 4.019234622320176,
+    "Re": 40000.0,
+    "XT": 1.25,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.8038469244640353
+    }
+   },
+   "meta": {
+    "XT": 1.25,
+    "XL": 1.5,
+    "Re_target": 40000.0,
+    "velocity": 0.8038469244640353
+   }
+  },
+  {
+   "id": "T125_L2_Re2e3",
+   "label": "X_T 1.25 · X_L 2.00 · Re 2e+03",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 6,
+    "firstLayer": 0.1301,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 12.5,
+    "SL": 20.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.1301,
+    "n_rad": 6,
+    "growth": 1.1869,
+    "clearance": 1.25,
+    "umax": 0.20096173111600882,
+    "Re": 2000.0000000000002,
+    "XT": 1.25,
+    "XL": 2.0,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.04019234622320177
+    }
+   },
+   "meta": {
+    "XT": 1.25,
+    "XL": 2.0,
+    "Re_target": 2000.0,
+    "velocity": 0.04019234622320177
+   }
+  },
+  {
+   "id": "T125_L2_Re1e4",
+   "label": "X_T 1.25 · X_L 2.00 · Re 1e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 11,
+    "firstLayer": 0.03182,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 12.5,
+    "SL": 20.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 11,
+    "growth": 1.2357,
+    "clearance": 1.25,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 1.25,
+    "XL": 2.0,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.20096173111600882
+    }
+   },
+   "meta": {
+    "XT": 1.25,
+    "XL": 2.0,
+    "Re_target": 10000.0,
+    "velocity": 0.20096173111600882
+   }
+  },
+  {
+   "id": "T125_L2_Re4e4",
+   "label": "X_T 1.25 · X_L 2.00 · Re 4e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 16,
+    "firstLayer": 0.009461,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 12.5,
+    "SL": 20.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.009461,
+    "n_rad": 16,
+    "growth": 1.2452,
+    "clearance": 1.25,
+    "umax": 4.019234622320176,
+    "Re": 40000.0,
+    "XT": 1.25,
+    "XL": 2.0,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.8038469244640353
+    }
+   },
+   "meta": {
+    "XT": 1.25,
+    "XL": 2.0,
+    "Re_target": 40000.0,
+    "velocity": 0.8038469244640353
+   }
+  },
+  {
+   "id": "T15_L125_Re2e3",
+   "label": "X_T 1.50 · X_L 1.25 · Re 2e+03",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 6,
+    "firstLayer": 0.1301,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 15.0,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.1301,
+    "n_rad": 6,
+    "growth": 1.1869,
+    "clearance": 1.25,
+    "umax": 0.20096173111600882,
+    "Re": 2000.0000000000002,
+    "XT": 1.5,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.06698724370533626
+    }
+   },
+   "meta": {
+    "XT": 1.5,
+    "XL": 1.25,
+    "Re_target": 2000.0,
+    "velocity": 0.06698724370533626
+   }
+  },
+  {
+   "id": "T15_L125_Re1e4",
+   "label": "X_T 1.50 · X_L 1.25 · Re 1e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 11,
+    "firstLayer": 0.03182,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 15.0,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 11,
+    "growth": 1.2357,
+    "clearance": 1.25,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 1.5,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.33493621852668126
+    }
+   },
+   "meta": {
+    "XT": 1.5,
+    "XL": 1.25,
+    "Re_target": 10000.0,
+    "velocity": 0.33493621852668126
+   }
+  },
+  {
+   "id": "T15_L125_Re4e4",
+   "label": "X_T 1.50 · X_L 1.25 · Re 4e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 16,
+    "firstLayer": 0.009461,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 15.0,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.009461,
+    "n_rad": 16,
+    "growth": 1.2452,
+    "clearance": 1.25,
+    "umax": 4.019234622320176,
+    "Re": 40000.0,
+    "XT": 1.5,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 1.339744874106725
+    }
+   },
+   "meta": {
+    "XT": 1.5,
+    "XL": 1.25,
+    "Re_target": 40000.0,
+    "velocity": 1.339744874106725
+   }
+  },
+  {
+   "id": "T15_L15_Re2e3",
+   "label": "X_T 1.50 · X_L 1.50 · Re 2e+03",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 8,
+    "firstLayer": 0.1301,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 15.0,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.1301,
+    "n_rad": 8,
+    "growth": 1.2413,
+    "clearance": 2.5,
+    "umax": 0.20096173111600882,
+    "Re": 2000.0000000000002,
+    "XT": 1.5,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.06698724370533626
+    }
+   },
+   "meta": {
+    "XT": 1.5,
+    "XL": 1.5,
+    "Re_target": 2000.0,
+    "velocity": 0.06698724370533626
+   }
+  },
+  {
+   "id": "T15_L15_Re1e4",
+   "label": "X_T 1.50 · X_L 1.50 · Re 1e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 14,
+    "firstLayer": 0.03182,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 15.0,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 14,
+    "growth": 1.2369,
+    "clearance": 2.5,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 1.5,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.33493621852668126
+    }
+   },
+   "meta": {
+    "XT": 1.5,
+    "XL": 1.5,
+    "Re_target": 10000.0,
+    "velocity": 0.33493621852668126
+   }
+  },
+  {
+   "id": "T15_L15_Re4e4",
+   "label": "X_T 1.50 · X_L 1.50 · Re 4e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 19,
+    "firstLayer": 0.009461,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 15.0,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.009461,
+    "n_rad": 19,
+    "growth": 1.247,
+    "clearance": 2.5,
+    "umax": 4.019234622320176,
+    "Re": 40000.0,
+    "XT": 1.5,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 1.339744874106725
+    }
+   },
+   "meta": {
+    "XT": 1.5,
+    "XL": 1.5,
+    "Re_target": 40000.0,
+    "velocity": 1.339744874106725
+   }
+  },
+  {
+   "id": "T15_L2_Re2e3",
+   "label": "X_T 1.50 · X_L 2.00 · Re 2e+03",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 8,
+    "firstLayer": 0.1301,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 15.0,
+    "SL": 20.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.1301,
+    "n_rad": 8,
+    "growth": 1.2413,
+    "clearance": 2.5,
+    "umax": 0.20096173111600882,
+    "Re": 2000.0000000000002,
+    "XT": 1.5,
+    "XL": 2.0,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.06698724370533626
+    }
+   },
+   "meta": {
+    "XT": 1.5,
+    "XL": 2.0,
+    "Re_target": 2000.0,
+    "velocity": 0.06698724370533626
+   }
+  },
+  {
+   "id": "T15_L2_Re1e4",
+   "label": "X_T 1.50 · X_L 2.00 · Re 1e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 14,
+    "firstLayer": 0.03182,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 15.0,
+    "SL": 20.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 14,
+    "growth": 1.2369,
+    "clearance": 2.5,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 1.5,
+    "XL": 2.0,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.33493621852668126
+    }
+   },
+   "meta": {
+    "XT": 1.5,
+    "XL": 2.0,
+    "Re_target": 10000.0,
+    "velocity": 0.33493621852668126
+   }
+  },
+  {
+   "id": "T15_L2_Re4e4",
+   "label": "X_T 1.50 · X_L 2.00 · Re 4e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 19,
+    "firstLayer": 0.009461,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 15.0,
+    "SL": 20.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.009461,
+    "n_rad": 19,
+    "growth": 1.247,
+    "clearance": 2.5,
+    "umax": 4.019234622320176,
+    "Re": 40000.0,
+    "XT": 1.5,
+    "XL": 2.0,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 1.339744874106725
+    }
+   },
+   "meta": {
+    "XT": 1.5,
+    "XL": 2.0,
+    "Re_target": 40000.0,
+    "velocity": 1.339744874106725
+   }
+  },
+  {
+   "id": "T2_L125_Re2e3",
+   "label": "X_T 2.00 · X_L 1.25 · Re 2e+03",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 6,
+    "firstLayer": 0.1301,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 20.0,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.1301,
+    "n_rad": 6,
+    "growth": 1.1869,
+    "clearance": 1.25,
+    "umax": 0.20096173111600882,
+    "Re": 2000.0000000000002,
+    "XT": 2.0,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.10048086555800441
+    }
+   },
+   "meta": {
+    "XT": 2.0,
+    "XL": 1.25,
+    "Re_target": 2000.0,
+    "velocity": 0.10048086555800441
+   }
+  },
+  {
+   "id": "T2_L125_Re1e4",
+   "label": "X_T 2.00 · X_L 1.25 · Re 1e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 11,
+    "firstLayer": 0.03182,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 20.0,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 11,
+    "growth": 1.2357,
+    "clearance": 1.25,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 2.0,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.502404327790022
+    }
+   },
+   "meta": {
+    "XT": 2.0,
+    "XL": 1.25,
+    "Re_target": 10000.0,
+    "velocity": 0.502404327790022
+   }
+  },
+  {
+   "id": "T2_L125_Re4e4",
+   "label": "X_T 2.00 · X_L 1.25 · Re 4e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 16,
+    "firstLayer": 0.009461,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 20.0,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.009461,
+    "n_rad": 16,
+    "growth": 1.2452,
+    "clearance": 1.25,
+    "umax": 4.019234622320176,
+    "Re": 40000.0,
+    "XT": 2.0,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 2.009617311160088
+    }
+   },
+   "meta": {
+    "XT": 2.0,
+    "XL": 1.25,
+    "Re_target": 40000.0,
+    "velocity": 2.009617311160088
+   }
+  },
+  {
+   "id": "T2_L15_Re2e3",
+   "label": "X_T 2.00 · X_L 1.50 · Re 2e+03",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 8,
+    "firstLayer": 0.1301,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 20.0,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.1301,
+    "n_rad": 8,
+    "growth": 1.2413,
+    "clearance": 2.5,
+    "umax": 0.20096173111600882,
+    "Re": 2000.0000000000002,
+    "XT": 2.0,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.10048086555800441
+    }
+   },
+   "meta": {
+    "XT": 2.0,
+    "XL": 1.5,
+    "Re_target": 2000.0,
+    "velocity": 0.10048086555800441
+   }
+  },
+  {
+   "id": "T2_L15_Re1e4",
+   "label": "X_T 2.00 · X_L 1.50 · Re 1e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 14,
+    "firstLayer": 0.03182,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 20.0,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 14,
+    "growth": 1.2369,
+    "clearance": 2.5,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 2.0,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.502404327790022
+    }
+   },
+   "meta": {
+    "XT": 2.0,
+    "XL": 1.5,
+    "Re_target": 10000.0,
+    "velocity": 0.502404327790022
+   }
+  },
+  {
+   "id": "T2_L15_Re4e4",
+   "label": "X_T 2.00 · X_L 1.50 · Re 4e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 19,
+    "firstLayer": 0.009461,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 20.0,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.009461,
+    "n_rad": 19,
+    "growth": 1.247,
+    "clearance": 2.5,
+    "umax": 4.019234622320176,
+    "Re": 40000.0,
+    "XT": 2.0,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 2.009617311160088
+    }
+   },
+   "meta": {
+    "XT": 2.0,
+    "XL": 1.5,
+    "Re_target": 40000.0,
+    "velocity": 2.009617311160088
+   }
+  },
+  {
+   "id": "T2_L2_Re2e3",
+   "label": "X_T 2.00 · X_L 2.00 · Re 2e+03",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 11,
+    "firstLayer": 0.1301,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 20.0,
+    "SL": 20.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.1301,
+    "n_rad": 11,
+    "growth": 1.2318,
+    "clearance": 5.0,
+    "umax": 0.20096173111600882,
+    "Re": 2000.0000000000002,
+    "XT": 2.0,
+    "XL": 2.0,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.10048086555800441
+    }
+   },
+   "meta": {
+    "XT": 2.0,
+    "XL": 2.0,
+    "Re_target": 2000.0,
+    "velocity": 0.10048086555800441
+   }
+  },
+  {
+   "id": "T2_L2_Re1e4",
+   "label": "X_T 2.00 · X_L 2.00 · Re 1e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 17,
+    "firstLayer": 0.03182,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 20.0,
+    "SL": 20.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 17,
+    "growth": 1.2399,
+    "clearance": 5.0,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 2.0,
+    "XL": 2.0,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.502404327790022
+    }
+   },
+   "meta": {
+    "XT": 2.0,
+    "XL": 2.0,
+    "Re_target": 10000.0,
+    "velocity": 0.502404327790022
+   }
+  },
+  {
+   "id": "T2_L2_Re4e4",
+   "label": "X_T 2.00 · X_L 2.00 · Re 4e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 22,
+    "firstLayer": 0.009461,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 20.0,
+    "SL": 20.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.009461,
+    "n_rad": 22,
+    "growth": 1.2487,
+    "clearance": 5.0,
+    "umax": 4.019234622320176,
+    "Re": 40000.0,
+    "XT": 2.0,
+    "XL": 2.0,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 2.009617311160088
+    }
+   },
+   "meta": {
+    "XT": 2.0,
+    "XL": 2.0,
+    "Re_target": 40000.0,
+    "velocity": 2.009617311160088
+   }
+  },
+  {
+   "id": "T125_L125_Re1e5",
+   "label": "X_T 1.25 · X_L 1.25 · Re 1e+05",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 19,
+    "firstLayer": 0.004244,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 12.5,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.004244,
+    "n_rad": 19,
+    "growth": 1.2565,
+    "clearance": 1.25,
+    "umax": 10.04808655580044,
+    "Re": 100000.0,
+    "XT": 1.25,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 2.0096173111600883
+    }
+   },
+   "meta": {
+    "XT": 1.25,
+    "XL": 1.25,
+    "Re_target": 100000.0,
+    "velocity": 2.0096173111600883
+   }
+  },
+  {
+   "id": "T15_L15_Re1e5",
+   "label": "X_T 1.50 · X_L 1.50 · Re 1e+05",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 22,
+    "firstLayer": 0.004244,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 15.0,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.004244,
+    "n_rad": 22,
+    "growth": 1.2566,
+    "clearance": 2.5,
+    "umax": 10.04808655580044,
+    "Re": 100000.0,
+    "XT": 1.5,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 3.3493621852668127
+    }
+   },
+   "meta": {
+    "XT": 1.5,
+    "XL": 1.5,
+    "Re_target": 100000.0,
+    "velocity": 3.3493621852668127
+   }
+  },
+  {
+   "id": "T2_L2_Re1e5",
+   "label": "X_T 2.00 · X_L 2.00 · Re 1e+05",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 25,
+    "firstLayer": 0.004244,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 20.0,
+    "SL": 20.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.004244,
+    "n_rad": 25,
+    "growth": 1.2569,
+    "clearance": 5.0,
+    "umax": 10.04808655580044,
+    "Re": 100000.0,
+    "XT": 2.0,
+    "XL": 2.0,
+    "diagonal": false
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 5.02404327790022
+    }
+   },
+   "meta": {
+    "XT": 2.0,
+    "XL": 2.0,
+    "Re_target": 100000.0,
+    "velocity": 5.02404327790022
+   }
+  }
+ ]
+}

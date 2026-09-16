@@ -575,7 +575,7 @@ def report_body(lang="ko"):
     for staggered in (False, True):
         p("<h3>%s</h3>" % (t("엇갈림 (staggered)", "staggered") if staggered
                            else t("정렬 (in-line)", "in-line")))
-        p("<table><tr><th>X</th><th>Re<sub>max</sub></th>"
+        p('<table class="grid"><tr><th>X</th><th>Re<sub>max</sub></th>'
           "<th>Eu<sub>row</sub> Jakob</th><th>Eu<sub>row</sub> Zukauskas</th>"
           "<th>Jakob / Zukauskas</th></tr>")
         for g in grid:
@@ -592,7 +592,7 @@ def report_body(lang="ko"):
     #  useless; reporting only the restricted one would make it look better
     #  than it is.  Both, and the restriction named.
     p("<h3>%s</h3>" % t("요약", "In summary"))
-    p("<table><tr><th>%s</th><th>%s</th><th>%s</th></tr>"
+    p('<table class="grid"><tr><th>%s</th><th>%s</th><th>%s</th></tr>'
       % (t("범위", "over"), t("정렬", "in-line"), t("엇갈림", "staggered")))
 
     def band(pred):
@@ -779,7 +779,7 @@ def main(argv=None):
         os.makedirs(os.path.dirname(out), exist_ok=True)
         body = report_body(lang)
         with open(out, "w", encoding="utf-8") as fh:
-            fh.write(_standalone(body, lang))
+            fh.write(standalone(body, "Stage 1 - correlations", lang))
         print("wrote %s (%.1f kB)" % (out, os.path.getsize(out) / 1e3))
         return 0
     #  default: the registry, and one worked state
@@ -801,12 +801,13 @@ def main(argv=None):
     return 0
 
 
-def _standalone(body, lang):
-    """The report as a file that opens anywhere.
+def standalone(body, title="report", lang="ko"):
+    """A report body as a file that opens anywhere.
 
     The page's own stylesheet is not reachable from the command line, so this
     carries a small one of its own.  When the tab saves the same report it uses
-    the page's, exactly as the Report tab does.
+    the page's, exactly as the Report tab does - which is why every class used
+    here also exists in mesh_explorer.html's `.paper` rules.
     """
     css = """
 body{margin:0;background:#eef1f5;padding:26px 16px;
@@ -823,6 +824,8 @@ body{margin:0;background:#eef1f5;padding:26px 16px;
 .paper th,.paper td{border:1px solid #e2e7ee;padding:5px 9px;text-align:left;
   vertical-align:top}
 .paper th{background:#f6f8fb;font-weight:640;width:24%;color:#33415a}
+.paper table.grid th{width:auto;white-space:nowrap}
+.paper table.grid td{white-space:nowrap}
 .paper td.n{font-variant-numeric:tabular-nums}
 .paper tr>th:first-child:empty{width:auto}
 .paper .tiles{display:flex;gap:10px;margin:16px 0 4px;flex-wrap:wrap}
@@ -836,13 +839,23 @@ body{margin:0;background:#eef1f5;padding:26px 16px;
 .paper code{background:#f2f5f9;border-radius:3px;padding:1px 5px;font-size:12px}
 .paper .foot{margin-top:30px;padding-top:12px;border-top:1px solid #dde3ea;
   color:#7a8595;font-size:11.5px}
+.paper .tile .u{font-size:12px;color:#5a6678;margin-left:3px}
+.paper .warn{background:#fff8e6;border-left:3px solid #d97706;padding:7px 11px;
+  margin:9px 0;font-size:12.5px;color:#7a4a06}
+.paper .bad{background:#fdeaea;border-left:3px solid #9b1c1c;padding:7px 11px;
+  margin:9px 0;font-size:12.5px;color:#9b1c1c;font-weight:600}
+.paper ul{margin:8px 0 8px 18px;padding:0;font-size:12.5px;color:#33415a}
+.paper li{margin:3px 0}
+.paper svg.plot{display:block;max-width:660px;margin:14px 0 6px;
+  background:#fff;border:1px solid #eef1f6;border-radius:6px}
 @media print{body{background:#fff;padding:0}
-  .paper{box-shadow:none;max-width:none;padding:0}}
+  .paper{box-shadow:none;max-width:none;padding:0}
+  .paper svg.plot{break-inside:avoid}}
 """
     return ('<!doctype html>\n<html lang="%s"><head><meta charset="utf-8">\n'
-            '<title>Stage 1 - correlations</title>\n<style>%s</style>\n'
+            '<title>%s</title>\n<style>%s</style>\n'
             '</head>\n<body>\n<div class="paper">\n%s\n</div>\n</body></html>\n'
-            % (lang, css, body))
+            % (lang, title, css, body))
 
 
 if __name__ == "__main__":

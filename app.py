@@ -49,6 +49,8 @@ sys.path.insert(0, HERE)
 
 import fluent_case as FC            # noqa: E402
 import mesh_explorer as ME          # noqa: E402
+import correlations as CR           # noqa: E402
+import study as ST                  # noqa: E402
 
 PAGE = os.path.join(HERE, "mesh_explorer.html")
 
@@ -274,9 +276,13 @@ class Job(object):
             mesh = ME.Mesh(self.case)
             mesh.build()
             rep = ME.run_checks(mesh, quiet=True)
+            #  vtot is kept for the parametric study: a grid-convergence
+            #  index needs a representative cell SIZE, which is the domain
+            #  volume over the cell count and cannot be recovered afterwards
             self.mesh_stats = {k: rep[k] for k in
                                ("cells", "nodes2d", "quads", "points", "cracks",
-                                "maxdev", "vol_err", "dev_max", "ar_max", "patches")}
+                                "maxdev", "vol_err", "dev_max", "ar_max",
+                                "vtot", "patches")}
             self.log("mesh: %d cells, %d cracks, volume error %.1e"
                      % (rep["cells"], rep["cracks"], rep["vol_err"]))
             name = self.case.name(mesh.az_full[1])
@@ -372,6 +378,7 @@ class App(object):
         self.out_dir = out_dir
         self.job = None
         self.counter = 0
+        self.runner = None                  # the parametric study, if one is on
         self.lock = threading.Lock()
 
     def info(self):
@@ -398,6 +405,8 @@ class App(object):
         }
 
     def start_job(self, body):
+        if self.study_busy():
+            raise ValueError("a parametric study is running; stop it first")
         with self.lock:
             if self.job is not None and not self.job.finished_at:
                 raise ValueError("a run is already going; stop it first")
@@ -414,6 +423,39 @@ class App(object):
             self.job.notes = notes
             self.job.start()
             return self.job.status()
+
+    def new_job(self, geometry, params, settings):
+        """A Job, registered as the current one, NOT started.
+
+        The study runner builds its cases through this so that a campaign is
+        watchable: the Run tab, the residual plot and the Results tab all
+        follow whichever case is going, because it is the current job like any
+        other.  The caller starts it.
+        """
+        with self.lock:
+            if self.job is not None and not self.job.finished_at:
+                raise ValueError("a run is already going; stop it first")
+            if self.job is not None:
+                self.job.close()
+            self.counter += 1
+            self.job = Job("j%d" % self.counter, geometry, params, settings,
+                           self.backend, self.out_dir)
+            return self.job
+
+    def study_busy(self):
+        return self.runner is not None and not self.runner.finished
+
+    def start_study(self, body):
+        if self.study_busy():
+            raise ValueError("a study is already running; stop it first")
+        s = ST.Study.load(str(body.get("name") or ""))
+        only = body.get("only") or None
+        self.runner = ST.Runner(self, s, only=only, redo=bool(body.get("redo")))
+        if not self.runner.queue:
+            raise ValueError("every case of %s is already done - pass redo to "
+                             "run them again" % s.name)
+        self.runner.start()
+        return self.runner.status()
 
     def need_job(self):
         if self.job is None:
@@ -516,6 +558,16 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/files":
                 return self._json({"ok": True, "out_dir": self.app.out_dir,
                                    "files": list_outputs(self.app.out_dir)})
+            if path == "/api/studies":
+                return self._json({"ok": True, "studies": ST.Study.list_all(),
+                                   "running": (self.app.runner.status()
+                                               if self.app.runner else None)})
+            if path == "/api/study_status":
+                r = self.app.runner
+                return self._json({"ok": True,
+                                   "run": r.status() if r else None})
+            if path == "/api/correlations":
+                return self._json(dict(CR.as_json(), ok=True))
             if path == "/api/job":
                 q = self.path.split("?", 1)
                 frm = 0
@@ -613,6 +665,54 @@ class Handler(BaseHTTPRequestHandler):
                 job.planes.pop(name, None)
                 return self._json({"ok": True, "planes": job.planes,
                                    "surfaces": job.surface_list()})
+            if path == "/api/study":
+                s = ST.Study.load(str(body.get("name") or ""))
+                out = {"ok": True, "study": s.d, "rows": s.results()}
+                out["analysis"] = (ST.mesh_analysis(s) if s.kind == "mesh"
+                                   else ST.sweep_analysis(s))
+                return self._json(out)
+            if path == "/api/study_make":
+                made = []
+                for s in ST.make_campaign(str(body.get("level") or "L3")):
+                    s.save()
+                    made.append({"name": s.name, "cases": len(s.cases)})
+                return self._json({"ok": True, "made": made})
+            if path == "/api/study_run":
+                return self._json({"ok": True,
+                                   "run": self.app.start_study(body)})
+            if path == "/api/study_stop":
+                if self.app.runner is None:
+                    raise ValueError("no study is running")
+                self.app.runner.stop()
+                return self._json({"ok": True,
+                                   "run": self.app.runner.status()})
+            if path == "/api/study_clear":
+                s = ST.Study.load(str(body.get("name") or ""))
+                if self.app.study_busy():
+                    raise ValueError("stop the running study first")
+                s.clear_results()
+                return self._json({"ok": True, "cleared": s.name})
+            if path == "/api/study_report":
+                s = ST.Study.load(str(body.get("name") or ""))
+                lang = "en" if body.get("lang") == "en" else "ko"
+                body_html = ST.report_body(s, lang)
+                out = {"ok": True, "body": body_html}
+                if body.get("write"):
+                    out["path"] = ST.write_report(s, lang)
+                return self._json(out)
+            if path == "/api/correlations_report":
+                lang = "en" if body.get("lang") == "en" else "ko"
+                out = {"ok": True, "body": CR.report_body(lang)}
+                if body.get("write"):
+                    p = os.path.join(ST.STUDIES, "stage1-correlations",
+                                     "report.html" if lang == "ko"
+                                     else "report_en.html")
+                    os.makedirs(os.path.dirname(p), exist_ok=True)
+                    with open(p, "w", encoding="utf-8") as fh:
+                        fh.write(CR.standalone(out["body"],
+                                               "Stage 1 - correlations", lang))
+                    out["path"] = p
+                return self._json(out)
             if path == "/api/journal":
                 settings = FC.merge_settings(body.get("settings"))
                 case = case_from(body.get("geometry", "rod-inline"),
