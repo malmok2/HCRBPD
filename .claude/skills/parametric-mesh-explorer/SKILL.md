@@ -157,6 +157,12 @@ These are invariants that took real debugging to find. Preserve them.
   happens to overshoot — do not rely on it.
 - **One source for preview and export.** The picture on screen and the exported
   file come from the same block list, or they will drift apart.
+- **A report restates; it never recomputes.** The Report tab is assembled from
+  the values the other tabs are already showing - the settings out of the
+  schema, the mesh checks out of the run, the pressure drop out of the monitor.
+  A report that derived its own numbers could disagree with the tab that
+  produced them, which is the one thing it must never do. The same rule makes
+  it cheap: adding a field to the schema puts it in the report for free.
 - **Export coordinates in metres.** OpenFOAM's polyMesh carries no unit
   metadata and is read as metres; a mm-numbered mesh is silently 1000× too big.
 - **Fluent gets its faces reversed; OpenFOAM does not.** The two conventions

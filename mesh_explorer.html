@@ -359,6 +359,71 @@
   }
   .reslist .kill:hover{color:var(--bad); background:var(--glass2)}
   /*  where the files are  */
+  /* ---------------- the report ------------------------------------------
+     One stylesheet, used three ways: on screen, in the saved standalone file,
+     and on paper.  It is written against .paper so the same rules can be
+     lifted out verbatim for the download - see reportCSS().               */
+  .paper{
+    background:#fff; color:#1a1f26; border-radius:16px; box-shadow:var(--sh-2);
+    padding:44px 52px; max-width:1080px; margin:0 auto 30px;
+    font-size:13px; line-height:1.62;
+  }
+  .paper h1{font-size:23px; font-weight:680; margin:0 0 4px; letter-spacing:-.015em}
+  .paper .sub{color:#5d6672; font-size:12px; margin-bottom:26px}
+  .paper h2{
+    font-size:12px; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
+    color:#0f4c81; margin:34px 0 12px; padding-bottom:7px;
+    border-bottom:1.5px solid #dfe4ea;
+  }
+  .paper h3{font-size:13px; font-weight:650; margin:20px 0 8px; color:#2b3440}
+  .paper table{width:100%; border-collapse:collapse; margin:6px 0 4px}
+  .paper th, .paper td{
+    text-align:left; padding:6px 10px; border-bottom:1px solid #eceff3;
+    vertical-align:top;
+  }
+  .paper th{font-weight:600; color:#5d6672; width:42%; font-size:12px}
+  .paper td{font-variant-numeric:tabular-nums}
+  .paper td.n{text-align:right; font-family:var(--mono); font-size:12px}
+  .paper .cols{display:grid; grid-template-columns:1fr 1fr; gap:0 34px}
+  @media (max-width:760px){ .paper .cols{grid-template-columns:1fr} }
+  /*  the headline numbers - the four a reader wants before anything else  */
+  .paper .tiles{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:12px; margin:8px 0 6px;
+  }
+  .paper .tile{
+    background:#f6f8fa; border:1px solid #e6eaef; border-radius:12px; padding:13px 15px;
+  }
+  .paper .tile .k{font-size:11px; color:#5d6672; letter-spacing:.02em}
+  .paper .tile .v{
+    font-size:21px; font-weight:660; margin-top:3px; color:#0f4c81;
+    font-variant-numeric:tabular-nums; letter-spacing:-.01em;
+  }
+  .paper .tile .u{font-size:12px; font-weight:500; color:#5d6672; margin-left:3px}
+  .paper figure{margin:14px 0 6px}
+  .paper figure img{
+    width:100%; display:block; border:1px solid #e6eaef; border-radius:10px;
+    background:#fff;
+  }
+  .paper figcaption{font-size:11.5px; color:#5d6672; margin-top:7px}
+  .paper .flag{
+    display:inline-block; padding:3px 10px; border-radius:7px; font-size:11px;
+    font-weight:650; background:#fdeceb; color:#a83f2b; margin-left:8px;
+  }
+  .paper .muted{color:#5d6672}
+  .paper .foot{
+    margin-top:34px; padding-top:14px; border-top:1px solid #dfe4ea;
+    font-size:11px; color:#5d6672;
+  }
+  .paper code{font-family:var(--mono); font-size:11.5px; word-break:break-all}
+  @media print{
+    body{background:#fff}
+    header, #tabs, .runbar, aside{display:none !important}
+    .paper{box-shadow:none; border-radius:0; padding:0; max-width:none; margin:0}
+    .paper h2{break-after:avoid} .paper figure{break-inside:avoid}
+    .paper .tile{break-inside:avoid}
+  }
+
   /*  the save row under a plot: small, and out of the way until wanted  */
   .savebar{gap:7px; margin-top:9px; align-items:center}
   .savebar .btn{width:auto; padding:6px 14px; font-size:12px}
@@ -423,6 +488,7 @@
       <button data-pane="set">세팅</button>
       <button data-pane="run">해석</button>
       <button data-pane="res">결과</button>
+      <button data-pane="rep">보고서</button>
     </nav>
     <button class="btn lang" id="langBtn" type="button">EN</button>
     <span id="codeStamp" title=""></span>
@@ -875,6 +941,24 @@
     </div>
   </div>
 </div>
+
+  <!-- ================= 보고서 : one page that says what was run ======= -->
+  <div class="tabpane" data-pane="rep" hidden>
+    <div class="pane">
+      <div class="runbar">
+        <button class="btn primary" id="repBuild" style="width:auto;padding:9px 22px">보고서 만들기</button>
+        <button class="btn" id="repSave" style="width:auto;padding:9px 18px">HTML로 저장</button>
+        <button class="btn" id="repPrint" style="width:auto;padding:9px 18px">인쇄 · PDF</button>
+        <select id="repScale" class="minisel" style="margin-left:6px">
+          <option value="1">그림 1×</option>
+          <option value="2" selected>그림 2×</option>
+          <option value="3">그림 3×</option>
+        </select>
+        <span class="savenote" id="repNote"></span>
+      </div>
+      <div id="repPaper" class="paper"><div id="repBody"></div></div>
+    </div>
+  </div>
 
 <div class="zoomwrap" id="zoomwrap" hidden>
   <div class="inner">
@@ -3458,7 +3542,7 @@ resize(); rebuild(); setLang(LANG); frame();
    draws it, the driver applies it.                                          */
 
 Object.assign(STR.ko, {
-  tabs:{geom:"형상", set:"세팅", run:"해석", res:"결과"},
+  tabs:{geom:"형상", set:"세팅", run:"해석", res:"결과", rep:"보고서"},
   srv_off:"<b>서버가 없습니다.</b> 이 페이지를 파일로 직접 열면 형상 탭만 동작합니다. " +
           "Fluent를 돌리려면 저장소에서 <code>python3 app.py</code> 를 실행하고 " +
           "그 주소로 다시 여십시오.",
@@ -3524,6 +3608,36 @@ Object.assign(STR.ko, {
   cm_rain_note:"밝기가 단조롭지 않아 데이터에 없는 경계가 보입니다. 색각 이상에서는 순서를 읽을 수 없습니다.",
   cm_walls:"y+는 벽면에만 있습니다. 벽면이 아닌 면에서는 값이 오지 않습니다.",
   v_here:"설치됨", v_absent:"이 PC에 없음",
+  rep_title:"해석 요약 보고서",
+  rep_busy:"보고서를 만드는 중… 그림마다 장을 다시 그립니다.",
+  rep_done:(t)=>`${t}에 생성`,
+  rep_saved:(mb)=>`HTML로 저장했습니다 · ${mb} MB (그림 포함, 단독 실행)`,
+  rep_first_build:"먼저 '보고서 만들기'를 누르십시오.",
+  rep_need_srv:"서버가 있어야 보고서를 만들 수 있습니다.",
+  rep_mock:"가짜 값입니다. 결과로 인용하지 마십시오",
+  rep_auto_rel:"자동 선택",
+  rep_no_fluent:"Fluent 설치를 찾지 못했습니다",
+  rep_dp:"압력강하 Δp", rep_u:"유입 속도", rep_cells:"셀 수",
+  rep_h_geom:"형상", rep_h_mesh:"격자", rep_h_setup:"해석 설정",
+  rep_h_conv:"수렴", rep_h_res:"결과", rep_h_repro:"재현",
+  rep_rows:"행 × 열", rep_wrap:"코일로 감기", rep_halfrods:"측벽 반쪽 rod",
+  rep_umax:"간극 최대 속도 u_max", rep_blockage:"횡방향 폐쇄율",
+  rep_points:"절점 (3-D)", rep_quads:"면(quad) 수",
+  rep_mesh_note:"균열 0, 절점 불일치 0, 체적 오차 1e-6 미만을 모두 통과해야 내보내기가 허용됩니다.",
+  rep_no_mesh:"아직 격자를 만들지 않았습니다.",
+  rep_yplus_target:"목표 y+", rep_yplus_now:"현재 y+ (추정)", rep_first:"첫 층 두께",
+  rep_release:"Fluent 릴리스", rep_backend:"백엔드",
+  rep_iters:"반복 횟수", rep_worst:"최종 최대 잔차", rep_met:"수렴 판정 충족",
+  rep_dp_cfd:"Δp (CFD)", rep_dp_corr:"Δp (상관식, 번들만)", rep_dp_ratio:"CFD / 상관식",
+  rep_perrow:"행당", 
+  rep_corr_note:"상관식은 Jakob의 마찰계수(정렬 배열은 Zukauskas 차트와 대조 확인, 엇갈림 배열은 미대조)에 의한 <b>추정치</b>이며, 입·출구 박스 손실은 제외한 번들 구간만입니다. CFD 값과의 차이는 그 자체로 판단 근거가 아니라 확인할 거리입니다.",
+  rep_fig_geom:"형상과 격자 (형상 탭)",
+  rep_fig_res:"잔차 이력", rep_fig_dp:"압력강하 수렴",
+  rep_fig_vel:"속도 크기", rep_fig_p:"정압",
+  rep_mesh_file:"격자 파일", rep_out_dir:"저장 폴더", rep_code:"코드 리비전",
+  rep_repro_note:"세팅 탭의 'PyFluent 스크립트 보기'로 이 케이스를 앱 없이 그대로 재현할 수 있습니다.",
+  rep_foot:"이 문서는 화면에 표시된 값에서 직접 생성되었습니다. 새로 계산한 값은 없습니다.",
+  yes:"예", no:"아니오", lab_crit:"수렴 판정 잔차",
   h_rview:"시점", h_png:"그림 저장",
   rv_note:(k)=>`${k} 축이 보는 사람 쪽을 향합니다 · 드래그하면 자유 시점으로 돌아갑니다`,
   rv_fit:"맞춤", rv_spin:"자동 회전", rv_iso:"ISO",
@@ -3552,7 +3666,7 @@ Object.assign(STR.ko, {
   m_volerr:"체적 오차", m_skew:"최대 왜곡각", m_ar:"최대 AR"
 });
 Object.assign(STR.en, {
-  tabs:{geom:"Geometry", set:"Settings", run:"Run", res:"Results"},
+  tabs:{geom:"Geometry", set:"Settings", run:"Run", res:"Results", rep:"Report"},
   srv_off:"<b>No server.</b> Opened as a plain file, only the Geometry tab works. " +
           "To drive Fluent, run <code>python3 app.py</code> in the repository and " +
           "open the address it prints.",
@@ -3616,6 +3730,36 @@ Object.assign(STR.en, {
   cm_rain_note:"Lightness is not monotonic, so it shows edges the data does not have, and the order cannot be read with colour-blindness.",
   cm_walls:"y+ exists on walls only; a non-wall surface returns nothing for it.",
   v_here:"installed", v_absent:"not on this machine",
+  rep_title:"Analysis summary",
+  rep_busy:"building - each figure is a redraw…",
+  rep_done:(t)=>`built at ${t}`,
+  rep_saved:(mb)=>`saved as HTML · ${mb} MB (figures included, stands alone)`,
+  rep_first_build:"Press “Build the report” first.",
+  rep_need_srv:"A server is needed to build the report.",
+  rep_mock:"invented values - do not quote as a result",
+  rep_auto_rel:"chosen automatically",
+  rep_no_fluent:"no Fluent installation was found",
+  rep_dp:"Pressure drop Δp", rep_u:"Inlet velocity", rep_cells:"Cells",
+  rep_h_geom:"Geometry", rep_h_mesh:"Mesh", rep_h_setup:"Solver set-up",
+  rep_h_conv:"Convergence", rep_h_res:"Results", rep_h_repro:"Reproducing it",
+  rep_rows:"Rows × columns", rep_wrap:"Wrapped onto the coil", rep_halfrods:"Half rods on the sides",
+  rep_umax:"Gap (maximum) velocity u_max", rep_blockage:"Transverse blockage",
+  rep_points:"Points (3-D)", rep_quads:"Quad faces",
+  rep_mesh_note:"Export is gated on all of these: no cracks, no node mismatch, volume error below 1e-6.",
+  rep_no_mesh:"No mesh has been built yet.",
+  rep_yplus_target:"Target y+", rep_yplus_now:"Current y+ (estimated)", rep_first:"First layer",
+  rep_release:"Fluent release", rep_backend:"Backend",
+  rep_iters:"Iterations", rep_worst:"Worst final residual", rep_met:"Criterion met",
+  rep_dp_cfd:"Δp (CFD)", rep_dp_corr:"Δp (correlation, bundle only)", rep_dp_ratio:"CFD / correlation",
+  rep_perrow:"per row",
+  rep_corr_note:"The correlation is Jakob's friction factor - the in-line branch spot-checked against Zukauskas, the staggered one not - and is an <b>estimate</b> over the bundle only, excluding the inlet and outlet boxes. A gap between it and the CFD is something to look into, not a verdict on either.",
+  rep_fig_geom:"Geometry and mesh (Geometry tab)",
+  rep_fig_res:"Residual history", rep_fig_dp:"Pressure drop converging",
+  rep_fig_vel:"Velocity magnitude", rep_fig_p:"Static pressure",
+  rep_mesh_file:"Mesh file", rep_out_dir:"Output folder", rep_code:"Code revision",
+  rep_repro_note:"“Show the PyFluent script” on the Settings tab reproduces this case without the app.",
+  rep_foot:"Built from the values on screen. Nothing here was recomputed.",
+  yes:"yes", no:"no", lab_crit:"Residual criterion",
   h_rview:"View", h_png:"Save the picture",
   rv_note:(k)=>`${k} points at the viewer · drag to go back to a free view`,
   rv_fit:"Fit", rv_spin:"Auto-rotate", rv_iso:"ISO",
@@ -4818,6 +4962,292 @@ $("dpPng").addEventListener("click", ()=>savePlot({
   },
   name: ()=>caseName() + "_pressure-drop",
 }));
+
+/* ============================= the report ================================
+   One page that says what was run, from what the app already holds: the
+   geometry parameters, the settings schema, the mesh checks, the residual and
+   Dp histories, and the fields themselves.  Nothing here recomputes anything
+   - a report that derived its own numbers could disagree with the tab that
+   produced them, which is the one thing a report must never do.           */
+
+/*  Render any of the three canvases to a data URI at a multiple of its size,
+    on white, without disturbing what is on screen.  Same mechanics as the PNG
+    save; this one hands back a string instead of a file.                   */
+function renderToDataURL(o, scale){
+  const cv = o.canvas, ctx = o.ctx;
+  const bw = cv.width, bh = cv.height;
+  const [w0, h0] = o.size();
+  if(!(w0 > 0 && h0 > 0)) return null;
+  o.before && o.before();
+  try{
+    cv.width = Math.round(w0 * scale);
+    cv.height = Math.round(h0 * scale);
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, w0, h0);
+    o.draw();
+    return cv.toDataURL("image/png");
+  }finally{
+    cv.width = bw; cv.height = bh;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    o.after && o.after();
+    o.draw();
+  }
+}
+function figScale(){ return Math.max(1, Math.min(4, +$("repScale").value || 2)); }
+
+/*  A contour of one variable, on whatever surfaces the Results tab is
+    showing.  The variable is switched, the field fetched, the picture taken,
+    and the tab put back exactly as it was - a report should not cost the user
+    their view.                                                             */
+async function captureField(variable){
+  const was = RES.variable;
+  try{
+    if(variable !== RES.variable){
+      $("resVariable").value = variable;
+      RES.variable = variable;
+      await loadField();
+    }
+    if(!RES.data.length) return null;
+    return renderToDataURL({
+      canvas: resC, ctx: xctx, size: ()=>[xw, xh], draw: drawRes,
+      before: ()=>{ RES.wasFast = RES.fast; RES.fast = false; },
+      after:  ()=>{ RES.fast = RES.wasFast; },
+    }, figScale());
+  }catch(e){ return null; }
+  finally{
+    if(RES.variable !== was){
+      $("resVariable").value = was; RES.variable = was;
+      await loadField();
+    }
+  }
+}
+function esc(v){
+  return String(v).replace(/[&<>"]/g, c =>
+    ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+}
+function row(k, v, cls){
+  //  k is one of our own labels and some carry markup on purpose (L<sub>in</sub>);
+  //  v is escaped by the caller, which is where the data comes from
+  return "<tr><th>" + k + "</th><td" + (cls ? ' class="' + cls + '"' : "") +
+         ">" + v + "</td></tr>";
+}
+function tile(k, v, u){
+  return '<div class="tile"><div class="k">' + esc(k) + '</div><div class="v">' +
+         esc(v) + (u ? '<span class="u">' + esc(u) + "</span>" : "") + "</div></div>";
+}
+function fig(src, caption){
+  if(!src) return "";
+  return '<figure><img src="' + src + '" alt=""><figcaption>' + caption +
+         "</figcaption></figure>";
+}
+/*  The settings, straight out of the schema, so the report cannot drift from
+    the panel: same groups, same labels, same show_if.                      */
+function settingsTables(){
+  let out = "";
+  for(const g of SRV.settings){
+    const rows = g.fields.filter(f => visibleField(f))
+      .map(f => {
+        let v = SET[g.id][f.id];
+        if(f.kind === "bool") v = v ? T("yes") : T("no");
+        else if(f.kind === "choice"){
+          const c = f.choices.find(c => c.v === v);
+          v = c ? L(c) : (v === "" ? "—" : v);
+        }
+        return row(L(f), esc(v) + (f.unit ? " " + esc(f.unit) : ""), "n");
+      }).join("");
+    if(rows) out += "<h3>" + esc(L(g)) + "</h3><table>" + rows + "</table>";
+  }
+  return out;
+}
+function visibleField(f){ return fieldVisible(f); }
+
+async function buildReport(){
+  if(!SRV){ $("repNote").textContent = T("rep_need_srv"); return; }
+  const btn = $("repBuild"); btn.disabled = true;
+  $("repNote").textContent = T("rep_busy");
+  try{
+    const k = toM(), f = flow(), lm = lossModel();
+    const mesh = (JOB && JOB.mesh) || null;
+    const mon  = (JOB && JOB.monitors) || [];
+    const res  = (JOB && JOB.residuals) || [];
+    const dpCFD = mon.length ? mon[mon.length-1].dp : null;
+    const done = !!(JOB && JOB.finished && !JOB.error);
+    const mock = !!(JOB && JOB.mock);
+
+    //  figures.  The field ones need the Results tab to have something in it;
+    //  the rest are drawn from whatever the run left behind.
+    const sc = figScale();
+    const figGeom = renderToDataURL({
+      canvas: scene, ctx: ctx, size: ()=>[cw, ch], draw: ()=>{ draw(); },
+    }, sc);
+    const figVel = done ? await captureField("velocity-magnitude") : null;
+    const figP   = done ? await captureField("pressure") : null;
+    const figRes = res.length ? renderToDataURL({
+      canvas: residC, ctx: rctx, size: ()=>{ if(!rw) sizeResid(); return [rw, rh]; },
+      draw: drawResid }, sc) : null;
+    const figDp = mon.length ? renderToDataURL({
+      canvas: dpC, ctx: dctx, size: ()=>{ if(!dw) sizeDp(); return [dw, dh]; },
+      draw: drawDp }, sc) : null;
+
+    const vRow = SRV.versions ? SRV.versions.find(r => r.key === SET.launch.version) : null;
+    const rel = SET.launch.version
+      ? (vRow ? vRow.label : SET.launch.version)
+      : (SRV.fluent_installed ? SRV.fluent_detail + " · " + T("rep_auto_rel")
+                              : T("rep_no_fluent"));
+    const code = SRV.version ? (SRV.version.commit || SRV.version.date) : "?";
+
+    const H = [];
+    H.push('<h1>' + esc(T("rep_title")) + '</h1>');
+    H.push('<div class="sub"><code>' + esc(caseName()) + "</code> · " +
+           esc(new Date().toLocaleString()) + " · " +
+           esc(T("geom")[GK].name + " · " + T("geom")[GK].arr) +
+           (mock ? '<span class="flag">MOCK — ' + esc(T("rep_mock")) + "</span>" : "") +
+           "</div>");
+
+    //  the four numbers a reader wants first
+    H.push('<div class="tiles">');
+    H.push(tile(T("rep_dp"), dpCFD === null ? "—" : fmtSci(dpCFD), "Pa"));
+    H.push(tile("Re (D, u_max)", f.Re < 1e4 ? Math.round(f.Re) : (f.Re/1000).toFixed(1) + "k", ""));
+    H.push(tile(T("rep_u"), P.vel.toFixed(3), "m/s"));
+    H.push(tile(T("rep_cells"), mesh ? mesh.cells.toLocaleString() : "—", ""));
+    H.push("</div>");
+
+    // ---------------- geometry -------------------------------------------
+    H.push("<h2>" + esc(T("rep_h_geom")) + "</h2>");
+    H.push('<div class="cols"><div><table>');
+    H.push(row(T("lab").D, P.D + " " + P.unit, "n"));
+    H.push(row("S_T", P.ST + " " + P.unit, "n"));
+    H.push(row("S_L", P.SL + " " + P.unit, "n"));
+    H.push(row(T("rep_rows"), P.nRows + " × " + P.nCols, "n"));
+    if(isHel()){
+      H.push(row(T("lab").helix, P.helix + "°", "n"));
+      H.push(row(T("lab").rMid, P.rMid + " " + P.unit, "n"));
+      H.push(row(T("lab").sector, P.sector + "°", "n"));
+      H.push(row(T("rep_wrap"), P.wrap ? T("yes") : T("no"), "n"));
+    }else{
+      H.push(row(T("lab").H, P.H + " " + P.unit, "n"));
+    }
+    H.push("</table></div><div><table>");
+    H.push(row(T("lab").lIn, P.lIn + " " + P.unit, "n"));
+    H.push(row(T("lab").lOut, P.lOut + " " + P.unit, "n"));
+    H.push(row(T("rep_halfrods"), P.halfRods ? T("yes") : T("no"), "n"));
+    H.push(row(T("rep_umax"), lm.umax.toFixed(3) + " m/s", "n"));
+    H.push(row(T("rep_blockage"), (2*G.bE/P.ST*100).toFixed(1) + " %", "n"));
+    H.push("</table></div></div>");
+    H.push(fig(figGeom, esc(T("rep_fig_geom"))));
+
+    // ---------------- mesh ------------------------------------------------
+    H.push("<h2>" + esc(T("rep_h_mesh")) + "</h2>");
+    if(mesh){
+      H.push('<div class="cols"><div><table>');
+      H.push(row(T("m_cells"), mesh.cells.toLocaleString(), "n"));
+      H.push(row(T("m_nodes"), mesh.nodes2d.toLocaleString(), "n"));
+      H.push(row(T("rep_points"), mesh.points.toLocaleString(), "n"));
+      H.push(row(T("rep_quads"), mesh.quads.toLocaleString(), "n"));
+      H.push("</table></div><div><table>");
+      H.push(row(T("m_cracks"), mesh.cracks, "n"));
+      H.push(row(T("m_maxdev"), mesh.maxdev.toExponential(1), "n"));
+      H.push(row(T("m_volerr"), mesh.vol_err.toExponential(1), "n"));
+      H.push(row(T("m_skew"), mesh.dev_max.toFixed(1) + "°", "n"));
+      H.push(row(T("m_ar"), mesh.ar_max.toFixed(1), "n"));
+      H.push("</table></div></div>");
+      H.push('<p class="muted">' + esc(T("rep_mesh_note")) + "</p>");
+    }else{
+      H.push('<p class="muted">' + esc(T("rep_no_mesh")) + "</p>");
+    }
+    H.push("<table>" + row(T("rep_yplus_target"), P.ypl.toFixed(1), "n") +
+           row(T("rep_yplus_now"), f.yplCur > 0 ? f.yplCur.toFixed(1) : "—", "n") +
+           row(T("rep_first"), fmt2(f.y1model) + " " + P.unit, "n") + "</table>");
+
+    // ---------------- setup ------------------------------------------------
+    H.push("<h2>" + esc(T("rep_h_setup")) + "</h2>");
+    H.push("<table>" + row(T("rep_release"), esc(rel), "n") +
+           row(T("rep_backend"), esc(mock ? "MOCK" : "Fluent"), "n") + "</table>");
+    H.push(settingsTables());
+
+    // ---------------- convergence ------------------------------------------
+    H.push("<h2>" + esc(T("rep_h_conv")) + "</h2>");
+    if(res.length){
+      const last = res[res.length-1];
+      const worst = Math.max.apply(null, Object.keys(last).filter(x=>x!=="iter")
+                                     .map(x=>last[x]||0));
+      H.push("<table>" + row(T("rep_iters"), res.length, "n") +
+             row(T("rep_worst"), worst.toExponential(2), "n") +
+             row(T("lab_crit"), (+SET.run.residual_criterion).toExponential(0), "n") +
+             row(T("rep_met"), worst < +SET.run.residual_criterion ? T("yes") : T("no"), "n") +
+             "</table>");
+    }
+    H.push(fig(figRes, esc(T("rep_fig_res"))));
+    H.push(fig(figDp, esc(T("rep_fig_dp"))));
+
+    // ---------------- results -----------------------------------------------
+    H.push("<h2>" + esc(T("rep_h_res")) + "</h2>");
+    const corr = lm.dpBundle;
+    H.push("<table>");
+    H.push(row(T("rep_dp_cfd"), dpCFD === null ? "—" : fmtSci(dpCFD) + " Pa", "n"));
+    H.push(row(T("rep_dp_corr"), fmtSci(corr) + " Pa", "n"));
+    if(dpCFD !== null && corr > 0)
+      H.push(row(T("rep_dp_ratio"), (dpCFD/corr).toFixed(2) + " ×", "n"));
+    H.push(row("Eu / " + T("rep_perrow"), lm.Eu.toFixed(3), "n"));
+    H.push("</table>");
+    H.push('<p class="muted">' + T("rep_corr_note") + "</p>");
+    H.push(fig(figVel, esc(T("rep_fig_vel")) + surfCaption()));
+    H.push(fig(figP, esc(T("rep_fig_p")) + surfCaption()));
+
+    // ---------------- reproducing it ----------------------------------------
+    H.push("<h2>" + esc(T("rep_h_repro")) + "</h2>");
+    H.push("<table>");
+    H.push(row(T("rep_mesh_file"), "<code>" +
+           esc((JOB && JOB.mesh_path) ? JOB.mesh_path.split(/[\\/]/).pop() : "—") + "</code>"));
+    H.push(row(T("rep_out_dir"), "<code>" + esc((JOB && JOB.out_dir) || "—") + "</code>"));
+    H.push(row(T("rep_code"), "<code>" + esc(code) + "</code>"));
+    H.push("</table>");
+    H.push('<p class="muted">' + esc(T("rep_repro_note")) + "</p>");
+
+    H.push('<div class="foot">' + esc(T("rep_foot")) + "</div>");
+
+    $("repBody").innerHTML = H.join("\n");
+    $("repNote").textContent = T("rep_done")(new Date().toLocaleTimeString());
+  }catch(e){
+    $("repNote").textContent = e.message;
+  }finally{ btn.disabled = false; }
+}
+function surfCaption(){
+  const s = chosenSurfaces();
+  return s.length ? " · " + esc(s.join(", ")) : "";
+}
+/*  The saved file has to stand alone: the images are already data URIs, so
+    only the stylesheet has to travel with it.  It is lifted out of the page's
+    own sheet rather than written twice, so the download cannot drift from
+    what was on screen.                                                     */
+function reportCSS(){
+  const out = [];
+  for(const sheet of document.styleSheets){
+    let rules; try{ rules = sheet.cssRules; }catch(e){ continue; }
+    for(const r of rules){
+      const t = r.cssText || "";
+      if(/\.paper|:root|@media print/.test(t)) out.push(t);
+    }
+  }
+  return out.join("\n");
+}
+function saveReport(){
+  const body = $("repBody").innerHTML;
+  if(!body.trim()){ $("repNote").textContent = T("rep_first_build"); return; }
+  const doc = "<!doctype html>\n<html lang=\"" + (LANG === "ko" ? "ko" : "en") +
+    "\"><head><meta charset=\"utf-8\">\n<title>" + esc(caseName()) +
+    "</title>\n<style>\nbody{margin:0;background:#eef1f5;padding:26px 16px;" +
+    "font-family:" + uiFont() + "}\n" + reportCSS() + "\n</style>\n</head>\n<body>\n" +
+    '<div class="paper">' + body + "</div>\n</body></html>\n";
+  save(new Blob([doc], {type:"text/html;charset=utf-8"}), caseName() + "_report.html");
+  $("repNote").textContent = T("rep_saved")((doc.length/1e6).toFixed(1));
+}
+$("repBuild").addEventListener("click", buildReport);
+$("repSave").addEventListener("click", saveReport);
+$("repPrint").addEventListener("click", ()=>{
+  if(!$("repBody").innerHTML.trim()){ $("repNote").textContent = T("rep_first_build"); return; }
+  window.print();
+});
 
 /*  A silhouette of the CAD behind the field.  A cut through a bundle is hard
     to place without the bundle around it, and the boundary patches alone do

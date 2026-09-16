@@ -8,7 +8,7 @@ ParaView and STL — all in the browser, no mesher.
 
 | File | What it is |
 |---|---|
-| `mesh_explorer.html` | the front end — four tabs: Geometry, Settings, Run, Results |
+| `mesh_explorer.html` | the front end — five tabs: Geometry, Settings, Run, Results, Report |
 | `mesh_explorer.py` | the mesh generator, standalone — same mesh as the browser, separate code |
 | `fluent_case.py` | the Fluent layer — settings schema, PyFluent driver, offline mock, journal writer |
 | `app.py` | the local server that ties them together and launches Fluent |
@@ -78,6 +78,18 @@ setting, and 0 turns it off. It is sampled by the app rather than kept by
 Fluent, so a case file has no history — reopening one reports the converged
 value and says that is all it can. A snapshot carries both histories, so
 reopening one puts the plots back as they were.
+
+**The Report tab** is one page that says what was run: the headline numbers,
+the geometry, the mesh and its checks, the solver set-up straight out of the
+settings schema so it cannot drift from the panel, the convergence, and the
+fields. Nothing in it recomputes anything — a report that derived its own
+numbers could disagree with the tab that produced them. It puts the CFD
+pressure drop next to the Jakob correlation with the ratio between them, says
+which branch of that correlation was spot-checked and which was not, and flags
+a MOCK run in red at the top. `Save as HTML` writes a standalone file with the
+figures embedded as data URIs and the stylesheet lifted out of the page's own,
+so it opens anywhere with nothing else beside it; `Print · PDF` uses a print
+stylesheet that drops the app around it.
 
 The Results tab lists what can be reopened too, so an old result is one click
 away from where you would look at it, not a walk back to the Run tab. The
