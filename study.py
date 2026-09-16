@@ -298,6 +298,17 @@ class Study(object):
 # =============================================================================
 #  GRID CONVERGENCE
 # =============================================================================
+def _thin(rows, keep):
+    """Every nth row, ends included, so a history fits in a result file."""
+    n = len(rows)
+    if n <= keep:
+        return list(rows)
+    step = (n - 1) / float(keep - 1)
+    out = [rows[int(round(i * step))] for i in range(keep)]
+    out[-1] = rows[-1]
+    return out
+
+
 def gci(h, phi, safety=1.25):
     """Roache's grid-convergence index, by the procedure in
 
@@ -929,7 +940,14 @@ class Runner(object):
             row["residuals_last"] = {k: v for k, v in eqs}
             row["criterion"] = float(settings["run"]["residual_criterion"])
             row["converged"] = worst < row["criterion"]
+            #  The SHAPE of the residual curve is the diagnosis - flat means
+            #  the solver has nothing to converge to, still-descending means it
+            #  just wanted more iterations - and it lived only in the server
+            #  process's memory.  Restart the server and the one thing needed
+            #  to tell those apart was gone.  It goes in the record now.
+            row["residual_history"] = _thin(res, 150)
         mon = list(getattr(job.driver, "monitors", []) or [])
+        row["dp_history"] = _thin(mon, 150)
         if len(mon) >= 2:
             #  how much the answer was still moving over the last fifth of the
             #  run.  Residuals settling is not the answer settling, and a study
@@ -1296,6 +1314,47 @@ def mesh_report_body(study, lang="ko", tol=0.01):
                 "cell's area. Using (V/N)^(1/3) would make every level look "
                 "less refined than it is and the observed order would come "
                 "out wrong."))
+
+        #  the residual curve of the finest case, because its SHAPE is what
+        #  says whether a stalled run wanted more iterations or had nothing to
+        #  converge to.  Drawn for the finest mesh: if that one is flat, no
+        #  coarser one is going to be better.
+        finest = min(levels, key=lambda r: r["h"])
+        hist = finest.get("residual_history") or []
+        if hist:
+            eqs = sorted({k for row in hist for k in row
+                          if k != "iter" and row.get(k)})
+            series = [{"label": eq,
+                       "points": [(r["iter"], r[eq]) for r in hist if r.get(eq)]}
+                      for eq in eqs]
+            crit = finest.get("criterion")
+            if crit:
+                xs = [r["iter"] for r in hist]
+                series.append({"label": t("판정 기준", "criterion"),
+                               "points": [(min(xs), crit), (max(xs), crit)],
+                               "dash": True, "marker": False, "color": "#94a3b8"})
+            h.append(svg_plot(series, xlabel=t("반복", "iteration"),
+                              ylabel=t("잔차", "residual"), ylog=True,
+                              title="%s · %s" % (_esc(finest["id"]),
+                                                 t("잔차", "residuals"))))
+            h.append('<p class="muted">%s</p>' % t(
+                "곡선이 <b>평평</b>하면 정상상태 솔버가 수렴할 해가 없다는 뜻이고 "
+                "(뭉툭한 물체 다발에서는 보통 유동이 비정상이라는 뜻입니다), "
+                "<b>끝까지 내려가고</b> 있으면 반복 횟수가 모자랐다는 뜻입니다. "
+                "둘은 다른 문제이고 고치는 방법도 다릅니다.",
+                "A <b>flat</b> curve means the steady solver has nothing to "
+                "converge to - on a bluff-body bank that usually means the "
+                "flow is unsteady. A curve <b>still descending</b> at the end "
+                "means it simply wanted more iterations. They are different "
+                "problems with different fixes."))
+        dph = finest.get("dp_history") or []
+        if len(dph) >= 2:
+            h.append(svg_plot(
+                [{"label": "\u0394p", "points": [(r["iter"], r["dp"])
+                                                  for r in dph if r.get("dp")]}],
+                xlabel=t("반복", "iteration"), ylabel="\u0394p [Pa]",
+                title="%s · %s" % (_esc(finest["id"]),
+                                   t("압력강하 이력", "pressure drop history"))))
 
         chosen = lad.get("chosen")
         if chosen:
