@@ -873,7 +873,12 @@ class Runner(object):
             if len(vals) >= 2 and vals[-1]:
                 row["dp_drift"] = (max(vals) - min(vals)) / abs(vals[-1])
         row["ok"] = True
-        job.close()
+        #  deliberately NOT closed here.  The next case's new_job() closes the
+        #  previous session before it launches its own, so a licence is still
+        #  held by one case at a time - but the LAST case's session is left
+        #  alive, and that is the one somebody wants to look at in the Results
+        #  tab when the campaign stops.  Closing it here also meant every
+        #  session was closed twice, once by this line and once by new_job.
         return row
 
 
