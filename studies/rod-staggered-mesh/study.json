@@ -6,7 +6,10 @@
  "created": "2026-09-16",
  "phi": "dp_bundle",
  "notes": [
-  "물 20 C, k-omega SST, y+ = 1, 정상상태.",
+  "물 20 C, k-omega SST, y+ = 1, 비정상 (URANS).",
+  "정상상태로 풀 수 없기 때문입니다. 엄밀 2차원 다발의 Re_max 1e4 이상 에서는 정상해가 존재하지 않고, 처음 시도에서 8개 케이스 전부 continuity 잔차 7.5e-2 에서 멈췄습니다.",
+  "시간 간격은 케이스마다 와류 방출 주기에서 유도합니다 (St = 0.2, 주기당 25 스텝, 20 주기, 마지막 15 주기를 평균).",
+  "결과는 마지막 순간값이 아니라 Δp 의 시간 평균입니다.",
   "rod 외 모든 벽은 대칭면 - 상관식이 기술하는 무한 다발과 같게 하기 위함.",
   "격자는 면내 방향으로 단계당 약 1.35배 세밀해지고, 반경 방향은 첫 셀을 y+ = 1에 고정한 채 성장비를 조여서 세밀해집니다.",
   "판정은 Celik 등(2008) / ASME V&V 20 의 GCI 절차로 합니다.",
@@ -32,7 +35,7 @@
   },
   "settings": {
    "general": {
-    "steady": true,
+    "steady": false,
     "energy": false
    },
    "turbulence": {
@@ -75,6 +78,7 @@
     "iterations": 800,
     "residual_criterion": 1e-05,
     "monitor_every": 20,
+    "max_iter_per_step": 12,
     "write_case": true
    }
   }
@@ -114,9 +118,24 @@
     "XL": 1.5,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 0.9952143569292125
+   },
    "settings": {
     "inlet": {
      "velocity": 0.33493621852668126
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -160,9 +179,24 @@
     "XL": 1.5,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 0.9952143569292125
+   },
    "settings": {
     "inlet": {
      "velocity": 0.33493621852668126
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -206,9 +240,24 @@
     "XL": 1.5,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 0.9952143569292125
+   },
    "settings": {
     "inlet": {
      "velocity": 0.33493621852668126
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -252,9 +301,24 @@
     "XL": 1.5,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 0.9952143569292125
+   },
    "settings": {
     "inlet": {
      "velocity": 0.33493621852668126
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -298,9 +362,24 @@
     "XL": 1.5,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 0.9952143569292125
+   },
    "settings": {
     "inlet": {
      "velocity": 0.33493621852668126
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -344,9 +423,24 @@
     "XL": 1.25,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.000199,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 200.9617311160088,
+    "period_s": 0.004976071784646062,
+    "flow_time_s": 0.09952143569292124
+   },
    "settings": {
     "inlet": {
      "velocity": 2.0096173111600883
+    },
+    "run": {
+     "time_step": 0.000199,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -390,9 +484,24 @@
     "XL": 1.25,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.000199,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 200.9617311160088,
+    "period_s": 0.004976071784646062,
+    "flow_time_s": 0.09952143569292124
+   },
    "settings": {
     "inlet": {
      "velocity": 2.0096173111600883
+    },
+    "run": {
+     "time_step": 0.000199,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -436,9 +545,24 @@
     "XL": 1.25,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.000199,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 200.9617311160088,
+    "period_s": 0.004976071784646062,
+    "flow_time_s": 0.09952143569292124
+   },
    "settings": {
     "inlet": {
      "velocity": 2.0096173111600883
+    },
+    "run": {
+     "time_step": 0.000199,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {

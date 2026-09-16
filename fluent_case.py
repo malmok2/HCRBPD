@@ -127,6 +127,19 @@ PATHS = {
 
     "set_zone_type":   "setup.boundary_conditions.set_zone_type",
 
+    #  Transient.  2024 R2 through 2025 R2 keep these under transient_controls;
+    #  2026 R1 moved them to run_calculation.parameters, which is exactly what
+    #  the alternates are for - and the student install here is 2026 R1, so
+    #  this one is not hypothetical.  The step count and the inner-iteration
+    #  count are also ARGUMENTS of dual_time_iterate in every release, so only
+    #  the step size has to be written as a setting; both are declared anyway
+    #  so the audit notices if either moves again.
+    "time_step":       "solution.run_calculation.transient_controls.time_step_size|"
+                       "solution.run_calculation.parameters.time_step_size",
+    "iter_per_step":   "solution.run_calculation.transient_controls.max_iter_per_time_step|"
+                       "solution.run_calculation.parameters.max_iter_per_time_step",
+    "dual_iterate":    "solution.run_calculation.dual_time_iterate",
+
     "flow_scheme":     "solution.methods.p_v_coupling.flow_scheme",
     "gradient":        "solution.methods.spatial_discretization.gradient_scheme|"
                        "solution.methods.gradient_scheme",
@@ -487,7 +500,31 @@ SETTINGS = [
              "paths": ["init_type", "hybrid_init", "standard_init"]},
             {"id": "iterations", "kind": "number", "default": 300, "min": 1, "max": 100000,
              "step": 10, "int": True, "ko": "반복 횟수", "en": "Iterations",
+             "show_if": {"steady": [True]},
              "paths": ["iterate"]},
+            #  Transient.  An unsteady run's answer is a TIME AVERAGE, not the
+            #  value at the last instant, so the fields that decide the average
+            #  live here beside the ones that decide the run.
+            {"id": "time_step", "kind": "number", "default": 0.001,
+             "min": 1e-9, "max": 100.0, "step": 1e-6, "unit": "s",
+             "show_if": {"steady": [False]},
+             "ko": "시간 간격 Δt", "en": "Time step",
+             "paths": ["time_step"]},
+            {"id": "time_steps", "kind": "number", "default": 600, "min": 1,
+             "max": 200000, "step": 10, "int": True,
+             "show_if": {"steady": [False]},
+             "ko": "시간 스텝 수", "en": "Time steps",
+             "paths": ["dual_iterate"]},
+            {"id": "max_iter_per_step", "kind": "number", "default": 12,
+             "min": 1, "max": 200, "step": 1, "int": True,
+             "show_if": {"steady": [False]},
+             "ko": "스텝당 최대 반복", "en": "Max iterations per step",
+             "paths": ["iter_per_step"]},
+            {"id": "average_last", "kind": "number", "default": 200, "min": 1,
+             "max": 200000, "step": 10, "int": True,
+             "show_if": {"steady": [False]},
+             "ko": "평균 낼 마지막 스텝 수", "en": "Average the last N steps",
+             "paths": []},
             {"id": "residual_criterion", "kind": "number", "default": 1e-4, "min": 1e-12,
              "max": 1e-1, "step": 1e-5, "ko": "수렴 판정 잔차", "en": "Residual criterion",
              "paths": ["residual_eqs"]},
@@ -856,6 +893,11 @@ class BaseDriver(object):
     def report(self, kind, surfaces, variable): raise NotImplementedError
 
     # -- the pressure-drop monitor, shared by every driver that can report --
+    #  two planes on the bundle faces, made during setup when the geometry is
+    #  known, so the monitor can follow the quantity a correlation predicts
+    #  and not only the one the domain happens to span
+    bundle_surfaces = None
+
     def sample_dp(self, it):
         """One (iteration, Δp) point, or None if it could not be read."""
         try:
@@ -865,8 +907,71 @@ class BaseDriver(object):
             return exc
         row = {"iter": int(it), "dp": p_in - p_out,
                "p_in": p_in, "p_out": p_out}
+        if self.bundle_surfaces:
+            #  the bundle drop is what the study reports and what a transient
+            #  run time-averages; inlet-outlet spans the boxes as well and is
+            #  kept because it is what the Run tab's plot has always shown
+            try:
+                a, b = self.bundle_surfaces
+                row["dp_bundle"] = (
+                    self.report("area-weighted-avg", [a], "pressure")
+                    - self.report("area-weighted-avg", [b], "pressure"))
+            except Exception:                           # noqa: BLE001
+                pass
         self.monitors.append(row)
         return row
+
+    def make_bundle_planes(self):
+        """Stand two planes on the bundle faces, half a pitch outside the
+        first and last rod centres.  Best effort: a run that cannot have them
+        still reports inlet-minus-outlet, and says so once."""
+        c = self.case
+        if c is None or self.bundle_surfaces:
+            return
+        k = c.export_scale
+        names = ("bundle_in", "bundle_out")
+        try:
+            self.make_plane(names[0], "x", c.x_b0 * k)
+            self.make_plane(names[1], "x", c.x_b1 * k)
+            self.bundle_surfaces = names
+            self.log("bundle planes at x = %.6g and %.6g m"
+                     % (c.x_b0 * k, c.x_b1 * k))
+        except Exception as exc:                        # noqa: BLE001
+            self.log("  bundle planes unavailable (%s); the monitor follows "
+                     "inlet - outlet only" % exc)
+
+    def transient(self):
+        return solver_time(self.s) != "steady"
+
+    def dp_time_average(self):
+        """The answer of an unsteady run: Dp averaged over the final stretch.
+
+        An unsteady flow has no last value worth quoting - the instantaneous
+        Dp at whatever moment the run happened to stop is one sample of an
+        oscillation.  What is comparable with a correlation is the mean, over
+        a whole number of periods if possible, of the settled part.  Returns
+        (mean, n_samples, spread) or None.
+        """
+        key = "dp_bundle" if any(m.get("dp_bundle") is not None
+                                 for m in self.monitors) else "dp"
+        rows = [m[key] for m in self.monitors if m.get(key) is not None]
+        if not rows:
+            return None
+        try:
+            keep = max(1, int(self.s["run"].get("average_last", 0) or 0))
+        except (TypeError, ValueError):
+            keep = 0
+        #  a window longer than the run averages the start-up transient too;
+        #  keep the same FRACTION of the samples that was asked for
+        if keep and len(rows) < int(self.s["run"].get("time_steps", 0) or 0):
+            frac = keep / float(self.s["run"]["time_steps"])
+            keep = max(1, int(round(frac * len(rows))))
+        tail = rows[-keep:] if keep else rows
+        n = len(tail)
+        mean = sum(tail) / n
+        spread = (max(tail) - min(tail)) / abs(mean) if mean else None
+        return {"mean": mean, "n": n, "spread": spread, "key": key,
+                "of": len(rows), "last": rows[-1]}
 
     def monitor_interval(self):
         try:
@@ -1018,6 +1123,14 @@ class FluentDriver(BaseDriver):
 
         g = s["general"]
         self._set("solver_time", solver_time(s))
+        if self.transient():
+            r = s["run"]
+            self._set("time_step", float(r["time_step"]))
+            self._try("iter_per_step", int(r["max_iter_per_step"]))
+            self.log("transient: dt = %.4g s, %d steps, up to %d iterations "
+                     "each; Dp averaged over the last %d"
+                     % (float(r["time_step"]), int(r["time_steps"]),
+                        int(r["max_iter_per_step"]), int(r["average_last"])))
         self._set("op_pressure", float(g["operating_pressure"]))
         self._set("energy", bool(g["energy"]))
 
@@ -1058,6 +1171,7 @@ class FluentDriver(BaseDriver):
         self.apply_methods()
         self.apply_controls()
         self.apply_residuals()
+        self.make_bundle_planes()
         self.verify_setup()
 
     def verify_setup(self):
@@ -1334,12 +1448,67 @@ class FluentDriver(BaseDriver):
                 elif state["failed"] == 3:
                     self.log("  pressure-drop monitor giving up for this run")
 
-        handle = None
+        def on_step(session=None, event_info=None):    # noqa: ARG001
+            #  On a transient run Dp is sampled once per TIME STEP, not per
+            #  inner iteration: an inner iteration is not a state of the flow,
+            #  and averaging over them would weight the steps that happened to
+            #  need more of them.
+            state["t"] = state.get("t", 0) + 1
+            self.collect_residuals(quiet=True)
+            if state["failed"] >= 3:
+                return
+            got = self.sample_dp(state["t"])
+            if isinstance(got, Exception):
+                state["failed"] += 1
+                if state["failed"] == 1:
+                    self.log("  pressure-drop monitor unavailable (%s)" % got)
+
+        handle = step_handle = None
         try:
-            handle = self.solver.events.register_callback(
-                pf.SolverEvent.ITERATION_ENDED, on_iter)
+            if self.transient():
+                step_handle = self.solver.events.register_callback(
+                    pf.SolverEvent.TIMESTEP_ENDED, on_step)
+            else:
+                handle = self.solver.events.register_callback(
+                    pf.SolverEvent.ITERATION_ENDED, on_iter)
         except Exception as exc:                       # noqa: BLE001
             self.log("  live residuals unavailable (%s); they arrive at the end" % exc)
+
+        if self.transient():
+            #  A transient run does NOT iterate: it advances time, with inner
+            #  iterations inside each step.  Calling iterate() on one would
+            #  grind the same time level without ever moving forward, which is
+            #  what "transient" meant here before this existed.
+            steps = int(self.s["run"]["time_steps"])
+            per = int(self.s["run"]["max_iter_per_step"])
+            self.log("advancing %d time steps" % steps)
+            try:
+                self._obj("dual_iterate")(time_step_count=steps,
+                                          max_iter_per_step=per)
+            finally:
+                if handle is not None:
+                    try:
+                        self.solver.events.unregister_callback(handle)
+                    except Exception:                  # noqa: BLE001
+                        pass
+                if step_handle is not None:
+                    try:
+                        self.solver.events.unregister_callback(step_handle)
+                    except Exception:                  # noqa: BLE001
+                        pass
+            self.collect_residuals()
+            avg = self.dp_time_average()
+            if avg:
+                self.log("Dp = %.6g Pa  (time average of the last %d of %d "
+                         "steps; the trace spans %s of the mean)"
+                         % (avg["mean"], avg["n"], avg["of"],
+                            "%.1f %%" % (100 * avg["spread"])
+                            if avg["spread"] is not None else "?"))
+            if self.s["run"]["write_case"]:
+                base = os.path.splitext(self.mesh_path)[0]
+                self.log("writing %s.cas.h5" % base)
+                self._obj("write_case_data")(file_name=base + ".cas.h5")
+            return
 
         self.log("iterating %d" % n)
         try:
@@ -1714,13 +1883,22 @@ class MockDriver(BaseDriver):
         self.mesh.build()
         self.log("MOCK: %d cells, %d boundary faces"
                  % (len(self.mesh.hexes), len(self.mesh.boundary)))
+        self.make_bundle_planes()
 
     def initialize(self):
         self.log("MOCK: initialised")
 
     def iterate(self, n):
         """A residual history that falls off like a real one, so the plot,
-        the axes and the stop button all get exercised."""
+        the axes and the stop button all get exercised.
+
+        On a transient case it produces the OTHER shape: residuals that stall
+        at a plateau and a Dp that oscillates about a mean, because that is
+        what an unsteady run looks like and the time-average path has to be
+        exercised where there is no licence.
+        """
+        if self.transient():
+            return self._iterate_transient()
         n = int(n)
         eqs = ["continuity", "x-velocity", "y-velocity", "z-velocity"]
         if self.s["turbulence"]["viscous"] != "laminar":
@@ -1754,6 +1932,85 @@ class MockDriver(BaseDriver):
             self.log("MOCK: Dp = %.6g Pa (invented)" % self.monitors[-1]["dp"])
         self.log("MOCK: %d iterations recorded" % len(self.residuals))
 
+    #  A transient study asks for hundreds of time steps.  The mock integrates
+    #  four surfaces at every one of them in Python, which is a real cost for a
+    #  thing whose whole job is to prove the plumbing - and its numbers are not
+    #  results anyway.  It runs a short version and says so.
+    MOCK_MAX_STEPS = 60
+
+    def _iterate_transient(self):
+        want = int(self.s["run"]["time_steps"])
+        steps = min(want, self.MOCK_MAX_STEPS)
+        if steps < want:
+            self.log("MOCK: %d time steps asked for, running %d - this is "
+                     "plumbing, not a result" % (want, steps))
+        eqs = ["continuity", "x-velocity", "y-velocity", "z-velocity"]
+        if self.s["turbulence"]["viscous"] != "laminar":
+            eqs += ["k", "omega"]
+        dt = float(self.s["run"]["time_step"])
+        self.log("MOCK: advancing %d time steps of %.4g s" % (steps, dt))
+        for k in range(1, steps + 1):
+            if self.stopping:
+                self.log("MOCK: interrupted at time step %d" % k)
+                break
+            row = {"iter": k}
+            for j, e in enumerate(eqs):
+                #  falls two decades and then plateaus, like a steady solver
+                #  inside one time step
+                row[e] = (1.0 * (0.4 ** j)) * max(0.01,
+                                                  math.exp(-4.0 * k / max(steps, 1)))
+            self.residuals.append(row)
+            #  through the real sampler, so the bundle planes and the
+            #  averaging key are exercised rather than bypassed, then
+            #  modulated into a settled oscillation about a mean
+            row = self.sample_dp(k)
+            if isinstance(row, dict):
+                ph = 2.0 * math.pi * k / 24.0
+                osc = 1.0 + 0.4 * math.exp(-3.0 * k / max(steps, 1)) \
+                    + 0.06 * math.sin(ph)
+                for key in ("dp", "dp_bundle"):
+                    if row.get(key) is not None:
+                        row[key] *= osc
+            time.sleep(0.0015)
+        avg = self.dp_time_average()
+        if avg:
+            self.log("MOCK: Dp = %.6g Pa  (time average of the last %d of %d "
+                     "steps; the trace spans %.1f %% of the mean)"
+                     % (avg["mean"], avg["n"], avg["of"],
+                        100 * (avg["spread"] or 0.0)))
+
+    def _geometry_cached(self, surface):
+        """The facets of one surface, built once.
+
+        A transient run samples the monitor every time step, and the monitor
+        reads four surfaces - inlet, outlet and the two bundle planes.  Five
+        hundred steps of rebuilding a plane's facets from the mesh each time is
+        millions of operations for a geometry that has not moved, and it made
+        the mock look like it had hung.  The real driver has the same shape of
+        problem and solves it the same way: ask Fluent for the surface once.
+        """
+        cache = getattr(self, "_geom_cache", None)
+        if cache is None:
+            cache = self._geom_cache = {}
+        if surface not in cache:
+            cache[surface] = self._patch_geometry(surface)
+        return cache[surface]
+
+    def _facets_cached(self, surface):
+        """(area, centroid, x-normal) per facet, built once per surface."""
+        cache = getattr(self, "_facet_cache", None)
+        if cache is None:
+            cache = self._facet_cache = {}
+        if surface not in cache:
+            verts, faces = self._geometry_cached(surface)
+            out = []
+            for f in faces:
+                p = [verts[i] for i in f]
+                cen = [sum(q[i] for q in p) / len(p) for i in range(3)]
+                out.append((_quad_area(p), cen, _quad_normal(p)[0]))
+            cache[surface] = out
+        return cache[surface]
+
     def _mock_dp(self, k, n):
         """Converging towards the value the mock field itself implies."""
         final = (self._value("pressure", [0.0, self.case.W * self.case.export_scale * 0.5,
@@ -1785,11 +2042,15 @@ class MockDriver(BaseDriver):
             raise DriverError("axis must be x, y or z, not %r" % axis)
         self._planes[name] = (axis, float(value))
         self._surf.pop(name, None)
+        getattr(self, "_geom_cache", {}).pop(name, None)
+        getattr(self, "_facet_cache", {}).pop(name, None)
         self.log("MOCK plane %s: %s = %g" % (name, axis, value))
         return name
 
     def drop_plane(self, name):
         self._planes.pop(name, None)
+        getattr(self, "_geom_cache", {}).pop(name, None)
+        getattr(self, "_facet_cache", {}).pop(name, None)
         self._surf.pop(name, None)
         return True
 
@@ -1975,18 +2236,13 @@ class MockDriver(BaseDriver):
         mdot = 0.0
         rho = float(self.s["material"]["density"])
         for surface in surfaces:
-            verts, faces = self._patch_geometry(surface)
-            for f in faces:
-                p = [verts[i] for i in f]
-                a = _quad_area(p)
-                cen = [sum(q[i] for q in p) / len(p) for i in range(3)]
+            for a, cen, nx in self._facets_cached(surface):
                 v = self._value(variable, cen)
                 tot_a += a
                 acc += a * v
                 lo = min(lo, v)
                 hi = max(hi, v)
-                nx = _quad_normal(p)
-                mdot += rho * a * self._value("x-velocity", cen) * nx[0]
+                mdot += rho * a * self._value("x-velocity", cen) * nx
         if kind == "area":
             return tot_a
         if kind == "facet-min":
@@ -2529,6 +2785,9 @@ def journal(geometry, params, settings, mesh_path, version=None):
     w("for eq in S.%s:" % P_("residual_eqs"))
     w("    S.%s[eq].absolute_criteria = %g"
       % (P_("residual_eqs"), float(r["residual_criterion"])))
+    if solver_time(s) != "steady":
+        w("S.%s = %r" % (P_("time_step"), float(r["time_step"])))
+        w("S.%s = %d" % (P_("iter_per_step"), int(r["max_iter_per_step"])))
     w("")
     if r["init_method"] == "hybrid":
         w("S.%s = 'hybrid'" % P_("init_type"))
@@ -2536,7 +2795,14 @@ def journal(geometry, params, settings, mesh_path, version=None):
     else:
         w("S.%s = 'standard'" % P_("init_type"))
         w("S.%s()" % P_("standard_init"))
-    w("S.%s(iter_count=%d)" % (P_("iterate"), int(r["iterations"])))
+    if solver_time(s) != "steady":
+        #  a transient case advances TIME; iterate() would grind the same time
+        #  level for ever, which is what this script used to emit
+        w("S.%s(time_step_count=%d, max_iter_per_step=%d)"
+          % (P_("dual_iterate"), int(r["time_steps"]),
+             int(r["max_iter_per_step"])))
+    else:
+        w("S.%s(iter_count=%d)" % (P_("iterate"), int(r["iterations"])))
     if r["write_case"]:
         w("S.%s(file_name=%r)"
           % (P_("write_case_data"), os.path.splitext(mesh_path)[0] + ".cas.h5"))

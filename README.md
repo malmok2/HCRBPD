@@ -313,8 +313,34 @@ It also says why the project exists, in numbers: on the real CHX helical
 bundle the CFD gave 288.2 Pa, and Žukauskas was 61.9 % out, Gunter & Shaw
 45.2 % out.
 
-**Stages 2 and 3 are defined and wired, and need a licence to produce a
-number.** Three decisions in them are worth arguing with before you press Run:
+**Stage 2 was run once, steady, and every case of it failed.** All eight
+stalled at a residual of 7.5e-2 in continuity after 800 iterations, and the
+Δp kept falling with every refinement without settling. That is not a mesh
+being too coarse. A strictly two-dimensional bank at `Re_max` of 1e4 and above
+has **no steady solution to converge to** — a 2-D bluff-body wake is
+time-periodic above `Re` of order 200, and these are fifty to five hundred
+times that. The domain's own symmetry planes, which are there so the geometry
+matches what a correlation describes, remove the spanwise decorrelation that
+would otherwise break the vortices up, so this is the most shedding-prone
+version of the problem rather than the least. Shen et al. solved the same
+problem with URANS and reported time averages.
+
+So the campaign runs **transient**, and the answer of a case is the **time
+average** of its bundle pressure drop, not whatever the last instant happened
+to be. The time step is **derived, not typed** — the same rule as the first
+cell height, which follows from a y+ target rather than from somebody's
+judgement:
+
+```
+f = St·u_max/D,  T = 1/f,  Δt = T/25,  20 periods run, the last 15 averaged
+```
+
+`St = 0.2`. Getting that wrong by 30 % costs 30 % of the run time; getting it
+wrong by a factor of ten loses the oscillation entirely, which is what typing
+a number would eventually do.
+
+**Stages 2 and 3 need a licence to produce a number.** Three decisions in them
+are worth arguing with before you press Run:
 
 *Every wall that is not a rod is a symmetry plane.* The correlations are for a
 bank that is infinitely wide and made of infinitely long tubes; a box with four
@@ -369,6 +395,29 @@ coefficient has no meaning and, left free, the solve used one to fake a
 steeper Re dependence than the form can otherwise produce. It recovers Shen's
 own coefficients from Shen's own formula to 1e-15, which is the test that it
 fits rather than merely converges.
+
+**Several cases at once, and it finds out how many.** One case cannot fill a
+workstation: the solve is a fraction of each case and the largest case in the
+campaign is 44k cells per core, so the way to use the machine is more *cases*,
+not more cores per case. What limits that is solver **tasks** in the licence,
+which the app cannot know — so it finds out. Workers start one at a time and
+each has to get a session up before the next is added; a launch that fails on
+anything that reads like a licence caps the ramp there and the queue is
+finished with the workers it has. Measured on a 30-case queue: 3.3× at four
+workers, 5× at eight, and a licence that refuses past worker 2 still completes
+all 30. The first case still runs **alone**, as the smoke test — if the set-up
+does not produce a usable solution, running seven more of it in parallel only
+wastes the machine faster.
+
+**A case that already ran opens again without a solver.** A run leaves two
+different things behind. The *solution* — the field you draw contours of —
+lives in a Fluent case file and needs Fluent and a licence to reopen. The
+*record* — how the residuals came down, how the pressure drop moved, how big
+the mesh was, what the bundle drop measured — is in `results.json` and needs
+nothing at all. Clicking a case in the campaign tab puts its histories back on
+the Run tab and says in the banner that this is a record, not a run. Mesh
+studies write their case files too, so the fields are recoverable there; the
+thirty-case sweeps do not, and say so.
 
 **A mock run is not a result, and the tab is built so it cannot become one.**
 Every mock row is badged MOCK, the progress counter does not count it, and the

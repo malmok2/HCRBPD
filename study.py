@@ -148,6 +148,47 @@ def apply_mesh_rules(geometry, params, settings, y_plus=1.0, max_growth=1.2):
                     "diagonal": st["diagonal"]}
 
 
+#  The time step is DERIVED, not typed.  Same rule as the first cell height,
+#  which follows from a y+ target rather than from somebody's judgement: a
+#  transient bundle case has one time scale that matters, the shedding period,
+#  and every other choice is a count of it.
+#
+#      f = St u_max / D,   T = 1/f,   dt = T / steps_per_period
+#
+#  St = 0.2 is the standard value for a circular cylinder over the whole
+#  sub-critical range, and in a bank the passing frequency is close enough to
+#  it for setting a time step.  Getting it wrong by 30 % costs 30 % of the run
+#  time; getting it wrong by a factor of ten loses the oscillation entirely,
+#  which is what typing a number would eventually do.
+SHEDDING = {
+    "strouhal": 0.2,
+    "steps_per_period": 25,     # 25 steps resolves the cycle for 2nd-order
+    "periods": 20,              # 5 to flush the start-up, 15 to average
+    "average_periods": 15,
+    "max_iter_per_step": 12,
+}
+
+
+def transient_controls(st, cfg=None):
+    """Time step, step count and averaging window for one flow state."""
+    c = dict(SHEDDING)
+    c.update(cfg or {})
+    f = c["strouhal"] * st["umax"] / st["D"]
+    period = 1.0 / f if f > 0 else 1.0
+    dt = period / c["steps_per_period"]
+    steps = int(round(c["periods"] * c["steps_per_period"]))
+    keep = int(round(c["average_periods"] * c["steps_per_period"]))
+    return {
+        "time_step": float("%.4g" % dt),
+        "time_steps": steps,
+        "average_last": min(keep, steps),
+        "max_iter_per_step": int(c["max_iter_per_step"]),
+        "shedding_hz": f,
+        "period_s": period,
+        "flow_time_s": steps * dt,
+    }
+
+
 def velocity_for_Re(geometry, params, settings, Re_target):
     """The inlet velocity that puts Re_max on target.
 
@@ -399,7 +440,8 @@ def mesh_analysis(study, tol=0.01, key="dp_bundle"):
     #  number that looks exactly like an answer.  A case that did not meet its
     #  own residual criterion is therefore kept in the table - so it is
     #  visible - and kept out of every extrapolation.
-    out["unconverged"] = [r["id"] for r in rows if r.get("converged") is False]
+    out["unconverged"] = [r["id"] for r in rows
+                          if r.get("converged") is False and not r.get("transient")]
     ladders = {}
     for r in rows:
         ladders.setdefault(r.get("ladder", "main"), []).append(r)
@@ -413,7 +455,8 @@ def mesh_analysis(study, tol=0.01, key="dp_bundle"):
     for name in [x for x in order if x in ladders] + \
                 [x for x in sorted(ladders) if x not in order]:
         rs = sorted(ladders[name], key=lambda r: r["h"])       # fine first
-        good = [r for r in rs if r.get("converged") is not False]
+        good = [r for r in rs
+                if r.get("transient") or r.get("converged") is not False]
         lad = {"ladder": name, "levels": rs, "converged": [r["id"] for r in good],
                "triplets": [], "chosen": None}
         if len(good) < 3:
@@ -526,8 +569,18 @@ def sweep_analysis(study, keys=None):
 #  configuration a correlation can be compared against at all.
 WATER = {"name": "water-liquid", "density": 998.2, "viscosity": 1.003e-3}
 
+#  TRANSIENT, not steady.  The first attempt at stage 2 ran every case steady
+#  and all eight stalled at a residual of 7.5e-2 in continuity.  That is not a
+#  mesh being too coarse: a strictly two-dimensional bank at Re_max of 1e4 and
+#  above has no steady solution to converge to - a 2-D bluff-body wake is
+#  time-periodic above Re of order 200 and these are fifty to five hundred
+#  times that.  The domain's own symmetry planes, which are there so the
+#  geometry matches what a correlation describes, remove the spanwise
+#  decorrelation that would otherwise break the vortices up, so this is the
+#  most shedding-prone version of the problem rather than the least.  Shen et
+#  al. (2024) solved the same problem with URANS and reported time averages.
 BASE_SETTINGS = {
-    "general": {"steady": True, "energy": False},
+    "general": {"steady": False, "energy": False},
     "turbulence": {"viscous": "k-omega", "k_omega_variant": "sst"},
     "material": dict(WATER),
     "inlet": {"spec": "components", "velocity": 1.0,
@@ -540,8 +593,12 @@ BASE_SETTINGS = {
     "methods": {"flow_scheme": "Coupled", "gradient": "least-square-cell-based",
                 "pressure": "second-order", "momentum": "second-order-upwind",
                 "turb": "second-order-upwind", "pseudo_time": True},
+    #  time_step, time_steps and average_last are filled in per case from the
+    #  shedding period - see transient_controls - so what is here is only the
+    #  part that does not depend on the flow
     "run": {"init_method": "hybrid", "iterations": 800,
             "residual_criterion": 1e-5, "monitor_every": 20,
+            "max_iter_per_step": SHEDDING["max_iter_per_step"],
             "write_case": False},
 }
 
@@ -582,8 +639,17 @@ def _case(geometry, cid, label, params, settings, meta=None, ladder=None):
     growth = params.pop("_growth", 1.25)
     p, rule = apply_mesh_rules(geometry, params, settings, Y_PLUS, growth)
     c = {"id": cid, "label": label, "params": p, "mesh_rule": rule}
+    over = {}
     if settings.get("inlet", {}).get("velocity") is not None:
-        c["settings"] = {"inlet": {"velocity": settings["inlet"]["velocity"]}}
+        over["inlet"] = {"velocity": settings["inlet"]["velocity"]}
+    if not settings["general"]["steady"]:
+        _, st = case_state(geometry, p, settings)
+        tc = transient_controls(st)
+        over["run"] = {k: tc[k] for k in ("time_step", "time_steps",
+                                          "average_last", "max_iter_per_step")}
+        c["transient"] = tc
+    if over:
+        c["settings"] = over
     if meta:
         c["meta"] = meta
     if ladder:
@@ -641,7 +707,13 @@ def make_mesh_study(geometry, name=None):
         "created": time.strftime("%Y-%m-%d"),
         "phi": "dp_bundle",
         "notes": [
-            "물 20 C, k-omega SST, y+ = 1, 정상상태.",
+            "물 20 C, k-omega SST, y+ = 1, 비정상 (URANS).",
+            "정상상태로 풀 수 없기 때문입니다. 엄밀 2차원 다발의 Re_max 1e4 이상 "
+            "에서는 정상해가 존재하지 않고, 처음 시도에서 8개 케이스 전부 "
+            "continuity 잔차 7.5e-2 에서 멈췄습니다.",
+            "시간 간격은 케이스마다 와류 방출 주기에서 유도합니다 "
+            "(St = 0.2, 주기당 25 스텝, 20 주기, 마지막 15 주기를 평균).",
+            "결과는 마지막 순간값이 아니라 Δp 의 시간 평균입니다.",
             "rod 외 모든 벽은 대칭면 - 상관식이 기술하는 무한 다발과 같게 하기 위함.",
             "격자는 면내 방향으로 단계당 약 1.35배 세밀해지고, 반경 방향은 "
             "첫 셀을 y+ = 1에 고정한 채 성장비를 조여서 세밀해집니다.",
@@ -698,7 +770,9 @@ def make_sweep_study(geometry, level="L3", name=None):
         "created": time.strftime("%Y-%m-%d"),
         "phi": "eu_row",
         "notes": [
-            "물 20 C, k-omega SST, y+ = 1, 정상상태, rod 외 벽은 모두 대칭면.",
+            "물 20 C, k-omega SST, y+ = 1, 비정상 (URANS), rod 외 벽은 모두 대칭면.",
+            "시간 간격은 케이스마다 와류 방출 주기에서 유도하고, 결과는 Δp 의 "
+            "시간 평균입니다.",
             "격자 해상도는 2단계에서 고른 수준(%s)을 씁니다." % level,
             "케이스 수가 많아 case 파일은 쓰지 않습니다. 결과 기록(잔차·Δp 이력, "
             "격자 수, 측정된 압력강하)은 남으므로 파라메트릭 탭에서 다시 열 수 "
@@ -927,7 +1001,20 @@ class Runner(object):
             return "it failed: %s" % (row.get("error") or "?")
         if row.get("mock"):
             return None                     # the mock is for testing the plumbing
-        if row.get("converged") is False:
+        if row.get("transient"):
+            #  A transient run's inner iterations are not supposed to reach a
+            #  steady criterion, so convergence is judged on the ANSWER: did
+            #  the time average settle?  A trace still spanning half its own
+            #  mean has not been run long enough.
+            spread = row.get("dp_spread")
+            if spread is not None and spread > 0.5:
+                return ("the pressure drop is still swinging %.0f %% of its "
+                        "own mean over the averaging window - the run is too "
+                        "short, or it has not settled" % (100 * spread))
+            if row.get("dp_averaged_over", 0) < 20:
+                return ("only %d samples in the averaging window"
+                        % row.get("dp_averaged_over", 0))
+        elif row.get("converged") is False:
             return ("it did not converge - final residual %.2e%s against a "
                     "criterion of %.0e"
                     % (row.get("residual_worst") or 0.0,
@@ -1031,28 +1118,50 @@ class Runner(object):
         row["dp_bundle"] = None
         row["dp_total"] = None
 
-        #  the pressure drop across the BUNDLE, the way the correlation defines
+        #  The pressure drop across the BUNDLE, the way the correlation defines
         #  it: two planes on the bundle faces, half a pitch outside the first
         #  and last rod centres.  inlet - outlet would span the boxes too.
-        names = ["study_bundle_in", "study_bundle_out"]
-        xs = [case.x_b0 * k, case.x_b1 * k]
+        #  The driver stands those planes up during setup now, so the monitor
+        #  can follow the bundle drop while the case runs; the study uses them
+        #  if they are there and makes its own if they are not.
+        drv = job.driver
+        transient = bool(getattr(drv, "transient", lambda: False)())
+        row["transient"] = transient
+        names = list(drv.bundle_surfaces or [])
         made = []
         try:
-            for nm, x in zip(names, xs):
-                job.driver.make_plane(nm, "x", x)
-                made.append(nm)
-            p = [job.driver.report("area-weighted-avg", [nm], "pressure")
+            if not names:
+                names = ["study_bundle_in", "study_bundle_out"]
+                for nm, x in zip(names, [case.x_b0 * k, case.x_b1 * k]):
+                    drv.make_plane(nm, "x", x)
+                    made.append(nm)
+            p = [drv.report("area-weighted-avg", [nm], "pressure")
                  for nm in names]
             row["p_bundle_in"], row["p_bundle_out"] = p[0], p[1]
-            row["dp_bundle"] = p[0] - p[1]
-            row["eu_row"] = row["dp_bundle"] / (st["n_rows"] * st["q"])
-            row["dp_per_row"] = row["dp_bundle"] / max(1, st["n_rows"])
+            row["dp_bundle_last"] = p[0] - p[1]
+            row["dp_bundle"] = row["dp_bundle_last"]
         finally:
             for nm in made:
                 try:
-                    job.driver.drop_plane(nm)
+                    drv.drop_plane(nm)
                 except Exception:                               # noqa: BLE001
                     pass
+
+        #  On a transient run the ANSWER is the time average, not whatever the
+        #  last instant happened to be: the last instant is one sample of an
+        #  oscillation.  The instantaneous value is kept beside it so the two
+        #  can be compared, which is also how you see whether the averaging
+        #  window was long enough.
+        avg = getattr(drv, "dp_time_average", lambda: None)()
+        if transient and avg:
+            row["dp_bundle"] = avg["mean"]
+            row["dp_averaged_over"] = avg["n"]
+            row["dp_samples"] = avg["of"]
+            row["dp_spread"] = avg["spread"]
+            row["dp_average_of"] = avg["key"]
+        if row.get("dp_bundle") is not None:
+            row["eu_row"] = row["dp_bundle"] / (st["n_rows"] * st["q"])
+            row["dp_per_row"] = row["dp_bundle"] / max(1, st["n_rows"])
         try:
             pi = job.driver.report("area-weighted-avg", ["inlet"], "pressure")
             po = job.driver.report("area-weighted-avg", ["outlet"], "pressure")

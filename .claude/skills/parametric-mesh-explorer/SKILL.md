@@ -198,6 +198,41 @@ These are invariants that took real debugging to find. Preserve them.
   waste a solver run.
 - **Every claim in the report needs a check that could have failed.** See
   `references/verification.md`.
+- **Ask whether a steady solution EXISTS before setting up a steady run.** A
+  strictly two-dimensional bluff-body flow is time-periodic above Re of order
+  200; there is nothing for a steady solver to converge to, and the symptom -
+  residuals stalling, and an answer that keeps drifting as the mesh refines -
+  looks exactly like a mesh being too coarse. Refining further cannot tell the
+  two apart, because a finer mesh removes the numerical damping that was
+  letting a steady solver produce anything at all. Worse, the choice that made
+  the geometry match the correlations - symmetry planes top and bottom - is
+  what removed the spanwise decorrelation that would have broken the vortices
+  up. Check the Reynolds number against the regime, and check what the nearest
+  published study of the same problem did.
+- **An unsteady run's answer is a time average, and the averaging window is
+  part of the answer.** The value at whatever instant the run stopped is one
+  sample of an oscillation. Record the mean, how many samples it covers, and
+  how far the trace swings about it - a trace still spanning half its own mean
+  has not been run long enough, and that is a convergence test in its own
+  right, replacing the residual criterion that inner iterations are not
+  supposed to meet.
+- **Derive the time step; do not type it.** A transient bundle case has one
+  time scale that matters - the shedding period, `T = D/(St·u_max)` - and
+  every other choice is a count of it. Same rule as the first cell height
+  following from a y+ target. A typed time step is wrong by a factor of ten
+  the first time somebody changes the velocity.
+- **More cases at once beats more cores per case.** Below roughly 50k cells
+  per core, extra ranks buy communication, not speed. What limits concurrency
+  is solver tasks in the licence, which code cannot know - so discover it:
+  start workers one at a time, make each prove a session will launch, and cap
+  the ramp where a launch fails on anything that reads like a licence. Never
+  change the core count *within* a mesh study: it changes the partitioning and
+  moves the answer in the digit the GCI is measuring.
+- **Keep the histories, not just the final numbers.** The shape of the
+  residual curve is the whole diagnosis - flat means nothing to converge to,
+  still-descending means too few iterations - and it lives in the solver
+  process. Restarting the server to pick up a fix threw away the evidence for
+  the fix. Write the history into the result record, and draw it.
 - **Run ONE case and look at it before running a campaign.** A campaign is a
   bet that the case set-up is right, repeated N times. This one spent 55
   minutes and eight cases discovering that every solution had stalled at a

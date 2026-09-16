@@ -6,7 +6,8 @@
  "created": "2026-09-16",
  "phi": "eu_row",
  "notes": [
-  "물 20 C, k-omega SST, y+ = 1, 정상상태, rod 외 벽은 모두 대칭면.",
+  "물 20 C, k-omega SST, y+ = 1, 비정상 (URANS), rod 외 벽은 모두 대칭면.",
+  "시간 간격은 케이스마다 와류 방출 주기에서 유도하고, 결과는 Δp 의 시간 평균입니다.",
   "격자 해상도는 2단계에서 고른 수준(L3)을 씁니다.",
   "케이스 수가 많아 case 파일은 쓰지 않습니다. 결과 기록(잔차·Δp 이력, 격자 수, 측정된 압력강하)은 남으므로 파라메트릭 탭에서 다시 열 수 있지만, 유동장은 남지 않습니다.",
   "X_T 와 X_L 을 독립적으로 바꿉니다. 정사각 피치만 훑으면 피치 항 두 개가 서로 구분되지 않아 상관식 적합 자체가 불가능해집니다.",
@@ -32,7 +33,7 @@
   },
   "settings": {
    "general": {
-    "steady": true,
+    "steady": false,
     "energy": false
    },
    "turbulence": {
@@ -75,6 +76,7 @@
     "iterations": 800,
     "residual_criterion": 1e-05,
     "monitor_every": 20,
+    "max_iter_per_step": 12,
     "write_case": false
    }
   }
@@ -114,9 +116,24 @@
     "XL": 1.25,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.009952,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 4.019234622320177,
+    "period_s": 0.24880358923230306,
+    "flow_time_s": 4.976071784646061
+   },
    "settings": {
     "inlet": {
      "velocity": 0.04019234622320177
+    },
+    "run": {
+     "time_step": 0.009952,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -160,9 +177,24 @@
     "XL": 1.25,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 0.9952143569292125
+   },
    "settings": {
     "inlet": {
      "velocity": 0.20096173111600882
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -206,9 +238,24 @@
     "XL": 1.25,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.0004976,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 80.38469244640352,
+    "period_s": 0.012440179461615155,
+    "flow_time_s": 0.2488035892323031
+   },
    "settings": {
     "inlet": {
      "velocity": 0.8038469244640353
+    },
+    "run": {
+     "time_step": 0.0004976,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -252,9 +299,24 @@
     "XL": 1.5,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.009952,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 4.019234622320177,
+    "period_s": 0.24880358923230306,
+    "flow_time_s": 4.976071784646061
+   },
    "settings": {
     "inlet": {
      "velocity": 0.04019234622320177
+    },
+    "run": {
+     "time_step": 0.009952,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -298,9 +360,24 @@
     "XL": 1.5,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 0.9952143569292125
+   },
    "settings": {
     "inlet": {
      "velocity": 0.20096173111600882
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -344,9 +421,24 @@
     "XL": 1.5,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.0004976,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 80.38469244640352,
+    "period_s": 0.012440179461615155,
+    "flow_time_s": 0.2488035892323031
+   },
    "settings": {
     "inlet": {
      "velocity": 0.8038469244640353
+    },
+    "run": {
+     "time_step": 0.0004976,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -390,9 +482,24 @@
     "XL": 2.0,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.009952,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 4.019234622320177,
+    "period_s": 0.24880358923230306,
+    "flow_time_s": 4.976071784646061
+   },
    "settings": {
     "inlet": {
      "velocity": 0.04019234622320177
+    },
+    "run": {
+     "time_step": 0.009952,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -436,9 +543,24 @@
     "XL": 2.0,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 0.9952143569292125
+   },
    "settings": {
     "inlet": {
      "velocity": 0.20096173111600882
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -482,9 +604,24 @@
     "XL": 2.0,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.0004976,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 80.38469244640352,
+    "period_s": 0.012440179461615155,
+    "flow_time_s": 0.2488035892323031
+   },
    "settings": {
     "inlet": {
      "velocity": 0.8038469244640353
+    },
+    "run": {
+     "time_step": 0.0004976,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -528,9 +665,24 @@
     "XL": 1.25,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.009952,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 4.019234622320177,
+    "period_s": 0.24880358923230306,
+    "flow_time_s": 4.976071784646061
+   },
    "settings": {
     "inlet": {
      "velocity": 0.06698724370533626
+    },
+    "run": {
+     "time_step": 0.009952,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -574,9 +726,24 @@
     "XL": 1.25,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 0.9952143569292125
+   },
    "settings": {
     "inlet": {
      "velocity": 0.33493621852668126
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -620,9 +787,24 @@
     "XL": 1.25,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.0004976,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 80.38469244640352,
+    "period_s": 0.012440179461615155,
+    "flow_time_s": 0.2488035892323031
+   },
    "settings": {
     "inlet": {
      "velocity": 1.339744874106725
+    },
+    "run": {
+     "time_step": 0.0004976,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -666,9 +848,24 @@
     "XL": 1.5,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.009952,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 4.019234622320177,
+    "period_s": 0.24880358923230306,
+    "flow_time_s": 4.976071784646061
+   },
    "settings": {
     "inlet": {
      "velocity": 0.06698724370533626
+    },
+    "run": {
+     "time_step": 0.009952,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -712,9 +909,24 @@
     "XL": 1.5,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 0.9952143569292125
+   },
    "settings": {
     "inlet": {
      "velocity": 0.33493621852668126
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -758,9 +970,24 @@
     "XL": 1.5,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.0004976,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 80.38469244640352,
+    "period_s": 0.012440179461615155,
+    "flow_time_s": 0.2488035892323031
+   },
    "settings": {
     "inlet": {
      "velocity": 1.339744874106725
+    },
+    "run": {
+     "time_step": 0.0004976,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -804,9 +1031,24 @@
     "XL": 2.0,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.009952,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 4.019234622320177,
+    "period_s": 0.24880358923230306,
+    "flow_time_s": 4.976071784646061
+   },
    "settings": {
     "inlet": {
      "velocity": 0.06698724370533626
+    },
+    "run": {
+     "time_step": 0.009952,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -850,9 +1092,24 @@
     "XL": 2.0,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 0.9952143569292125
+   },
    "settings": {
     "inlet": {
      "velocity": 0.33493621852668126
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -896,9 +1153,24 @@
     "XL": 2.0,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.0004976,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 80.38469244640352,
+    "period_s": 0.012440179461615155,
+    "flow_time_s": 0.2488035892323031
+   },
    "settings": {
     "inlet": {
      "velocity": 1.339744874106725
+    },
+    "run": {
+     "time_step": 0.0004976,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -942,9 +1214,24 @@
     "XL": 1.25,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.009952,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 4.019234622320177,
+    "period_s": 0.24880358923230306,
+    "flow_time_s": 4.976071784646061
+   },
    "settings": {
     "inlet": {
      "velocity": 0.10048086555800441
+    },
+    "run": {
+     "time_step": 0.009952,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -988,9 +1275,24 @@
     "XL": 1.25,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 0.9952143569292125
+   },
    "settings": {
     "inlet": {
      "velocity": 0.502404327790022
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -1034,9 +1336,24 @@
     "XL": 1.25,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.0004976,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 80.38469244640352,
+    "period_s": 0.012440179461615155,
+    "flow_time_s": 0.2488035892323031
+   },
    "settings": {
     "inlet": {
      "velocity": 2.009617311160088
+    },
+    "run": {
+     "time_step": 0.0004976,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -1080,9 +1397,24 @@
     "XL": 1.5,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.009952,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 4.019234622320177,
+    "period_s": 0.24880358923230306,
+    "flow_time_s": 4.976071784646061
+   },
    "settings": {
     "inlet": {
      "velocity": 0.10048086555800441
+    },
+    "run": {
+     "time_step": 0.009952,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -1126,9 +1458,24 @@
     "XL": 1.5,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 0.9952143569292125
+   },
    "settings": {
     "inlet": {
      "velocity": 0.502404327790022
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -1172,9 +1519,24 @@
     "XL": 1.5,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.0004976,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 80.38469244640352,
+    "period_s": 0.012440179461615155,
+    "flow_time_s": 0.2488035892323031
+   },
    "settings": {
     "inlet": {
      "velocity": 2.009617311160088
+    },
+    "run": {
+     "time_step": 0.0004976,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -1218,9 +1580,24 @@
     "XL": 2.0,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.009952,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 4.019234622320177,
+    "period_s": 0.24880358923230306,
+    "flow_time_s": 4.976071784646061
+   },
    "settings": {
     "inlet": {
      "velocity": 0.10048086555800441
+    },
+    "run": {
+     "time_step": 0.009952,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -1264,9 +1641,24 @@
     "XL": 2.0,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 0.9952143569292125
+   },
    "settings": {
     "inlet": {
      "velocity": 0.502404327790022
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -1310,9 +1702,24 @@
     "XL": 2.0,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.0004976,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 80.38469244640352,
+    "period_s": 0.012440179461615155,
+    "flow_time_s": 0.2488035892323031
+   },
    "settings": {
     "inlet": {
      "velocity": 2.009617311160088
+    },
+    "run": {
+     "time_step": 0.0004976,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -1356,9 +1763,24 @@
     "XL": 1.25,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.000199,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 200.9617311160088,
+    "period_s": 0.004976071784646062,
+    "flow_time_s": 0.09952143569292124
+   },
    "settings": {
     "inlet": {
      "velocity": 2.0096173111600883
+    },
+    "run": {
+     "time_step": 0.000199,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -1402,9 +1824,24 @@
     "XL": 1.5,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.000199,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 200.9617311160088,
+    "period_s": 0.004976071784646062,
+    "flow_time_s": 0.09952143569292124
+   },
    "settings": {
     "inlet": {
      "velocity": 3.3493621852668127
+    },
+    "run": {
+     "time_step": 0.000199,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
@@ -1448,9 +1885,24 @@
     "XL": 2.0,
     "diagonal": false
    },
+   "transient": {
+    "time_step": 0.000199,
+    "time_steps": 500,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 200.9617311160088,
+    "period_s": 0.004976071784646062,
+    "flow_time_s": 0.09952143569292124
+   },
    "settings": {
     "inlet": {
      "velocity": 5.02404327790022
+    },
+    "run": {
+     "time_step": 0.000199,
+     "time_steps": 500,
+     "average_last": 375,
+     "max_iter_per_step": 12
     }
    },
    "meta": {
