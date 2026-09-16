@@ -940,8 +940,6 @@
       <div class="warn" id="resWarn" style="left:16px"><span id="resWarnMsg"></span></div>
     </div>
   </div>
-</div>
-
   <!-- ================= 보고서 : one page that says what was run ======= -->
   <div class="tabpane" data-pane="rep" hidden>
     <div class="pane">
@@ -959,6 +957,7 @@
       <div id="repPaper" class="paper"><div id="repBody"></div></div>
     </div>
   </div>
+</div>
 
 <div class="zoomwrap" id="zoomwrap" hidden>
   <div class="inner">
@@ -2231,7 +2230,19 @@ function lossModel(){
      for a straight rod both collapse to D, so one expression serves both. */
   const dT=2*G.bE, dL=2*G.aE;
   const XT=P.ST/dT, XL=P.SL/dL;
-  const umax = U*(P.ST>dT ? P.ST/(P.ST-dT) : 1);
+  /*  The maximum velocity is at the narrowest gap, and in a STAGGERED bank
+      that is not always the transverse one: a row sitting between two tubes
+      of the row behind sees the DIAGONAL gap, and if that is the tighter of
+      the two the flow accelerates there instead.  The standard test is on
+      S_D = sqrt(S_L^2 + (S_T/2)^2): the diagonal governs when 2(S_D - d) is
+      less than (S_T - d).  Using the transverse gap alone under-states u_max
+      wherever that happens, and u_max enters both Re and dp ~ u_max^2.     */
+  const gapT = P.ST - dT;
+  const SD = Math.hypot(P.SL, P.ST/2);
+  const gapD = 2*(SD - dT);
+  const diagonal = isStg() && gapD > 0 && gapD < gapT;
+  const gap = diagonal ? gapD : gapT;
+  const umax = U*(gap > 0 ? P.ST/gap : 1);
   const ReMax = umax*P.D*k/nu;
   /* Jakob's friction factor, in Holman's form
        dp = 2 f N G_max^2 / rho = 2 f N rho umax^2,   Eu per row = 4 f
@@ -2255,7 +2266,8 @@ function lossModel(){
   const ReD=Math.max(U*Dh/nu, 1);
   const fD=ReD<2300 ? 64/ReD : 0.316*Math.pow(ReD,-0.25);
   const gradBox = fD/Math.max(Dh,1e-9)*0.5*rho*U*U;      // Pa per metre
-  return {f, dpBundle, gradBox, umax, ReMax, Eu:4*f,
+  return {f, dpBundle, gradBox, umax, ReMax, Eu:4*f, diagonal, SD,
+          dpPerRow: dpBundle/Math.max(1,P.nRows),
           dpTotal: dpBundle + gradBox*(P.lIn+P.lOut)*k};
 }
 /* cumulative loss from the inlet plane to x (model units) -> Pa */
@@ -3628,7 +3640,13 @@ Object.assign(STR.ko, {
   rep_yplus_target:"목표 y+", rep_yplus_now:"현재 y+ (추정)", rep_first:"첫 층 두께",
   rep_release:"Fluent 릴리스", rep_backend:"백엔드",
   rep_iters:"반복 횟수", rep_worst:"최종 최대 잔차", rep_met:"수렴 판정 충족",
-  rep_dp_cfd:"Δp (CFD)", rep_dp_corr:"Δp (상관식, 번들만)", rep_dp_ratio:"CFD / 상관식",
+  rep_dp_corr:"Δp (상관식, 번들만)", rep_dp_ratio:"CFD(번들) / 상관식",
+  rep_dp_total:"Δp 전체 (입구 − 출구, 박스 포함)",
+  rep_dp_bundle:"Δp 번들만 (CFD, 번들 양면에서 측정)",
+  rep_perrow_cfd:"행당 Δp (CFD)", rep_perrow_corr:"행당 Δp (상관식)",
+  rep_gap_trans:"횡방향 간극이 최소", rep_gap_diag:"대각선 간극이 최소",
+  rep_stg_warn:"<b>엇갈림 배열 주의.</b> 여기 쓰인 Jakob 상관식의 엇갈림 분기는 차트와 대조하지 않았습니다. 정렬 배열 분기만 Zukauskas와 맞춰봤습니다. 차이가 크면 상관식 쪽을 먼저 의심하십시오.",
+  rep_rows_warn:(n)=>`<b>행 수 ${n}개.</b> 상관식의 2·f·N·ρ·u_max²는 모든 행이 같은 손실을 낸다고 봅니다. 실제로는 앞쪽 행이 덜 잃고 10행 안팎에서야 그 값에 수렴하므로, 짧은 번들에서는 상관식이 과대평가합니다.`,
   rep_perrow:"행당", 
   rep_corr_note:"상관식은 Jakob의 마찰계수(정렬 배열은 Zukauskas 차트와 대조 확인, 엇갈림 배열은 미대조)에 의한 <b>추정치</b>이며, 입·출구 박스 손실은 제외한 번들 구간만입니다. CFD 값과의 차이는 그 자체로 판단 근거가 아니라 확인할 거리입니다.",
   rep_fig_geom:"형상과 격자 (형상 탭)",
@@ -3750,7 +3768,13 @@ Object.assign(STR.en, {
   rep_yplus_target:"Target y+", rep_yplus_now:"Current y+ (estimated)", rep_first:"First layer",
   rep_release:"Fluent release", rep_backend:"Backend",
   rep_iters:"Iterations", rep_worst:"Worst final residual", rep_met:"Criterion met",
-  rep_dp_cfd:"Δp (CFD)", rep_dp_corr:"Δp (correlation, bundle only)", rep_dp_ratio:"CFD / correlation",
+  rep_dp_corr:"Δp (correlation, bundle only)", rep_dp_ratio:"CFD (bundle) / correlation",
+  rep_dp_total:"Δp total (inlet − outlet, boxes included)",
+  rep_dp_bundle:"Δp bundle only (CFD, measured on the bundle faces)",
+  rep_perrow_cfd:"Δp per row (CFD)", rep_perrow_corr:"Δp per row (correlation)",
+  rep_gap_trans:"transverse gap is the tightest", rep_gap_diag:"diagonal gap is the tightest",
+  rep_stg_warn:"<b>Staggered, so read this.</b> The staggered branch of Jakob's correlation used here was never checked against a chart; only the in-line branch was matched to Zukauskas. Where the two disagree, suspect the correlation first.",
+  rep_rows_warn:(n)=>`<b>${n} rows.</b> The correlation's 2·f·N·ρ·u_max² assumes every row loses the same. The first rows lose less and the per-row figure only settles after about ten, so a short bundle is over-predicted.`,
   rep_perrow:"per row",
   rep_corr_note:"The correlation is Jakob's friction factor - the in-line branch spot-checked against Zukauskas, the staggered one not - and is an <b>estimate</b> over the bundle only, excluding the inlet and outlet boxes. A gap between it and the CFD is something to look into, not a verdict on either.",
   rep_fig_geom:"Geometry and mesh (Geometry tab)",
@@ -5061,6 +5085,47 @@ function settingsTables(){
 }
 function visibleField(f){ return fieldVisible(f); }
 
+/*  The pressure drop across the BUNDLE alone, measured the way the
+    correlation defines it.
+
+    inlet - outlet spans the whole domain, boxes included, so it is not the
+    same quantity the correlation gives and the two should not be put side by
+    side without saying so.  Two planes on the bundle faces measure what the
+    correlation actually predicts.  They are made, integrated and removed, so
+    the surface list is as it was afterwards.                               */
+async function bundleDrop(){
+  if(!JOB || !JOB.finished || JOB.error || JOB.snapshot) return null;
+  //  must start with a letter: the server holds plane names to
+  //  ^[A-Za-z][A-Za-z0-9_-]{0,30}$
+  const k = toM(), names = ["rep_bundle_in", "rep_bundle_out"];
+  const xs = [G.X0 * k, G.X1 * k];
+  const made = [];
+  try{
+    for(let i = 0; i < 2; i++){
+      await api("/api/plane", {name: names[i], axis: "x", value: xs[i]});
+      made.push(names[i]);
+    }
+    const p = [];
+    for(const nm of names){
+      const j = await api("/api/report",
+        {kind: "area-weighted-avg", surfaces: [nm], variable: "pressure"});
+      p.push(j.value);
+    }
+    return {dp: p[0] - p[1], pIn: p[0], pOut: p[1], x0: xs[0], x1: xs[1]};
+  }catch(e){
+    return null;
+  }finally{
+    for(const nm of made){
+      try{ await api("/api/plane_delete", {name: nm}); }catch(e){}
+    }
+    if(made.length && JOB){
+      //  the surfaces list the poll last handed us still names them
+      JOB.surfaces = (JOB.surfaces || []).filter(n => made.indexOf(n) < 0);
+      for(const nm of made) if(JOB.planes) delete JOB.planes[nm];
+    }
+  }
+}
+
 async function buildReport(){
   if(!SRV){ $("repNote").textContent = T("rep_need_srv"); return; }
   const btn = $("repBuild"); btn.disabled = true;
@@ -5183,14 +5248,24 @@ async function buildReport(){
     // ---------------- results -----------------------------------------------
     H.push("<h2>" + esc(T("rep_h_res")) + "</h2>");
     const corr = lm.dpBundle;
+    const bun = await bundleDrop();
     H.push("<table>");
-    H.push(row(T("rep_dp_cfd"), dpCFD === null ? "—" : fmtSci(dpCFD) + " Pa", "n"));
+    H.push(row(T("rep_dp_total"), dpCFD === null ? "—" : fmtSci(dpCFD) + " Pa", "n"));
+    H.push(row(T("rep_dp_bundle"), bun ? fmtSci(bun.dp) + " Pa" : "—", "n"));
     H.push(row(T("rep_dp_corr"), fmtSci(corr) + " Pa", "n"));
-    if(dpCFD !== null && corr > 0)
-      H.push(row(T("rep_dp_ratio"), (dpCFD/corr).toFixed(2) + " ×", "n"));
+    //  the ratio only means anything against the bundle-only measurement
+    if(bun && corr > 0)
+      H.push(row(T("rep_dp_ratio"), (bun.dp/corr).toFixed(2) + " ×", "n"));
+    H.push(row(T("rep_perrow_cfd"),
+      bun ? fmtSci(bun.dp/Math.max(1,P.nRows)) + " Pa" : "—", "n"));
+    H.push(row(T("rep_perrow_corr"), fmtSci(lm.dpPerRow) + " Pa", "n"));
+    H.push(row("u_max", lm.umax.toFixed(3) + " m/s · " +
+      (lm.diagonal ? T("rep_gap_diag") : T("rep_gap_trans")), "n"));
     H.push(row("Eu / " + T("rep_perrow"), lm.Eu.toFixed(3), "n"));
     H.push("</table>");
     H.push('<p class="muted">' + T("rep_corr_note") + "</p>");
+    if(isStg()) H.push('<p class="muted">' + T("rep_stg_warn") + "</p>");
+    if(P.nRows < 10) H.push('<p class="muted">' + T("rep_rows_warn")(P.nRows) + "</p>");
     H.push(fig(figVel, esc(T("rep_fig_vel")) + surfCaption()));
     H.push(fig(figP, esc(T("rep_fig_p")) + surfCaption()));
 

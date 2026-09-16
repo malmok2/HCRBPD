@@ -83,10 +83,14 @@ reopening one puts the plots back as they were.
 the geometry, the mesh and its checks, the solver set-up straight out of the
 settings schema so it cannot drift from the panel, the convergence, and the
 fields. Nothing in it recomputes anything — a report that derived its own
-numbers could disagree with the tab that produced them. It puts the CFD
-pressure drop next to the Jakob correlation with the ratio between them, says
-which branch of that correlation was spot-checked and which was not, and flags
-a MOCK run in red at the top. `Save as HTML` writes a standalone file with the
+numbers could disagree with the tab that produced them. It puts the pressure drop
+against the Jakob correlation — and does it honestly: inlet-minus-outlet spans
+the whole domain, boxes included, which is not what the correlation predicts,
+so the report also puts two planes on the bundle faces and measures the drop
+across the bundle alone. That is the number the ratio uses, with the per-row
+figure beside it. It says which branch of the correlation was spot-checked and
+which was not, warns when a short bundle is being compared against a
+fully-developed correlation, and flags a MOCK run in red at the top. `Save as HTML` writes a standalone file with the
 figures embedded as data URIs and the stylesheet lifted out of the page's own,
 so it opens anywhere with nothing else beside it; `Print · PDF` uses a print
 stylesheet that drops the app around it.
