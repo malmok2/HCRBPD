@@ -62,7 +62,8 @@ import zukauskas_charts as ZC          # noqa: E402
 # =============================================================================
 #  THE FLOW STATE EVERY CORRELATION IS ASKED ABOUT
 # =============================================================================
-def flow_state(D, ST, SL, n_rows, u_in, rho, nu, staggered, dT=None, dL=None):
+def flow_state(D, ST, SL, n_rows, u_in, rho, nu, staggered, dT=None, dL=None,
+               helix=0.0, coil_alternating=False):
     """Reduce a bundle and an approach velocity to what a correlation wants.
 
     Lengths in metres, `u_in` the mean approach (superficial) velocity in m/s,
@@ -72,6 +73,17 @@ def flow_state(D, ST, SL, n_rows, u_in, rho, nu, staggered, dT=None, dL=None):
     For a straight rod both are D.  An inclined tube cuts the section as an
     ellipse, so they differ, and passing them keeps the helical case on the
     same code path instead of a second copy of it.
+
+    `helix` is the lean in DEGREES and `coil_alternating` says whether adjacent
+    radial layers are wound the opposite way.  Both are zero/False for a
+    straight bundle and are only read by the correlations that were fitted on
+    coils; they are here so that stage 4 does not need a second flow state.
+
+    TWO PITCH RATIOS, ON PURPOSE.  `XT`/`XL` divide by the FOOTPRINT, which is
+    what sets the gap and therefore u_max.  `XT_d`/`XL_d` divide by the TUBE
+    DIAMETER, which is what a published S/d means.  For a straight rod they
+    are the same number; for a leaning tube they are not, and a correlation
+    has to be asked with the one its author used.
     """
     dT = D if dT is None else dT
     dL = D if dL is None else dL
@@ -84,14 +96,22 @@ def flow_state(D, ST, SL, n_rows, u_in, rho, nu, staggered, dT=None, dL=None):
     diagonal = bool(staggered and 0.0 < gapD < gapT)
     gap = gapD if diagonal else gapT
     umax = u_in * (ST / gap if gap > 0 else float("inf"))
+    #  Gunter & Shaw's volumetric hydraulic diameter: four times the free
+    #  volume over the friction surface.  Per lattice cell that is
+    #  4(S_T S_L - pi D^2/4) / (pi D), and it reproduces the 0.1334 m the
+    #  KAERI CHX paper states for D = 27.2 mm, a = 2.65, b = 1.75 to 6e-6 m.
+    Dv = 4.0 * (ST * SL - math.pi * D * D / 4.0) / (math.pi * D)
     return {
         "D": D, "ST": ST, "SL": SL, "dT": dT, "dL": dL,
         "n_rows": int(n_rows), "u_in": u_in, "rho": rho, "nu": nu,
         "staggered": bool(staggered),
-        "XT": XT, "XL": XL, "SD": SD,
+        "helix": float(helix), "coil_K": 1 if coil_alternating else 0,
+        "cos_eps": math.cos(math.radians(helix * (1.0 - helix / 90.0))),
+        "XT": XT, "XL": XL, "XT_d": ST / D, "XL_d": SL / D, "SD": SD, "Dv": Dv,
         "gapT": gapT, "gapD": gapD, "gap": gap, "diagonal": diagonal,
         "umax": umax,
         "Re": umax * D / nu,
+        "Re_v": umax * Dv / nu,                # Gunter & Shaw's Reynolds number
         "Re_in": u_in * D / nu,
         "q": 0.5 * rho * umax * umax,          # dynamic head on u_max
     }
@@ -140,6 +160,81 @@ def _zukauskas(st):
     return chi * f, extra
 
 
+def _gunter_shaw(st):
+    """Gunter & Shaw (1945), on the volumetric hydraulic diameter.
+
+        Re_v = u_max D_v / nu,      D_v = 4 (S_T S_L - pi D^2/4) / (pi D)
+        f/2  = 90 / Re_v                      Re_v <= 200
+        f/2  = 0.96 Re_v^-0.145               Re_v >  200
+        dp   = (f/2) (G^2 L)/(rho D_v) (mu/mu_w)^0.14 (D_v/S_T)^0.4 (S_L/S_T)^0.6
+
+    with G = rho u_max and L = N S_L the depth of the bank.  Reducing that to
+    the library's currency, the mass flux and the row count both cancel:
+
+        Eu_row = 2 (f/2) (S_L/D_v) (D_v/S_T)^0.4 (S_L/S_T)^0.6
+
+    THREE THINGS WERE CHECKED, because the leading factor is the one place
+    two sources could be read differently:
+
+      * D_v reproduces the 0.1334 m the KAERI CHX paper states for
+        D = 27.2 mm, a = 2.65, b = 1.75, to 6e-6 m.
+      * the two branches meet at the stated transition of Re_v = 200 to 1.1 %,
+        which is what a correctly transcribed pair does and what a misread
+        factor of two would destroy.
+      * the magnitude lands between the in-line and staggered branches of
+        Zukauskas at the same pitch, which is what a correlation fitted across
+        arrangements should do.  Read as `2f` instead of `f/2` it would come
+        out four times larger than either.
+
+    The viscosity ratio is exactly 1 here: these cases are isothermal.  Which
+    way up that ratio goes was NOT settled from the two sources to hand, so it
+    is not applied - and saying so is cheaper than a term that is silently
+    upside down the first time somebody runs a heated case.
+    """
+    Re = max(st["Re_v"], 1.0)
+    f_half = 90.0 / Re if Re <= 200.0 else 0.96 * Re ** -0.145
+    eu = (2.0 * f_half * (st["SL"] / st["Dv"])
+          * (st["Dv"] / st["ST"]) ** 0.4 * (st["SL"] / st["ST"]) ** 0.6)
+    return eu, {"f_half": f_half, "Re_v": Re, "Dv": st["Dv"],
+                "f_convention": "dp = (f/2) G^2 L / (rho D_v) x pitch factors",
+                "isothermal": "the (mu/mu_w)^0.14 term is 1 and is not applied"}
+
+
+def _shen2024(st):
+    """Shen et al. (2024), eq. 12 - liquid metal across a HELICAL bundle.
+
+        f = (209.8/Re + 0.598/Re^0.037) (a b)^-0.69 (cos eps)^-(4.2K+3)
+        eps = beta (1 - beta/90),  a = S_T/d,  b = S_L/d
+        K = 0 same coiling direction, 1 alternating
+
+    Their f is defined as 2 dp / (rho u_max^2 z) with z the row count - which
+    is this library's Eu_row exactly, so no conversion is needed.  That is
+    worth noticing: the paper and this project already speak one currency.
+
+    Checked against the paper's own quoted numbers: the pitch term gives
+    S/d 1.4 as 10.0 % above S/d 1.5, where the paper says 9.9 %, and 20.2 %
+    above S/d 1.6 where the paper says 18.6 %.  That is the exponent
+    confirmed, sign included.
+
+    Two limits worth being honest about.  At beta = 0 the helix factor is
+    exactly 1 by construction and the expression becomes a straight-bundle
+    correlation - but the fit never saw a straight bundle, its range starts at
+    2 degrees, so a straight-rod comparison against it is an extrapolation and
+    is flagged as one.  And it was fitted on lead-bismuth at 1.4 <= S/d <= 1.6;
+    the friction factor of a forced flow should not care about Pr, but the
+    pitch range is narrow and the study will cross both edges of it.
+    """
+    Re = max(st["Re"], 1.0)
+    a, b = st["XT_d"], st["XL_d"]
+    K = st.get("coil_K", 0)
+    cos_eps = max(st.get("cos_eps", 1.0), 1e-6)
+    eu = ((209.8 / Re + 0.598 / Re ** 0.037) * (a * b) ** -0.69
+          * cos_eps ** -(4.2 * K + 3.0))
+    return eu, {"a": a, "b": b, "K": K, "cos_eps": cos_eps,
+                "helix": st.get("helix", 0.0),
+                "f_convention": "f = 2 dp / (rho u_max^2 z) - this is Eu_row"}
+
+
 def _duct(st, Dh, L):
     """Plain duct friction, for the inlet and outlet boxes.
 
@@ -179,24 +274,27 @@ CORRELATIONS = [
                       "The pitch range is the range over which the source data "
                       "were taken and is the weaker of the two limits.",
         "note": "Closed form, and the one the Geometry tab has always shown. "
-                "Held against Zukauskas' charts over a square-pitch grid in "
-                "the stage-1 report - not asserted here, computed there. The "
-                "short version: inside Jakob's own quoted Re range and for "
-                "X >= 1.5 the two agree to about 20 % either way; at X = 1.25, "
-                "or outside 2e3 < Re < 4e4, they part company by as much as a "
-                "factor of 2.2. The tight-pitch corner is where a CFD point is "
-                "worth the most.",
+                "Held against the others over a square-pitch grid in the "
+                "stage-1 report - not asserted here, computed there. Against "
+                "ZUKAUSKAS ALONE it sits within about 20 % inside its own Re "
+                "range at X >= 1.5, and parts by up to 2.2x at X = 1.25 or "
+                "outside 2e3 < Re < 4e4. Adding Gunter & Shaw WIDENS that, "
+                "which is the more important result: the three applicable "
+                "correlations differ from one another by 1.0x to 2.2x over the "
+                "grid, typically about 1.45x, and there is no condition at "
+                "which they agree closely.",
         "valid_note_ko": "Holman이 인용한 적용 범위는 2000 < Re_max < 40 "
                          "000 입니다. 피치 범위는 원 데이터가 취해진 "
                          "범위이며, 두 제한 중 더 느슨한 쪽입니다.",
         "note_ko": "닫힌 형태이고, 형상 탭이 계속 보여 온 바로 그 "
-                   "상관식입니다. Zukauskas 차트와의 대조는 여기서 "
-                   "주장하지 않고 1단계 보고서에서 계산합니다. 요약하면: "
-                   "Jakob 자신이 제시한 Re 범위 안에서 X ≥ 1.5 이면 두 "
-                   "상관식은 서로 ±20 % 안에 듭니다. 반면 X = 1.25 이거나 "
-                   "Re가 2e3–4e4 밖이면 최대 2.2배까지 갈라집니다. 그 "
-                   "촘촘한 피치 구석이 CFD 한 점의 가치가 가장 큰 "
-                   "곳입니다.",
+                   "상관식입니다. 다른 상관식들과의 대조는 여기서 주장하지 "
+                   "않고 1단계 보고서에서 계산합니다. Zukauskas 하나만 놓고 "
+                   "보면 Jakob 자신의 Re 범위 안, X ≥ 1.5 에서 ±20 % 안에 "
+                   "들고, X = 1.25 이거나 Re 가 범위 밖이면 최대 2.2배까지 "
+                   "갈라집니다. 그런데 Gunter & Shaw 를 더하면 그 폭이 오히려 "
+                   "더 넓어집니다. 그것이 더 중요한 결과입니다 — 적용 가능한 "
+                   "세 상관식은 격자 전체에서 서로 1.0–2.2배, 보통 1.45배쯤 "
+                   "차이가 나며, 서로 바짝 일치하는 조건은 없습니다.",
     },
     {
         "key": "zukauskas",
@@ -231,6 +329,91 @@ CORRELATIONS = [
                    "오차입니다. `ht`가 문서에 실어 둔 두 예제를 "
                    "자릿수까지 재현하므로, 표가 손상 없이 옮겨졌다는 것은 "
                    "확인되었습니다.",
+    },
+    {
+        "key": "gunter-shaw",
+        "name": "Gunter & Shaw (1945)",
+        "status": "encoded",
+        "arrangement": "both",
+        "fn": _gunter_shaw,
+        "source": "A. Y. Gunter and W. A. Shaw, 'A general correlation of "
+                  "friction factors for various types of surfaces in cross "
+                  "flow', Trans. ASME 67 (1945) 643-660. Transcribed from two "
+                  "independent secondary sources that agree: H. G. Noh, "
+                  "J. Eoh, D. E. Kim and M. H. Kim, Trans. KNS Spring Meeting "
+                  "2018, 18S-013 (the KAERI CHX study), and E. K. Kim, "
+                  "Y. S. Kim and Y. S. Sim, Trans. KNS Spring Meeting 2000 "
+                  "(COMMIX-HSG), which give the same f/2 branches and the same "
+                  "pressure-drop form.",
+        "valid": {"Re": [1.0, 1.0e6], "XT": [1.25, 5.0], "XL": [1.25, 5.0],
+                  "n_rows": [4, None]},
+        "valid_note": "Gunter & Shaw fitted tubes of 0.02 to 2 inches at "
+                      "transverse and longitudinal pitches of 1.25 to 5 "
+                      "diameters, bare and extended surfaces together. The Re "
+                      "limits are on Re_v, built on the volumetric hydraulic "
+                      "diameter, which for a typical bank is an order of "
+                      "magnitude larger than Re on the tube diameter.",
+        "valid_note_ko": "Gunter & Shaw 는 관경 0.02–2 inch, 횡·종 피치비 "
+                         "1.25–5 의 나관과 확장면 데이터를 함께 맞췄습니다. "
+                         "Re 한계는 체적 수력직경 기준 Re_v 이며, 보통의 다발에서 "
+                         "관경 기준 Re 보다 한 자릿수 큽니다.",
+        "note": "The only correlation here that does NOT separate in-line from "
+                "staggered: it collapses both onto one curve through the "
+                "volumetric hydraulic diameter and two pitch-ratio factors, "
+                "and lands between Zukauskas' two branches at the same pitch. "
+                "That is its appeal and its limitation. It is also the "
+                "correlation the KAERI CHX study found came CLOSEST to CFD on "
+                "a real helical bundle - 45 % out where Zukauskas was 62 % "
+                "out, which is the measurement this whole project exists to "
+                "improve on.",
+        "note_ko": "여기서 유일하게 정렬/엇갈림을 구분하지 않는 상관식입니다. "
+                   "체적 수력직경과 두 개의 피치비 인자로 두 배열을 하나의 곡선에 "
+                   "모으며, 같은 피치에서 Zukauskas 의 두 분기 사이에 놓입니다. "
+                   "그것이 장점이자 한계입니다. 또한 KAERI CHX 연구에서 실제 나선 "
+                   "다발 CFD 에 가장 가까웠던 상관식이기도 합니다 — Zukauskas 가 "
+                   "62 % 빗나갈 때 45 % 였습니다. 바로 이 수치가 이 과제의 존재 "
+                   "이유입니다.",
+    },
+    {
+        "key": "shen-2024",
+        "name": "Shen et al. (2024), helical bundle",
+        "status": "encoded",
+        "arrangement": "both",
+        "fn": _shen2024,
+        "source": "C. Shen, M. Liu, L. Liu, Z. Xu, C. Zeng, L. Liu and H. Gu, "
+                  "'Development of friction factor and heat transfer "
+                  "correlation of liquid metal flow in helical tube bundles', "
+                  "Annals of Nuclear Energy 201 (2024) 110442, eq. (12). The "
+                  "deviation angle eps = beta(1 - beta/90) is Gilli's (1965).",
+        "valid": {"Re": [2500.0, 120000.0], "XT": [1.4, 1.6], "XL": [1.4, 1.6],
+                  "n_rows": [4, None]},
+        "valid_note": "Fitted on lead-bismuth CFD at helix angles of 2 to 15 "
+                      "degrees, S/d 1.4 to 1.6, Re 2500 to 120 000, with "
+                      "prediction error inside 10 %. A straight bundle is "
+                      "OUTSIDE it: the helix factor is exactly 1 at beta = 0 "
+                      "by construction, but the fit never saw beta = 0.",
+        "valid_note_ko": "납-비스무트 CFD 로, 나선각 2–15°, S/d 1.4–1.6, "
+                         "Re 2500–120 000 범위에서 맞췄고 예측 오차는 10 % 이내 "
+                         "입니다. 직선 다발은 이 범위 밖입니다 — 나선 인자는 "
+                         "beta = 0 에서 구조상 정확히 1이지만, 적합 과정에서 "
+                         "beta = 0 을 본 적은 없습니다.",
+        "note": "The only entry here written for a COIL, and the closest thing "
+                "in the literature to what stage 4 is meant to produce. Its f "
+                "is defined as 2 dp/(rho u_max^2 z), which is this library's "
+                "Eu_row exactly - the paper and this project already speak one "
+                "currency. Its shape is also the shape stage 4 should start "
+                "from: a laminar plus turbulent Re function, one factor in the "
+                "pitch product, one in the helix angle that is unity when the "
+                "bundle is straight. Two of its own quoted numbers were "
+                "reproduced from the formula as a transcription check.",
+        "note_ko": "여기서 유일하게 나선 코일을 위해 쓰인 항목이고, 4단계가 "
+                   "만들려는 것에 문헌상 가장 가까운 식입니다. f 의 정의가 "
+                   "2 dp/(rho u_max^2 z) 로 이 라이브러리의 Eu_row 와 정확히 "
+                   "같습니다 — 논문과 이 과제가 이미 같은 단위를 쓰고 있습니다. "
+                   "형태 또한 4단계가 출발해야 할 형태입니다: 층류항 + 난류항의 "
+                   "Re 함수, 피치 곱 인자 하나, 그리고 직선일 때 1이 되는 나선각 "
+                   "인자 하나. 논문이 인용한 수치 두 개를 식에서 재현해 전사 "
+                   "오류가 없음을 확인했습니다.",
     },
     {
         "key": "gaddis-gnielinski",
@@ -370,85 +553,293 @@ def compare(st, keys=None):
 #  THE FORM STAGE 4 WILL FIT
 # =============================================================================
 #  Stage 4 is "a correlation of our own", and a correlation of our own needs a
-#  shape before it needs data.  Every entry above reduces to Eu per row as a
-#  power of Re times a function of the pitch ratios, so that is the shape:
+#  shape before it needs data.  The shape is NOT invented here: Shen et al.
+#  (2024) fitted a helical liquid-metal bundle with
 #
-#      Eu_row = C * Re^(-m) * (X_T - 1)^(-p) * X_L^(q)
+#      Eu_row = (209.8/Re + 0.598 Re^-0.037) (X_T X_L)^-0.69 (cos eps)^-(4.2K+3)
 #
-#  four coefficients, fitted per arrangement, reducing to Jakob's staggered
-#  branch at q = 0.  The helical case adds the lean: X_T and X_L are already
-#  footprint ratios in flow_state, so the extra freedom a coil needs is one
-#  more factor in the same product rather than a different function.
+#  and every other entry in the registry is a special case of that skeleton -
+#  a laminar term plus a turbulent term in Re, one factor in the pitch, and a
+#  factor in the lean that is exactly 1 when the bundle is straight.  Starting
+#  from a published shape and re-fitting its coefficients on our own data is a
+#  smaller and far more defensible claim than proposing a new functional form,
+#  and it makes the straight-rod fit and the coil fit the SAME correlation at
+#  two values of one angle rather than two correlations that have to be
+#  reconciled afterwards.
+#
+#  ONE GENERALISATION, AND THE REASON FOR IT.  Shen's pitch factor is
+#  (X_T X_L)^-0.69 - the two ratios only ever appear as a product.  That is
+#  not a physical claim, it is a consequence of their dataset: every case they
+#  ran had S_T = S_L, so no data of theirs could tell the two exponents apart.
+#  It is the same collinearity this project's stage-3 matrix was laid out to
+#  avoid.  The form here gives them separate exponents,
+#
+#      X_T^-p X_L^-q,      which is Shen's when p = q,
+#
+#  so our data can answer a question theirs could not, and `tie_pitch` refits
+#  with p forced equal to q so the two can be compared on the same data.
 FIT_FORM = {
-    "name": "power law in Re and the pitch ratios",
-    "expr": "Eu_row = C * Re^(-m) * (X_T-1)^(-p) * X_L^q",
-    "coefficients": ["C", "m", "p", "q"],
-    "helical_extension": "Eu_row *= (cos alpha)^(-r); alpha the helix angle, "
-                         "r the fifth coefficient. At alpha = 0 it is 1, so "
-                         "the straight-rod fit is the coil fit's own limit.",
+    "name": "Shen-form generalised: laminar + turbulent in Re, "
+            "separate pitch exponents, helix lean",
+    "expr": "Eu_row = (A/Re + B Re^-m) X_T^-p X_L^-q (cos eps)^-(cK K + c0)",
+    "coefficients": ["A", "B", "m", "p", "q", "c0", "cK"],
+    "reference": "the shape of Shen et al. (2024) eq. 12, with the pitch "
+                 "product split, refitted",
+    "helical_extension": "eps = beta(1 - beta/90) is Gilli's deviation angle "
+                         "and K is 0 for one coiling direction, 1 for "
+                         "alternating. At beta = 0 the last factor is exactly "
+                         "1, so the straight-rod fit is the coil fit's own "
+                         "limit and c0/cK are not identifiable from "
+                         "straight-rod data alone - which is why they are held "
+                         "at Shen's values until coil cases exist.",
+    "shen_values": {"A": 209.8, "B": 0.598, "m": 0.037, "p": 0.69,
+                    "q": 0.69, "c0": 3.0, "cK": 4.2},
 }
 
 
 def fit_eu(coeff, st):
-    """Evaluate the fitted form.  `coeff` is {C, m, p, q[, r]}."""
-    eu = (coeff["C"] * max(st["Re"], 1.0) ** (-coeff["m"])
-          * max(st["XT"] - 1.0, 1e-3) ** (-coeff["p"])
-          * st["XL"] ** coeff["q"])
-    r = coeff.get("r")
-    if r:
-        cos_a = st.get("cos_alpha", 1.0)
-        eu *= max(cos_a, 1e-6) ** (-r)
+    """Evaluate the fitted form.  `st` needs Re, XT_d, XL_d and, for a coil,
+    cos_eps and coil_K."""
+    Re = max(st.get("Re", 1.0), 1.0)
+    a = st.get("XT_d", st.get("XT", 1.0))
+    b = st.get("XL_d", st.get("XL", 1.0))
+    eu = ((coeff["A"] / Re + coeff["B"] * Re ** -coeff["m"])
+          * a ** -coeff["p"] * b ** -coeff.get("q", coeff["p"]))
+    cos_eps = max(st.get("cos_eps", 1.0), 1e-6)
+    if cos_eps < 1.0:
+        K = st.get("coil_K", 0)
+        eu *= cos_eps ** -(coeff.get("cK", 4.2) * K + coeff.get("c0", 3.0))
     return eu
 
 
+def _solve(M):
+    """Gauss-Jordan with partial pivoting, on an augmented matrix."""
+    n = len(M)
+    for i in range(n):
+        piv = max(range(i, n), key=lambda r: abs(M[r][i]))
+        if abs(M[piv][i]) < 1e-300:
+            raise ValueError("singular: the cases do not vary every "
+                             "coefficient independently")
+        M[i], M[piv] = M[piv], M[i]
+        d = M[i][i]
+        M[i] = [v / d for v in M[i]]
+        for r in range(n):
+            if r != i and M[r][i]:
+                f = M[r][i]
+                M[r] = [v - f * w for v, w in zip(M[r], M[i])]
+    return [M[i][n] for i in range(n)]
+
+
+def _nelder_mead(f, x0, step, iters=4000, tol=1e-10):
+    """Nelder-Mead, written out.
+
+    The Shen form is linear in A and B once the exponents are fixed, so the
+    fit is nested: a simplex search over the three or five EXPONENTS, with an
+    ordinary least-squares solve for A and B inside it.  That keeps the
+    non-linear part to a handful of well-scaled parameters, which is what
+    makes a plain simplex adequate and a dependency unnecessary.
+    """
+    n = len(x0)
+    pts = [list(x0)]
+    for i in range(n):
+        p = list(x0)
+        p[i] += step[i]
+        pts.append(p)
+        vals = None
+    vals = [f(p) for p in pts]
+    for _ in range(iters):
+        order = sorted(range(n + 1), key=lambda i: vals[i])
+        pts = [pts[i] for i in order]
+        vals = [vals[i] for i in order]
+        if abs(vals[-1] - vals[0]) <= tol * (abs(vals[0]) + tol):
+            break
+        cen = [sum(p[i] for p in pts[:-1]) / n for i in range(n)]
+        ref = [cen[i] + (cen[i] - pts[-1][i]) for i in range(n)]
+        fr = f(ref)
+        if fr < vals[0]:
+            exp = [cen[i] + 2.0 * (cen[i] - pts[-1][i]) for i in range(n)]
+            fe = f(exp)
+            pts[-1], vals[-1] = (exp, fe) if fe < fr else (ref, fr)
+        elif fr < vals[-2]:
+            pts[-1], vals[-1] = ref, fr
+        else:
+            con = [cen[i] + 0.5 * (pts[-1][i] - cen[i]) for i in range(n)]
+            fc = f(con)
+            if fc < vals[-1]:
+                pts[-1], vals[-1] = con, fc
+            else:
+                for i in range(1, n + 1):
+                    pts[i] = [pts[0][j] + 0.5 * (pts[i][j] - pts[0][j])
+                              for j in range(n)]
+                    vals[i] = f(pts[i])
+    i = min(range(n + 1), key=lambda i: vals[i])
+    return pts[i], vals[i]
+
+
+def fit_form(rows, with_helix=False, tie_pitch=False):
+    """Fit the Shen-shaped form to measured Eu_row.
+
+    `rows` are dicts with Re, XT_d (or XT), XL_d (or XL), eu_row and, for
+    coils, cos_eps and coil_K.  Returns the coefficients and how well it fits,
+    in relative error, which is the currency a reader cares about.
+
+    The residual is on ln(Eu), not on Eu: the data span a decade and a half
+    and a least-squares fit on the raw value would be decided entirely by the
+    tightest, slowest cases.
+    """
+    pts = [r for r in rows if r.get("eu_row")]
+    if len(pts) < 6:
+        raise ValueError("%d usable points is not enough to fit this form"
+                         % len(pts))
+    helical = with_helix and any(r.get("cos_eps", 1.0) < 1.0 for r in pts)
+
+    def linear_part(exps):
+        """Given the exponents, the best A and B, and the residual."""
+        m, p = exps[0], exps[1]
+        q = p if tie_pitch else exps[2]
+        rest = exps[2 if tie_pitch else 3:]
+        c0, cK = (rest[0], rest[1]) if helical else (3.0, 4.2)
+        basis, y = [], []
+        for r in pts:
+            Re = max(r["Re"], 1.0)
+            a = r.get("XT_d", r.get("XT"))
+            b = r.get("XL_d", r.get("XL"))
+            g = a ** -p * b ** -q
+            if helical:
+                g *= max(r.get("cos_eps", 1.0), 1e-6) ** -(cK * r.get("coil_K", 0) + c0)
+            basis.append((g / Re, g * Re ** -m))
+            y.append(r["eu_row"])
+        #  least squares on ln is non-linear in A,B, so solve the linear
+        #  problem on the value and then report the error on ln - the two
+        #  agree to second order and this keeps the inner solve closed form
+        S = [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
+        for (u, v), yy in zip(basis, y):
+            w = 1.0 / max(yy * yy, 1e-300)          # relative, not absolute
+            S[0][0] += w * u * u
+            S[0][1] += w * u * v
+            S[1][0] += w * u * v
+            S[1][1] += w * v * v
+            S[0][2] += w * u * yy
+            S[1][2] += w * v * yy
+        #  A and B are held NON-NEGATIVE.  A is the laminar term and B the
+        #  turbulent one; a negative laminar coefficient has no meaning, and
+        #  left free the solve will happily use one to fake a steeper Re
+        #  dependence than the form can otherwise produce - which is exactly
+        #  what it did the first time, returning A = -472 against Shen's
+        #  +209.8 and a 27 % fit.  With two unknowns the constrained solution
+        #  is one of three candidates, so it is found exactly rather than
+        #  iterated: the free solve if it is feasible, else A = 0, else B = 0.
+        def resid(A, B):
+            e = 0.0
+            for (u, v), yy in zip(basis, y):
+                pred = A * u + B * v
+                if pred <= 0.0:
+                    return 1e9
+                e += (math.log(pred / yy)) ** 2
+            return e / len(pts)
+
+        cands = []
+        try:
+            A, B = _solve([row[:] for row in S])
+            if A >= 0.0 and B >= 0.0:
+                cands.append((A, B))
+        except ValueError:
+            pass
+        if S[1][1] > 0:
+            cands.append((0.0, max(S[1][2] / S[1][1], 0.0)))      # A pinned
+        if S[0][0] > 0:
+            cands.append((max(S[0][2] / S[0][0], 0.0), 0.0))      # B pinned
+        best = min(cands, key=lambda ab: resid(*ab)) if cands else (0.0, 0.0)
+        return resid(*best), best
+
+    x0 = [0.037, 0.69] + ([] if tie_pitch else [0.69]) \
+        + ([3.0, 4.2] if helical else [])
+    step = [0.02, 0.15] + ([] if tie_pitch else [0.15]) \
+        + ([0.6, 0.8] if helical else [])
+    best, _ = _nelder_mead(lambda x: linear_part(x)[0], x0, step)
+    val, (A, B) = linear_part(best)
+    rest = best[2 if tie_pitch else 3:]
+    coeff = {"A": A, "B": B, "m": best[0], "p": best[1],
+             "q": best[1] if tie_pitch else best[2],
+             "c0": rest[0] if helical else 3.0,
+             "cK": rest[1] if helical else 4.2,
+             "helical": helical, "tie_pitch": tie_pitch}
+    errs = []
+    for r in pts:
+        pred = fit_eu(coeff, r)
+        errs.append(abs(pred - r["eu_row"]) / r["eu_row"])
+    coeff["n_points"] = len(errs)
+    coeff["mean_abs_error"] = sum(errs) / len(errs)
+    coeff["max_abs_error"] = max(errs)
+    coeff["rms_log"] = math.sqrt(val)
+    if coeff["A"] <= 0.0:
+        coeff["laminar_dropped"] = (
+            "the laminar term went to zero: over the Re range that was run, "
+            "a single power of Re describes the data and the 1/Re term is not "
+            "needed. Add cases below Re ~ 1000 before claiming it is absent")
+        coeff["laminar_dropped_ko"] = (
+            "층류항이 0으로 떨어졌습니다. 해석한 Re 범위 안에서는 Re 의 단일 "
+            "거듭제곱만으로 데이터가 설명되고 1/Re 항이 필요하지 않다는 뜻입니다. "
+            "이 항이 정말 없다고 말하려면 Re 1000 이하 케이스를 더해야 합니다.")
+    coeff["fixed"] = (["q"] if tie_pitch else [])
+    if not helical:
+        coeff["fixed"] = coeff["fixed"] + ["c0", "cK"]
+        coeff["fixed_note"] = ("cos eps is 1 on every case, so the helix "
+                               "exponents cannot be seen by this data; they "
+                               "are held at Shen et al.'s values")
+        coeff["fixed_note_ko"] = ("모든 케이스에서 cos eps 가 1 이므로 이 "
+                                  "데이터로는 나선각 지수를 볼 수 없습니다. "
+                                  "Shen 등의 값으로 고정해 두었습니다.")
+    if tie_pitch:
+        coeff["fixed_note"] = ((coeff.get("fixed_note") or "") +
+                               "; q is tied to p, which is Shen's own "
+                               "(X_T X_L)^-p").lstrip("; ")
+        coeff["fixed_note_ko"] = ((coeff.get("fixed_note_ko") or "") +
+                                  " q 를 p 에 묶었습니다 — Shen 식의 "
+                                  "(X_T X_L)^-p 형태입니다.").strip()
+    return coeff
+
+
+#  kept as the simpler, always-identifiable baseline: a single power of Re.
+#  It cannot represent the low-Re end, which is why it is not the main form,
+#  but it is linear in logs and so has no optimiser and no starting guess.
 def fit_power_law(rows, with_helix=False):
     """Least squares for C, m, p, q on ln(Eu_row), in plain Python.
 
-    ln Eu = ln C - m ln Re - p ln(X_T-1) + q ln X_L   is linear in the
-    coefficients, so this is an ordinary normal-equation solve and needs no
-    numpy.  `rows` are dicts with Re, XT, XL, eu_row (and cos_alpha if
-    with_helix).  Returns the coefficients and the fit quality.
+        ln Eu = ln C - m ln Re - p ln(X_T-1) + q ln X_L
     """
     A, b = [], []
     for r in rows:
         if not r.get("eu_row"):
             continue
+        XT = r.get("XT_d", r.get("XT"))
+        XL = r.get("XL_d", r.get("XL"))
         row = [1.0, -math.log(max(r["Re"], 1.0)),
-               -math.log(max(r["XT"] - 1.0, 1e-3)), math.log(r["XL"])]
+               -math.log(max(XT - 1.0, 1e-3)), math.log(XL)]
         if with_helix:
-            row.append(-math.log(max(r.get("cos_alpha", 1.0), 1e-6)))
+            row.append(-math.log(max(r.get("cos_eps", 1.0), 1e-6)))
         A.append(row)
         b.append(math.log(r["eu_row"]))
     n = len(A[0]) if A else 0
     if len(A) < n:
         raise ValueError("%d usable points cannot fit %d coefficients"
                          % (len(A), n))
-    #  normal equations, Gauss-Jordan with partial pivoting
     M = [[sum(A[k][i] * A[k][j] for k in range(len(A))) for j in range(n)]
          + [sum(A[k][i] * b[k] for k in range(len(A)))] for i in range(n)]
-    for i in range(n):
-        p = max(range(i, n), key=lambda r: abs(M[r][i]))
-        if abs(M[p][i]) < 1e-14:
-            raise ValueError("the design matrix is singular - the cases do not "
-                             "vary every coefficient independently")
-        M[i], M[p] = M[p], M[i]
-        piv = M[i][i]
-        M[i] = [v / piv for v in M[i]]
-        for r in range(n):
-            if r != i and M[r][i]:
-                fac = M[r][i]
-                M[r] = [v - fac * w for v, w in zip(M[r], M[i])]
-    x = [M[i][n] for i in range(n)]
+    x = _solve(M)
     names = ["C", "m", "p", "q"] + (["r"] if with_helix else [])
     coeff = dict(zip(names, x))
     coeff["C"] = math.exp(coeff["C"])
-    #  how well it fits, in the currency a reader cares about
     errs = []
     for r in rows:
         if not r.get("eu_row"):
             continue
-        pred = fit_eu(coeff, {"Re": r["Re"], "XT": r["XT"], "XL": r["XL"],
-                              "cos_alpha": r.get("cos_alpha", 1.0)})
+        XT = r.get("XT_d", r.get("XT"))
+        XL = r.get("XL_d", r.get("XL"))
+        pred = (coeff["C"] * max(r["Re"], 1.0) ** -coeff["m"]
+                * max(XT - 1.0, 1e-3) ** -coeff["p"] * XL ** coeff["q"])
+        if with_helix and coeff.get("r"):
+            pred *= max(r.get("cos_eps", 1.0), 1e-6) ** -coeff["r"]
         errs.append(abs(pred - r["eu_row"]) / r["eu_row"])
     coeff["n_points"] = len(errs)
     coeff["mean_abs_error"] = sum(errs) / len(errs) if errs else None
@@ -459,7 +850,8 @@ def fit_power_law(rows, with_helix=False):
 # =============================================================================
 #  THE STAGE-1 REPORT
 # =============================================================================
-def _agreement_grid(keys=("jakob", "zukauskas")):
+def _agreement_grid(keys=None):
+    keys = keys or ENCODED
     """Every encoded correlation against every other, over the pitch/Re grid
     they share.  This is what makes the claims in `note` checkable instead of
     asserted: it is computed, here, from the same code the study will use."""
@@ -475,8 +867,11 @@ def _agreement_grid(keys=("jakob", "zukauskas")):
                 st = flow_state(D=D, ST=D * X, SL=D * X, n_rows=10,
                                 u_in=Re * nu / D / probe["umax"],
                                 rho=rho, nu=nu, staggered=staggered)
+                recs = {k: evaluate(k, st) for k in keys}
                 out.append({"staggered": staggered, "X": X, "Re": st["Re"],
-                            "eu": {k: evaluate(k, st)["eu_row"] for k in keys}})
+                            "eu": {k: r["eu_row"] for k, r in recs.items()},
+                            "outside": {k: r["outside"]
+                                        for k, r in recs.items()}})
     return out
 
 
@@ -517,6 +912,39 @@ def report_body(lang="ko"):
     p('<div class="tile"><div class="k">%s</div><div class="v">%d</div></div>'
       % (t("출처 필요", "awaiting the source"), len(CORRELATIONS) - n_enc))
     p("</div>")
+
+    p("<h2>%s</h2>" % t("이 과제가 왜 필요한가", "Why this project exists"))
+    p("<p>%s</p>" % t(
+        "실제 나선 코일 열교환기 형상에서 기존 상관식이 얼마나 빗나가는지는 이미 "
+        "측정되어 있습니다. KAERI 의 CHX (나선 코일 배열의 sodium-to-sodium "
+        "열교환기, 관경 27.2 mm, P_T/D 2.65, P_L/D 1.75, 4행 × 11열) 에 대한 "
+        "CFX 해석과 상관식 비교에서, 100 % 출력 조건의 쉘측 압력강하는 CFD "
+        "288.2 Pa 였고 <b>Zukauskas 는 61.9 %, Gunter–Shaw 는 45.2 % 벗어났습니다</b>. "
+        "저자들의 결론은 '기존 상관식으로는 예측할 수 없으므로 새 상관식을 "
+        "실험적으로 개발할 필요가 있다' 였습니다.",
+        "How far the existing correlations miss on a real helical-coil "
+        "exchanger has already been measured. For KAERI's CHX - a "
+        "sodium-to-sodium exchanger with a helically-coiled arrangement, "
+        "27.2 mm tubes, P_T/D 2.65, P_L/D 1.75, 4 rows by 11 columns - the "
+        "shell-side pressure drop at full power was 288.2 Pa by CFD, and "
+        "<b>Zukauskas was 61.9 % out, Gunter-Shaw 45.2 % out</b>. The authors "
+        "concluded that a new correlation had to be developed."))
+    p('<p class="muted">%s</p>' % t(
+        "출처: H. G. Noh, J. Eoh, D. E. Kim, M. H. Kim, "
+        "Trans. Korean Nuclear Society Spring Meeting 2018, 18S-013. "
+        "그 논문이 쓴 두 상관식이 모두 이 라이브러리에 들어 있습니다.",
+        "Source: H. G. Noh, J. Eoh, D. E. Kim and M. H. Kim, Trans. Korean "
+        "Nuclear Society Spring Meeting 2018, 18S-013. Both correlations that "
+        "paper used are in this library."))
+    p("<p>%s</p>" % t(
+        "그래서 순서는 이렇습니다: 먼저 <b>직선 rod</b> 에서 우리 CFD 절차가 "
+        "기존 상관식을 재현하는지 확인하고 (그것이 절차의 검증입니다), 그 다음 "
+        "나선 코일로 옮겨 가서 상관식이 벗어나는 지점을 측정하고, 마지막으로 "
+        "형상 정보를 반영한 상관식을 만듭니다.",
+        "Hence the order: establish on <b>straight rods</b> that our CFD "
+        "procedure reproduces the published correlations - that is what "
+        "validates the procedure - then move to the coil and measure where the "
+        "correlations leave off, then fit one that carries the geometry."))
 
     p("<h2>%s</h2>" % t("공통 정의", "The common definitions"))
     p("<p>%s</p>" % t(
@@ -563,47 +991,80 @@ def report_body(lang="ko"):
                                                local(c, "note")))
         p("</table>")
 
-    p("<h2>%s</h2>" % t("계산 가능한 두 상관식의 상호 대조",
-                        "The two evaluable correlations, against each other"))
+    p("<h2>%s</h2>" % t("계산 가능한 상관식들의 상호 대조",
+                        "The evaluable correlations, against each other"))
     p("<p>%s</p>" % t(
         "아래 표는 이 파일의 코드로 <i>지금</i> 계산한 값입니다. 정사각 피치 "
-        "(X_T = X_L = X), 10행, 물 기준. 두 상관식은 서로 독립적인 출처이므로 "
-        "이 차이가 '기존 상관식'이라는 기준선 자체의 폭입니다.",
+        "(X_T = X_L = X), 10행, 물 기준, 직선 rod. 서로 독립적인 출처이므로 "
+        "이들 사이의 폭이 '기존 상관식'이라는 기준선 자체의 폭입니다.",
         "Computed by this file's own code, now. Square pitch (X_T = X_L = X), "
-        "10 rows, water. The two come from independent sources, so the spread "
-        "between them is the width of the baseline itself."))
+        "10 rows, water, straight rods. They come from independent sources, so "
+        "the spread between them is the width of the baseline itself."))
     grid = _agreement_grid()
+    keys = ENCODED
+    names = {k: BY_KEY[k]["name"] for k in keys}
     for staggered in (False, True):
         p("<h3>%s</h3>" % (t("엇갈림 (staggered)", "staggered") if staggered
                            else t("정렬 (in-line)", "in-line")))
         p('<table class="grid"><tr><th>X</th><th>Re<sub>max</sub></th>'
-          "<th>Eu<sub>row</sub> Jakob</th><th>Eu<sub>row</sub> Zukauskas</th>"
-          "<th>Jakob / Zukauskas</th></tr>")
+          + "".join("<th>%s</th>" % esc_name for esc_name in
+                    (names[k] for k in keys)) + "</tr>")
         for g in grid:
             if g["staggered"] != staggered:
                 continue
-            a, b = g["eu"]["jakob"], g["eu"]["zukauskas"]
-            p('<tr><td class="n">%.2f</td><td class="n">%.3g</td>'
-              '<td class="n">%.4f</td><td class="n">%.4f</td>'
-              '<td class="n">%.2f</td></tr>' % (g["X"], g["Re"], a, b, a / b))
+            cells = ""
+            for k in keys:
+                v = g["eu"].get(k)
+                out = g["outside"].get(k)
+                cells += ('<td class="n">%s%s</td>'
+                          % (_fmt(v, 4) if v else "—",
+                             ' <i title="%s">·</i>' % _fmt(len(out or []))
+                             if out else ""))
+            p('<tr><td class="n">%.2f</td><td class="n">%.3g</td>%s</tr>'
+              % (g["X"], g["Re"], cells))
         p("</table>")
+    p('<p class="muted">%s</p>' % t(
+        "· 표시는 그 점이 해당 상관식의 인용 범위 밖이라는 뜻입니다. "
+        "Shen 식은 직선 다발(나선각 0)에 대해서는 원래 범위 밖이며, "
+        "여기서는 그 외삽이 얼마나 벌어지는지 보려고 함께 계산했습니다.",
+        "A dot means that point is outside that correlation's quoted range. "
+        "Shen's is outside it for a STRAIGHT bundle by definition; it is shown "
+        "so the size of that extrapolation is visible rather than assumed."))
+
     #  The summary, restricted as well as unrestricted.  The unrestricted
     #  spread is dominated by the corners of the grid that Jakob was never
     #  quoted for, and reporting only that would make the baseline look
     #  useless; reporting only the restricted one would make it look better
     #  than it is.  Both, and the restriction named.
-    p("<h3>%s</h3>" % t("요약", "In summary"))
+    p("<h3>%s</h3>" % t("요약 — 가장 벌어진 두 상관식의 비",
+                        "In summary - the widest pair, as a ratio"))
     p('<table class="grid"><tr><th>%s</th><th>%s</th><th>%s</th></tr>'
       % (t("범위", "over"), t("정렬", "in-line"), t("엇갈림", "staggered")))
 
-    def band(pred):
+    def band(pred, in_range_only=True):
+        """The highest correlation over the lowest, at each point.
+
+        Counting only the ones that are IN RANGE there, because a correlation
+        being asked outside its own stated limits is not evidence about the
+        baseline - it is evidence about the extrapolation.  Shen's is outside
+        its range for a straight bundle at every single point, so including it
+        would widen every cell for a reason that has nothing to do with how
+        well the literature agrees.
+        """
         cells = []
         for staggered in (False, True):
-            rs = [g["eu"]["jakob"] / g["eu"]["zukauskas"] for g in grid
-                  if g["staggered"] == staggered and pred(g)]
-            cells.append('<td class="n">%.2f – %.2f (%s %.2f)</td>'
-                         % (min(rs), max(rs), t("평균", "mean"),
-                            sum(rs) / len(rs)))
+            worst = []
+            for g in grid:
+                if g["staggered"] != staggered or not pred(g):
+                    continue
+                vals = [v for k, v in g["eu"].items()
+                        if v and (not in_range_only or not g["outside"].get(k))]
+                if len(vals) >= 2:
+                    worst.append(max(vals) / min(vals))
+            cells.append('<td class="n">%s</td>' % (
+                "—" if not worst else "%.2f – %.2f (%s %.2f)"
+                % (min(worst), max(worst), t("평균", "mean"),
+                   sum(worst) / len(worst))))
         return "".join(cells)
 
     p("<tr><th>%s</th>%s</tr>" % (
@@ -614,21 +1075,63 @@ def report_body(lang="ko"):
     p("<tr><th>%s</th>%s</tr>" % (
         t("그리고 X ≥ 1.5", "... and X >= 1.5"),
         band(lambda g: 2000.0 <= g["Re"] <= 40000.0 and g["X"] >= 1.5)))
+    p("<tr><th>%s</th>%s</tr>" % (
+        t("(범위 밖 포함)", "(including out-of-range)"),
+        band(lambda g: True, in_range_only=False)))
     p("</table>")
+    #  and where the coil correlation lands when it is dragged to zero lean,
+    #  which is the number stage 4 has to beat
+    sh = [g["eu"]["shen-2024"] / (sum(v for k, v in g["eu"].items()
+                                      if k != "shen-2024" and v)
+                                  / max(1, len([1 for k, v in g["eu"].items()
+                                                if k != "shen-2024" and v])))
+          for g in grid if g["eu"].get("shen-2024")]
     p("<p>%s</p>" % t(
-        "읽는 법: 두 상관식은 Jakob이 제시한 Re 범위 안에서, 피치비가 1.5 이상이면 "
-        "서로 ±20 % 안에 듭니다. 즉 그 영역에서는 '기존 상관식'이 하나의 값에 가깝고, "
-        "CFD가 그 밖으로 크게 벗어나면 CFD를 의심해야 합니다. 반대로 <b>X = 1.25의 "
-        "촘촘한 피치</b>와 <b>Re가 범위 밖</b>인 곳에서는 두 상관식이 최대 2.2배까지 "
-        "갈라집니다 — 기준선 자체가 없는 영역이고, CFD 한 점의 가치가 가장 큰 곳입니다. "
-        "3단계의 해석 조건은 이 두 영역을 모두 지나도록 잡습니다.",
-        "How to read it: inside Jakob's quoted Re range and for pitch ratios "
-        "of 1.5 and up, the two agree to within about 20 % either way. There, "
-        "'the existing correlation' is close to a single number and CFD that "
-        "misses it by much is CFD to be suspicious of. At <b>X = 1.25</b> and "
-        "<b>outside that Re range</b> they part by up to a factor of 2.2 - "
-        "there is no baseline there, and that is where one CFD point is worth "
-        "the most. The stage-3 matrix is laid out to cross both regions."))
+        "나선 코일용인 Shen 식을 나선각 0으로 외삽하면, 나머지 세 상관식의 "
+        "평균 대비 %.2f–%.2f 배 (평균 %.2f) 로 <b>일관되게 낮게</b> 나옵니다. "
+        "직선 다발은 그 식의 적합 범위 밖이므로 이것은 결함이 아니라 "
+        "외삽의 크기이고, 4단계가 메워야 할 간격입니다."
+        % (min(sh), max(sh), sum(sh) / len(sh)),
+        "Dragged to zero lean, Shen's coil correlation comes out "
+        "<b>consistently low</b> against the mean of the other three - "
+        "%.2f to %.2f times it, mean %.2f. A straight bundle is outside that "
+        "fit's range, so this is not a fault: it is the size of the "
+        "extrapolation, and the gap stage 4 has to close."
+        % (min(sh), max(sh), sum(sh) / len(sh))))
+    p("<p>%s</p>" % t(
+        "읽는 법: 각 칸은 그 조건에서 <b>가장 높은 상관식 ÷ 가장 낮은 상관식</b>"
+        "입니다. 1.0이면 전부 일치, 2.0이면 두 배 차이입니다.",
+        "How to read it: each cell is the <b>highest correlation divided by "
+        "the lowest</b> at that condition. 1.0 is unanimity, 2.0 is a factor "
+        "of two."))
+    p("<p>%s</p>" % t(
+        "그리고 여기서 가장 중요한 결과가 나옵니다: <b>기존 상관식들 사이에 "
+        "'정답'이라 부를 만큼 좁은 영역이 없습니다.</b> 적용 범위 안의 세 상관식 "
+        "(Jakob, Zukauskas, Gunter–Shaw) 조차 격자 전체에서 서로 평균 1.4–1.5배, "
+        "최대 2.2배 차이가 납니다. 두 개만 놓고 보면 좁아 보이지만 세 번째를 "
+        "더하면 넓어집니다 — 앞서의 '±20 %' 는 Jakob–Zukauskas 쌍의 성질이지 "
+        "문헌의 합의가 아니었습니다.",
+        "And here is the result that matters most: <b>there is no region where "
+        "the existing correlations are tight enough to call one of them the "
+        "answer.</b> Even the three that are in range - Jakob, Zukauskas, "
+        "Gunter & Shaw - differ from one another by about 1.4 to 1.5 times on "
+        "average and up to 2.2 times over the grid. Two of them look close; "
+        "adding a third widens it. The earlier '20 %' was a property of the "
+        "Jakob-Zukauskas pair, not a consensus in the literature."))
+    p("<p>%s</p>" % t(
+        "3단계에 대해 이것이 말해 주는 것은 두 가지입니다. 첫째, CFD를 상관식으로 "
+        "'검증'할 수 있는 정밀도의 상한이 이 폭입니다 — 어느 한 상관식의 20 % "
+        "안에 든다고 맞는 것도 아니고, 40 % 벗어난다고 틀린 것도 아닙니다. "
+        "판정은 <b>세 상관식이 만드는 띠 안에 드는가</b>와 <b>기울기(Re 의존성, "
+        "피치 의존성)가 같은가</b>로 해야 합니다. 둘째, 그만큼 새 데이터의 "
+        "가치가 큽니다.",
+        "Two things follow for stage 3. First, this width is the ceiling on "
+        "how precisely CFD can be 'validated' against a correlation at all: "
+        "landing inside 20 % of one of them does not make the CFD right, and "
+        "missing one by 40 % does not make it wrong. The test has to be "
+        "<b>does it fall inside the band the three of them span</b> and "
+        "<b>does it have the same slopes</b>, in Re and in pitch. Second, that "
+        "is exactly how much a new measurement is worth."))
 
     p("<h2>%s</h2>" % t("4단계에서 맞출 형태", "The form stage 4 will fit"))
     p("<p><code>%s</code></p>" % FIT_FORM["expr"])

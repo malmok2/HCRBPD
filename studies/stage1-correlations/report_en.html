@@ -50,10 +50,14 @@ body{margin:0;background:#eef1f5;padding:26px 16px;
 <h1>Stage 1 - the correlations, collected</h1>
 <div class="sub">Cross-flow pressure drop over a bank of straight rods - source, range, and whether it can actually be evaluated</div>
 <div class="tiles">
-<div class="tile"><div class="k">correlations listed</div><div class="v">6</div></div>
-<div class="tile"><div class="k">evaluable here</div><div class="v">2</div></div>
+<div class="tile"><div class="k">correlations listed</div><div class="v">8</div></div>
+<div class="tile"><div class="k">evaluable here</div><div class="v">4</div></div>
 <div class="tile"><div class="k">awaiting the source</div><div class="v">4</div></div>
 </div>
+<h2>Why this project exists</h2>
+<p>How far the existing correlations miss on a real helical-coil exchanger has already been measured. For KAERI's CHX - a sodium-to-sodium exchanger with a helically-coiled arrangement, 27.2 mm tubes, P_T/D 2.65, P_L/D 1.75, 4 rows by 11 columns - the shell-side pressure drop at full power was 288.2 Pa by CFD, and <b>Zukauskas was 61.9 % out, Gunter-Shaw 45.2 % out</b>. The authors concluded that a new correlation had to be developed.</p>
+<p class="muted">Source: H. G. Noh, J. Eoh, D. E. Kim and M. H. Kim, Trans. Korean Nuclear Society Spring Meeting 2018, 18S-013. Both correlations that paper used are in this library.</p>
+<p>Hence the order: establish on <b>straight rods</b> that our CFD procedure reproduces the published correlations - that is what validates the procedure - then move to the coil and measure where the correlations leave off, then fit one that carries the geometry.</p>
 <h2>The common definitions</h2>
 <p>Sources disagree about what f means - Jakob's appears as <code>dp = 2 f N rho u_max^2</code>, Zukauskas' as <code>dp = N chi f (rho u_max^2/2)</code> - so the f's are not comparable. Everything here is converted to the <b>Euler number per row</b>.</p>
 <table>
@@ -68,7 +72,7 @@ body{margin:0;background:#eef1f5;padding:26px 16px;
 <tr><th>source</th><td>M. Jakob, Trans. ASME 60 (1938) 384. In the form given by J. P. Holman, Heat Transfer, McGraw-Hill - the in-line and staggered friction factors, with dp = 2 f N rho u_max^2.</td></tr>
 <tr><th>range</th><td>Re 2000–4e+04 · X_T 1.25–3 · X_L 1.25–3 · rows >= 10</td></tr>
 <tr><th>on that range</th><td>Holman quotes the correlation for 2000 < Re_max < 40 000. The pitch range is the range over which the source data were taken and is the weaker of the two limits.</td></tr>
-<tr><th>note</th><td>Closed form, and the one the Geometry tab has always shown. Held against Zukauskas' charts over a square-pitch grid in the stage-1 report - not asserted here, computed there. The short version: inside Jakob's own quoted Re range and for X >= 1.5 the two agree to about 20 % either way; at X = 1.25, or outside 2e3 < Re < 4e4, they part company by as much as a factor of 2.2. The tight-pitch corner is where a CFD point is worth the most.</td></tr>
+<tr><th>note</th><td>Closed form, and the one the Geometry tab has always shown. Held against the others over a square-pitch grid in the stage-1 report - not asserted here, computed there. Against ZUKAUSKAS ALONE it sits within about 20 % inside its own Re range at X >= 1.5, and parts by up to 2.2x at X = 1.25 or outside 2e3 < Re < 4e4. Adding Gunter & Shaw WIDENS that, which is the more important result: the three applicable correlations differ from one another by 1.0x to 2.2x over the grid, typically about 1.45x, and there is no condition at which they agree closely.</td></tr>
 </table>
 <h3>Zukauskas (1972) </h3>
 <table>
@@ -76,6 +80,20 @@ body{margin:0;background:#eef1f5;padding:26px 16px;
 <tr><th>range</th><td>Re 100–1e+06 · X_T 1.25–2.5 · X_L 1.25–2.5 · rows >= 10</td></tr>
 <tr><th>on that range</th><td>The four fits carry their own domains, read off their knots at import; friction() clamps to them and says so. The pitch ratios are drawn only for 1.25 to 2.5.</td></tr>
 <tr><th>note</th><td>A chart, not a formula: the chain is chart -> digitiser -> spline. Where the chart says chi is exactly 1 (square pitch) the fit returns 1.00 to 1.08, and that 8 % is the honest floor on what a reading off it is worth. Reproduces both of `ht`'s own documented examples to the digit, which is what says the tables came across intact.</td></tr>
+</table>
+<h3>Gunter & Shaw (1945) </h3>
+<table>
+<tr><th>source</th><td>A. Y. Gunter and W. A. Shaw, 'A general correlation of friction factors for various types of surfaces in cross flow', Trans. ASME 67 (1945) 643-660. Transcribed from two independent secondary sources that agree: H. G. Noh, J. Eoh, D. E. Kim and M. H. Kim, Trans. KNS Spring Meeting 2018, 18S-013 (the KAERI CHX study), and E. K. Kim, Y. S. Kim and Y. S. Sim, Trans. KNS Spring Meeting 2000 (COMMIX-HSG), which give the same f/2 branches and the same pressure-drop form.</td></tr>
+<tr><th>range</th><td>Re 1–1e+06 · X_T 1.25–5 · X_L 1.25–5 · rows >= 4</td></tr>
+<tr><th>on that range</th><td>Gunter & Shaw fitted tubes of 0.02 to 2 inches at transverse and longitudinal pitches of 1.25 to 5 diameters, bare and extended surfaces together. The Re limits are on Re_v, built on the volumetric hydraulic diameter, which for a typical bank is an order of magnitude larger than Re on the tube diameter.</td></tr>
+<tr><th>note</th><td>The only correlation here that does NOT separate in-line from staggered: it collapses both onto one curve through the volumetric hydraulic diameter and two pitch-ratio factors, and lands between Zukauskas' two branches at the same pitch. That is its appeal and its limitation. It is also the correlation the KAERI CHX study found came CLOSEST to CFD on a real helical bundle - 45 % out where Zukauskas was 62 % out, which is the measurement this whole project exists to improve on.</td></tr>
+</table>
+<h3>Shen et al. (2024), helical bundle </h3>
+<table>
+<tr><th>source</th><td>C. Shen, M. Liu, L. Liu, Z. Xu, C. Zeng, L. Liu and H. Gu, 'Development of friction factor and heat transfer correlation of liquid metal flow in helical tube bundles', Annals of Nuclear Energy 201 (2024) 110442, eq. (12). The deviation angle eps = beta(1 - beta/90) is Gilli's (1965).</td></tr>
+<tr><th>range</th><td>Re 2500–1.2e+05 · X_T 1.4–1.6 · X_L 1.4–1.6 · rows >= 4</td></tr>
+<tr><th>on that range</th><td>Fitted on lead-bismuth CFD at helix angles of 2 to 15 degrees, S/d 1.4 to 1.6, Re 2500 to 120 000, with prediction error inside 10 %. A straight bundle is OUTSIDE it: the helix factor is exactly 1 at beta = 0 by construction, but the fit never saw beta = 0.</td></tr>
+<tr><th>note</th><td>The only entry here written for a COIL, and the closest thing in the literature to what stage 4 is meant to produce. Its f is defined as 2 dp/(rho u_max^2 z), which is this library's Eu_row exactly - the paper and this project already speak one currency. Its shape is also the shape stage 4 should start from: a laminar plus turbulent Re function, one factor in the pitch product, one in the helix angle that is unity when the bundle is straight. Two of its own quoted numbers were reproduced from the formula as a transcription check.</td></tr>
 </table>
 <h3>Gaddis & Gnielinski (1985) / VDI <span class="flag">source needed</span></h3>
 <table>
@@ -105,65 +123,70 @@ body{margin:0;background:#eef1f5;padding:26px 16px;
 <tr><th>on that range</th><td>Quoted range; not verified here.</td></tr>
 <tr><th>note</th><td>The engineering-practice standard, behind a licence. Listed so that it is visibly absent rather than invisibly missing.</td></tr>
 </table>
-<h2>The two evaluable correlations, against each other</h2>
-<p>Computed by this file's own code, now. Square pitch (X_T = X_L = X), 10 rows, water. The two come from independent sources, so the spread between them is the width of the baseline itself.</p>
+<h2>The evaluable correlations, against each other</h2>
+<p>Computed by this file's own code, now. Square pitch (X_T = X_L = X), 10 rows, water, straight rods. They come from independent sources, so the spread between them is the width of the baseline itself.</p>
 <h3>in-line</h3>
-<table class="grid"><tr><th>X</th><th>Re<sub>max</sub></th><th>Eu<sub>row</sub> Jakob</th><th>Eu<sub>row</sub> Zukauskas</th><th>Jakob / Zukauskas</th></tr>
-<tr><td class="n">1.25</td><td class="n">1e+03</td><td class="n">0.9645</td><td class="n">0.4379</td><td class="n">2.20</td></tr>
-<tr><td class="n">1.25</td><td class="n">3e+03</td><td class="n">0.8179</td><td class="n">0.5305</td><td class="n">1.54</td></tr>
-<tr><td class="n">1.25</td><td class="n">1e+04</td><td class="n">0.6828</td><td class="n">0.4501</td><td class="n">1.52</td></tr>
-<tr><td class="n">1.25</td><td class="n">3e+04</td><td class="n">0.5790</td><td class="n">0.3757</td><td class="n">1.54</td></tr>
-<tr><td class="n">1.25</td><td class="n">1e+05</td><td class="n">0.4834</td><td class="n">0.2917</td><td class="n">1.66</td></tr>
-<tr><td class="n">1.50</td><td class="n">1e+03</td><td class="n">0.4492</td><td class="n">0.2582</td><td class="n">1.74</td></tr>
-<tr><td class="n">1.50</td><td class="n">3e+03</td><td class="n">0.3810</td><td class="n">0.3487</td><td class="n">1.09</td></tr>
-<tr><td class="n">1.50</td><td class="n">1e+04</td><td class="n">0.3180</td><td class="n">0.3331</td><td class="n">0.95</td></tr>
-<tr><td class="n">1.50</td><td class="n">3e+04</td><td class="n">0.2697</td><td class="n">0.3014</td><td class="n">0.89</td></tr>
-<tr><td class="n">1.50</td><td class="n">1e+05</td><td class="n">0.2251</td><td class="n">0.2506</td><td class="n">0.90</td></tr>
-<tr><td class="n">2.00</td><td class="n">1e+03</td><td class="n">0.2895</td><td class="n">0.2249</td><td class="n">1.29</td></tr>
-<tr><td class="n">2.00</td><td class="n">3e+03</td><td class="n">0.2455</td><td class="n">0.2282</td><td class="n">1.08</td></tr>
-<tr><td class="n">2.00</td><td class="n">1e+04</td><td class="n">0.2050</td><td class="n">0.2324</td><td class="n">0.88</td></tr>
-<tr><td class="n">2.00</td><td class="n">3e+04</td><td class="n">0.1738</td><td class="n">0.2089</td><td class="n">0.83</td></tr>
-<tr><td class="n">2.00</td><td class="n">1e+05</td><td class="n">0.1451</td><td class="n">0.1865</td><td class="n">0.78</td></tr>
-<tr><td class="n">2.50</td><td class="n">1e+03</td><td class="n">0.2610</td><td class="n">0.1759</td><td class="n">1.48</td></tr>
-<tr><td class="n">2.50</td><td class="n">3e+03</td><td class="n">0.2213</td><td class="n">0.1798</td><td class="n">1.23</td></tr>
-<tr><td class="n">2.50</td><td class="n">1e+04</td><td class="n">0.1847</td><td class="n">0.1834</td><td class="n">1.01</td></tr>
-<tr><td class="n">2.50</td><td class="n">3e+04</td><td class="n">0.1567</td><td class="n">0.1801</td><td class="n">0.87</td></tr>
-<tr><td class="n">2.50</td><td class="n">1e+05</td><td class="n">0.1308</td><td class="n">0.1663</td><td class="n">0.79</td></tr>
+<table class="grid"><tr><th>X</th><th>Re<sub>max</sub></th><th>Jakob (1938)</th><th>Zukauskas (1972)</th><th>Gunter & Shaw (1945)</th><th>Shen et al. (2024), helical bundle</th></tr>
+<tr><td class="n">1.25</td><td class="n">1e+03</td><td class="n">0.9645 <i title="1">·</i></td><td class="n">0.4379</td><td class="n">0.8126</td><td class="n">0.4946 <i title="3">·</i></td></tr>
+<tr><td class="n">1.25</td><td class="n">3e+03</td><td class="n">0.8179</td><td class="n">0.5305</td><td class="n">0.6929</td><td class="n">0.3782 <i title="2">·</i></td></tr>
+<tr><td class="n">1.25</td><td class="n">1e+04</td><td class="n">0.6828</td><td class="n">0.4501</td><td class="n">0.5819</td><td class="n">0.328 <i title="2">·</i></td></tr>
+<tr><td class="n">1.25</td><td class="n">3e+04</td><td class="n">0.579</td><td class="n">0.3757</td><td class="n">0.4963</td><td class="n">0.3053 <i title="2">·</i></td></tr>
+<tr><td class="n">1.25</td><td class="n">1e+05</td><td class="n">0.4834 <i title="1">·</i></td><td class="n">0.2917</td><td class="n">0.4168</td><td class="n">0.2886 <i title="2">·</i></td></tr>
+<tr><td class="n">1.50</td><td class="n">1e+03</td><td class="n">0.4492 <i title="1">·</i></td><td class="n">0.2582</td><td class="n">0.5654</td><td class="n">0.3846 <i title="1">·</i></td></tr>
+<tr><td class="n">1.50</td><td class="n">3e+03</td><td class="n">0.381</td><td class="n">0.3487</td><td class="n">0.4821</td><td class="n">0.2941</td></tr>
+<tr><td class="n">1.50</td><td class="n">1e+04</td><td class="n">0.318</td><td class="n">0.3331</td><td class="n">0.4049</td><td class="n">0.255</td></tr>
+<tr><td class="n">1.50</td><td class="n">3e+04</td><td class="n">0.2697</td><td class="n">0.3014</td><td class="n">0.3453</td><td class="n">0.2374</td></tr>
+<tr><td class="n">1.50</td><td class="n">1e+05</td><td class="n">0.2251 <i title="1">·</i></td><td class="n">0.2506</td><td class="n">0.29</td><td class="n">0.2244</td></tr>
+<tr><td class="n">2.00</td><td class="n">1e+03</td><td class="n">0.2895 <i title="1">·</i></td><td class="n">0.2249</td><td class="n">0.3741</td><td class="n">0.2586 <i title="3">·</i></td></tr>
+<tr><td class="n">2.00</td><td class="n">3e+03</td><td class="n">0.2455</td><td class="n">0.2282</td><td class="n">0.319</td><td class="n">0.1977 <i title="2">·</i></td></tr>
+<tr><td class="n">2.00</td><td class="n">1e+04</td><td class="n">0.205</td><td class="n">0.2324</td><td class="n">0.2679</td><td class="n">0.1715 <i title="2">·</i></td></tr>
+<tr><td class="n">2.00</td><td class="n">3e+04</td><td class="n">0.1738</td><td class="n">0.2089</td><td class="n">0.2284</td><td class="n">0.1596 <i title="2">·</i></td></tr>
+<tr><td class="n">2.00</td><td class="n">1e+05</td><td class="n">0.1451 <i title="1">·</i></td><td class="n">0.1865</td><td class="n">0.1918</td><td class="n">0.1509 <i title="2">·</i></td></tr>
+<tr><td class="n">2.50</td><td class="n">1e+03</td><td class="n">0.261 <i title="1">·</i></td><td class="n">0.1759</td><td class="n">0.288</td><td class="n">0.19 <i title="3">·</i></td></tr>
+<tr><td class="n">2.50</td><td class="n">3e+03</td><td class="n">0.2213</td><td class="n">0.1798</td><td class="n">0.2456</td><td class="n">0.1453 <i title="2">·</i></td></tr>
+<tr><td class="n">2.50</td><td class="n">1e+04</td><td class="n">0.1847</td><td class="n">0.1834</td><td class="n">0.2063</td><td class="n">0.126 <i title="2">·</i></td></tr>
+<tr><td class="n">2.50</td><td class="n">3e+04</td><td class="n">0.1567</td><td class="n">0.1801</td><td class="n">0.1759</td><td class="n">0.1173 <i title="2">·</i></td></tr>
+<tr><td class="n">2.50</td><td class="n">1e+05</td><td class="n">0.1308 <i title="1">·</i></td><td class="n">0.1663</td><td class="n">0.1477</td><td class="n">0.1109 <i title="2">·</i></td></tr>
 </table>
 <h3>staggered</h3>
-<table class="grid"><tr><th>X</th><th>Re<sub>max</sub></th><th>Eu<sub>row</sub> Jakob</th><th>Eu<sub>row</sub> Zukauskas</th><th>Jakob / Zukauskas</th></tr>
-<tr><td class="n">1.25</td><td class="n">1e+03</td><td class="n">1.0296</td><td class="n">0.8435</td><td class="n">1.22</td></tr>
-<tr><td class="n">1.25</td><td class="n">3e+03</td><td class="n">0.8637</td><td class="n">0.6751</td><td class="n">1.28</td></tr>
-<tr><td class="n">1.25</td><td class="n">1e+04</td><td class="n">0.7123</td><td class="n">0.5261</td><td class="n">1.35</td></tr>
-<tr><td class="n">1.25</td><td class="n">3e+04</td><td class="n">0.5975</td><td class="n">0.4971</td><td class="n">1.20</td></tr>
-<tr><td class="n">1.25</td><td class="n">1e+05</td><td class="n">0.4928</td><td class="n">0.2954</td><td class="n">1.67</td></tr>
-<tr><td class="n">1.50</td><td class="n">1e+03</td><td class="n">0.6615</td><td class="n">0.6152</td><td class="n">1.08</td></tr>
-<tr><td class="n">1.50</td><td class="n">3e+03</td><td class="n">0.5549</td><td class="n">0.5110</td><td class="n">1.09</td></tr>
-<tr><td class="n">1.50</td><td class="n">1e+04</td><td class="n">0.4577</td><td class="n">0.4126</td><td class="n">1.11</td></tr>
-<tr><td class="n">1.50</td><td class="n">3e+04</td><td class="n">0.3839</td><td class="n">0.3963</td><td class="n">0.97</td></tr>
-<tr><td class="n">1.50</td><td class="n">1e+05</td><td class="n">0.3166</td><td class="n">0.2295</td><td class="n">1.38</td></tr>
-<tr><td class="n">2.00</td><td class="n">1e+03</td><td class="n">0.4874</td><td class="n">0.4943</td><td class="n">0.99</td></tr>
-<tr><td class="n">2.00</td><td class="n">3e+03</td><td class="n">0.4089</td><td class="n">0.4265</td><td class="n">0.96</td></tr>
-<tr><td class="n">2.00</td><td class="n">1e+04</td><td class="n">0.3372</td><td class="n">0.3637</td><td class="n">0.93</td></tr>
-<tr><td class="n">2.00</td><td class="n">3e+04</td><td class="n">0.2829</td><td class="n">0.3486</td><td class="n">0.81</td></tr>
-<tr><td class="n">2.00</td><td class="n">1e+05</td><td class="n">0.2333</td><td class="n">0.2040</td><td class="n">1.14</td></tr>
-<tr><td class="n">2.50</td><td class="n">1e+03</td><td class="n">0.4320</td><td class="n">0.4311</td><td class="n">1.00</td></tr>
-<tr><td class="n">2.50</td><td class="n">3e+03</td><td class="n">0.3624</td><td class="n">0.3776</td><td class="n">0.96</td></tr>
-<tr><td class="n">2.50</td><td class="n">1e+04</td><td class="n">0.2989</td><td class="n">0.3288</td><td class="n">0.91</td></tr>
-<tr><td class="n">2.50</td><td class="n">3e+04</td><td class="n">0.2507</td><td class="n">0.3191</td><td class="n">0.79</td></tr>
-<tr><td class="n">2.50</td><td class="n">1e+05</td><td class="n">0.2068</td><td class="n">0.1859</td><td class="n">1.11</td></tr>
+<table class="grid"><tr><th>X</th><th>Re<sub>max</sub></th><th>Jakob (1938)</th><th>Zukauskas (1972)</th><th>Gunter & Shaw (1945)</th><th>Shen et al. (2024), helical bundle</th></tr>
+<tr><td class="n">1.25</td><td class="n">1e+03</td><td class="n">1.03 <i title="1">·</i></td><td class="n">0.8435</td><td class="n">0.8126</td><td class="n">0.4946 <i title="3">·</i></td></tr>
+<tr><td class="n">1.25</td><td class="n">3e+03</td><td class="n">0.8637</td><td class="n">0.6751</td><td class="n">0.6929</td><td class="n">0.3782 <i title="2">·</i></td></tr>
+<tr><td class="n">1.25</td><td class="n">1e+04</td><td class="n">0.7123</td><td class="n">0.5261</td><td class="n">0.5819</td><td class="n">0.328 <i title="2">·</i></td></tr>
+<tr><td class="n">1.25</td><td class="n">3e+04</td><td class="n">0.5975</td><td class="n">0.4971</td><td class="n">0.4963</td><td class="n">0.3053 <i title="2">·</i></td></tr>
+<tr><td class="n">1.25</td><td class="n">1e+05</td><td class="n">0.4928 <i title="1">·</i></td><td class="n">0.2954</td><td class="n">0.4168</td><td class="n">0.2886 <i title="2">·</i></td></tr>
+<tr><td class="n">1.50</td><td class="n">1e+03</td><td class="n">0.6615 <i title="1">·</i></td><td class="n">0.6152</td><td class="n">0.5654</td><td class="n">0.3846 <i title="1">·</i></td></tr>
+<tr><td class="n">1.50</td><td class="n">3e+03</td><td class="n">0.5549</td><td class="n">0.511</td><td class="n">0.4821</td><td class="n">0.2941</td></tr>
+<tr><td class="n">1.50</td><td class="n">1e+04</td><td class="n">0.4577</td><td class="n">0.4126</td><td class="n">0.4049</td><td class="n">0.255</td></tr>
+<tr><td class="n">1.50</td><td class="n">3e+04</td><td class="n">0.3839</td><td class="n">0.3963</td><td class="n">0.3453</td><td class="n">0.2374</td></tr>
+<tr><td class="n">1.50</td><td class="n">1e+05</td><td class="n">0.3166 <i title="1">·</i></td><td class="n">0.2295</td><td class="n">0.29</td><td class="n">0.2244</td></tr>
+<tr><td class="n">2.00</td><td class="n">1e+03</td><td class="n">0.4874 <i title="1">·</i></td><td class="n">0.4943</td><td class="n">0.3741</td><td class="n">0.2586 <i title="3">·</i></td></tr>
+<tr><td class="n">2.00</td><td class="n">3e+03</td><td class="n">0.4089</td><td class="n">0.4265</td><td class="n">0.319</td><td class="n">0.1977 <i title="2">·</i></td></tr>
+<tr><td class="n">2.00</td><td class="n">1e+04</td><td class="n">0.3372</td><td class="n">0.3637</td><td class="n">0.2679</td><td class="n">0.1715 <i title="2">·</i></td></tr>
+<tr><td class="n">2.00</td><td class="n">3e+04</td><td class="n">0.2829</td><td class="n">0.3486</td><td class="n">0.2284</td><td class="n">0.1596 <i title="2">·</i></td></tr>
+<tr><td class="n">2.00</td><td class="n">1e+05</td><td class="n">0.2333 <i title="1">·</i></td><td class="n">0.204</td><td class="n">0.1918</td><td class="n">0.1509 <i title="2">·</i></td></tr>
+<tr><td class="n">2.50</td><td class="n">1e+03</td><td class="n">0.432 <i title="1">·</i></td><td class="n">0.4311</td><td class="n">0.288</td><td class="n">0.19 <i title="3">·</i></td></tr>
+<tr><td class="n">2.50</td><td class="n">3e+03</td><td class="n">0.3624</td><td class="n">0.3776</td><td class="n">0.2456</td><td class="n">0.1453 <i title="2">·</i></td></tr>
+<tr><td class="n">2.50</td><td class="n">1e+04</td><td class="n">0.2989</td><td class="n">0.3288</td><td class="n">0.2063</td><td class="n">0.126 <i title="2">·</i></td></tr>
+<tr><td class="n">2.50</td><td class="n">3e+04</td><td class="n">0.2507</td><td class="n">0.3191</td><td class="n">0.1759</td><td class="n">0.1173 <i title="2">·</i></td></tr>
+<tr><td class="n">2.50</td><td class="n">1e+05</td><td class="n">0.2068 <i title="1">·</i></td><td class="n">0.1859</td><td class="n">0.1477</td><td class="n">0.1109 <i title="2">·</i></td></tr>
 </table>
-<h3>In summary</h3>
+<p class="muted">A dot means that point is outside that correlation's quoted range. Shen's is outside it for a STRAIGHT bundle by definition; it is shown so the size of that extrapolation is visible rather than assumed.</p>
+<h3>In summary - the widest pair, as a ratio</h3>
 <table class="grid"><tr><th>over</th><th>in-line</th><th>staggered</th></tr>
-<tr><th>the whole grid</th><td class="n">0.78 – 2.20 (mean 1.21)</td><td class="n">0.79 – 1.67 (mean 1.10)</td></tr>
-<tr><th>Jakob's quoted Re, 2e3–4e4</th><td class="n">0.83 – 1.54 (mean 1.12)</td><td class="n">0.79 – 1.35 (mean 1.03)</td></tr>
-<tr><th>... and X >= 1.5</th><td class="n">0.83 – 1.23 (mean 0.98)</td><td class="n">0.79 – 1.11 (mean 0.95)</td></tr>
+<tr><th>the whole grid</th><td class="n">1.03 – 2.19 (mean 1.46)</td><td class="n">1.04 – 1.89 (mean 1.42)</td></tr>
+<tr><th>Jakob's quoted Re, 2e3–4e4</th><td class="n">1.12 – 1.64 (mean 1.41)</td><td class="n">1.20 – 1.89 (mean 1.53)</td></tr>
+<tr><th>... and X >= 1.5</th><td class="n">1.12 – 1.64 (mean 1.37)</td><td class="n">1.34 – 1.89 (mean 1.61)</td></tr>
+<tr><th>(including out-of-range)</th><td class="n">1.29 – 2.20 (mean 1.69)</td><td class="n">1.41 – 2.72 (mean 2.03)</td></tr>
 </table>
-<p>How to read it: inside Jakob's quoted Re range and for pitch ratios of 1.5 and up, the two agree to within about 20 % either way. There, 'the existing correlation' is close to a single number and CFD that misses it by much is CFD to be suspicious of. At <b>X = 1.25</b> and <b>outside that Re range</b> they part by up to a factor of 2.2 - there is no baseline there, and that is where one CFD point is worth the most. The stage-3 matrix is laid out to cross both regions.</p>
+<p>Dragged to zero lean, Shen's coil correlation comes out <b>consistently low</b> against the mean of the other three - 0.44 to 0.91 times it, mean 0.66. A straight bundle is outside that fit's range, so this is not a fault: it is the size of the extrapolation, and the gap stage 4 has to close.</p>
+<p>How to read it: each cell is the <b>highest correlation divided by the lowest</b> at that condition. 1.0 is unanimity, 2.0 is a factor of two.</p>
+<p>And here is the result that matters most: <b>there is no region where the existing correlations are tight enough to call one of them the answer.</b> Even the three that are in range - Jakob, Zukauskas, Gunter & Shaw - differ from one another by about 1.4 to 1.5 times on average and up to 2.2 times over the grid. Two of them look close; adding a third widens it. The earlier '20 %' was a property of the Jakob-Zukauskas pair, not a consensus in the literature.</p>
+<p>Two things follow for stage 3. First, this width is the ceiling on how precisely CFD can be 'validated' against a correlation at all: landing inside 20 % of one of them does not make the CFD right, and missing one by 40 % does not make it wrong. The test has to be <b>does it fall inside the band the three of them span</b> and <b>does it have the same slopes</b>, in Re and in pitch. Second, that is exactly how much a new measurement is worth.</p>
 <h2>The form stage 4 will fit</h2>
-<p><code>Eu_row = C * Re^(-m) * (X_T-1)^(-p) * X_L^q</code></p>
+<p><code>Eu_row = (A/Re + B Re^-m) X_T^-p X_L^-q (cos eps)^-(cK K + c0)</code></p>
 <p>Every correlation above reduces to a power of Re times a function of the pitch ratios, so ours starts from the same shape. The coil adds one factor in the helix angle, which is 1 at zero lean - so the straight-rod fit is the coil fit's own limit rather than a different correlation.</p>
-<p>Eu_row *= (cos alpha)^(-r); alpha the helix angle, r the fifth coefficient. At alpha = 0 it is 1, so the straight-rod fit is the coil fit's own limit.</p>
+<p>eps = beta(1 - beta/90) is Gilli's deviation angle and K is 0 for one coiling direction, 1 for alternating. At beta = 0 the last factor is exactly 1, so the straight-rod fit is the coil fit's own limit and c0/cK are not identifiable from straight-rod data alone - which is why they are held at Shen's values until coil cases exist.</p>
 <h2>What to watch for in THIS bundle</h2>
 <p class="muted">· Every correlation here is quoted for a FULLY DEVELOPED bank, meaning about ten rows or more. The first row or two do not drop the same pressure, so a short bundle compared per row carries that difference straight into the ratio.</p>
 <p class="muted">· The correlations are for a bank with no side walls. This domain has them - with or without the half rods - and they add wall friction and a passage of their own. The fewer the columns, the more it matters.</p>

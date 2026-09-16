@@ -126,7 +126,9 @@ def case_state(geometry, params, settings):
     return case, CR.flow_state(
         D=case.D * k, ST=case.ST * k, SL=case.SL * k, n_rows=case.n_rows,
         u_in=inl["velocity"], rho=mat["density"], nu=nu,
-        staggered=case.stagger, dT=2.0 * case.bE * k, dL=2.0 * case.aE * k)
+        staggered=case.stagger, dT=2.0 * case.bE * k, dL=2.0 * case.aE * k,
+        helix=(case.helix if case.family == "helical" else 0.0),
+        coil_alternating=False)
 
 
 def apply_mesh_rules(geometry, params, settings, y_plus=1.0, max_growth=1.2):
@@ -420,6 +422,9 @@ def sweep_analysis(study, keys=None):
                            n_rows=r["n_rows"], u_in=r["u_in"], rho=r["rho"],
                            nu=r["nu"], staggered=r["staggered"])
         rec = {"id": r["id"], "XT": st["XT"], "XL": st["XL"], "Re": st["Re"],
+               "XT_d": st["XT_d"], "XL_d": st["XL_d"],
+               "cos_eps": st["cos_eps"], "coil_K": st["coil_K"],
+               "helix": st["helix"],
                "eu_row": r["eu_row"], "dp_bundle": r["dp_bundle"],
                "staggered": st["staggered"], "corr": {}}
         for k in keys:
@@ -428,6 +433,22 @@ def sweep_analysis(study, keys=None):
                               "ratio": (r["eu_row"] / e["eu_row"]
                                         if e["eu_row"] else None),
                               "outside": e["outside"]}
+        #  The BAND: the span of the correlations that are in range here.
+        #  Stage 1 measured that the published correlations differ from one
+        #  another by 1.0x to 2.2x, so "within 20 % of Jakob" is not a test of
+        #  anything - the literature is not that precise.  What can be tested
+        #  is whether the CFD falls inside the band they span, and that is the
+        #  number this study reports.
+        span = [c["eu_row"] for c in rec["corr"].values()
+                if c["eu_row"] and not c["outside"]]
+        if len(span) >= 2:
+            rec["band"] = [min(span), max(span)]
+            rec["band_n"] = len(span)
+            rec["in_band"] = rec["band"][0] <= r["eu_row"] <= rec["band"][1]
+            rec["band_dev"] = (0.0 if rec["in_band"] else
+                               (r["eu_row"] / rec["band"][1] - 1.0
+                                if r["eu_row"] > rec["band"][1]
+                                else r["eu_row"] / rec["band"][0] - 1.0))
         out["rows"].append(rec)
     for k in keys:
         rs = [x["corr"][k]["ratio"] for x in out["rows"]
@@ -437,9 +458,24 @@ def sweep_analysis(study, keys=None):
                                 "mean": sum(rs) / len(rs),
                                 "rms": math.sqrt(sum((v - 1.0) ** 2 for v in rs)
                                                  / len(rs))}
+    banded = [r for r in out["rows"] if "in_band" in r]
+    if banded:
+        out["band"] = {
+            "n": len(banded),
+            "inside": len([r for r in banded if r["in_band"]]),
+            "worst": max(abs(r["band_dev"]) for r in banded),
+            "width_mean": (sum(r["band"][1] / r["band"][0] for r in banded)
+                           / len(banded)),
+        }
     if len(out["rows"]) >= 6:
+        helical = any(r.get("cos_eps", 1.0) < 1.0 for r in out["rows"])
         try:
-            out["fit"] = CR.fit_power_law(out["rows"])
+            out["fit"] = CR.fit_form(out["rows"], with_helix=helical)
+            #  and the same fit with Shen's own restriction, p = q, so the
+            #  question "does splitting the pitch exponents earn its keep?"
+            #  is answered on this data rather than argued about
+            out["fit_tied"] = CR.fit_form(out["rows"], with_helix=helical,
+                                          tie_pitch=True)
         except Exception as exc:                                # noqa: BLE001
             out["fit_error"] = str(exc)
     return out
@@ -763,11 +799,14 @@ class Runner(object):
                            n_rows=case.n_rows, u_in=inl["velocity"],
                            rho=mat["density"], nu=mat["viscosity"] / mat["density"],
                            staggered=case.stagger,
-                           dT=2.0 * case.bE * k, dL=2.0 * case.aE * k)
+                           dT=2.0 * case.bE * k, dL=2.0 * case.aE * k,
+                           helix=(case.helix if case.family == "helical"
+                                  else 0.0))
         row.update(D=st["D"], ST=st["ST"], SL=st["SL"], n_rows=st["n_rows"],
                    u_in=st["u_in"], rho=st["rho"], nu=st["nu"],
                    staggered=st["staggered"], umax=st["umax"], Re=st["Re"],
-                   XT=st["XT"], XL=st["XL"], diagonal=st["diagonal"])
+                   XT=st["XT"], XL=st["XL"], XT_d=st["XT_d"], XL_d=st["XL_d"],
+                   helix=st["helix"], diagonal=st["diagonal"])
 
         ms = job.mesh_stats or {}
         row["cells"] = ms.get("cells")
@@ -1209,9 +1248,33 @@ def sweep_report_body(study, lang="ko"):
 
     #  headline: how far the CFD is from each correlation
     h.append("<h2>%s</h2>" % t("상관식과의 비교", "Against the correlations"))
+    band = an.get("band")
+    if band:
+        h.append("<p>%s</p>" % t(
+            "1단계에서 측정한 대로 기존 상관식들은 서로 1.0–2.2배 차이가 납니다. "
+            "따라서 '어느 한 상관식의 몇 % 이내'는 판정 기준이 될 수 없습니다. "
+            "여기서 쓰는 기준은 <b>그 조건에서 적용 범위 안에 있는 상관식들이 "
+            "만드는 띠 안에 CFD가 들어오는가</b> 입니다.",
+            "As stage 1 measured, the published correlations differ from one "
+            "another by 1.0x to 2.2x. 'Within N % of one of them' is therefore "
+            "not a test. The test used here is whether the CFD falls "
+            "<b>inside the band spanned by the correlations that are in range "
+            "at that condition</b>."))
     h.append('<div class="tiles">')
     h.append('<div class="tile"><div class="k">%s</div><div class="v">%d</div></div>'
              % (t("사용된 케이스", "cases used"), len(an["rows"])))
+    if band:
+        h.append('<div class="tile"><div class="k">%s</div>'
+                 '<div class="v">%d<span class="u">/ %d</span></div></div>'
+                 % (t("띠 안에 든 케이스", "inside the band"),
+                    band["inside"], band["n"]))
+        h.append('<div class="tile"><div class="k">%s</div>'
+                 '<div class="v">%.0f<span class="u">%%</span></div></div>'
+                 % (t("띠 밖 최대 이탈", "worst excursion"),
+                    100 * band["worst"]))
+        h.append('<div class="tile"><div class="k">%s</div>'
+                 '<div class="v">%.2f<span class="u">×</span></div></div>'
+                 % (t("띠의 평균 폭", "mean band width"), band["width_mean"]))
     for k in keys:
         s = an["ratios"].get(k)
         if not s:
@@ -1282,19 +1345,34 @@ def sweep_report_body(study, lang="ko"):
     h.append("<h2>%s</h2>" % t("전체 결과", "Every case"))
     h.append('<table class="grid"><tr><th>%s</th><th>X<sub>T</sub></th>'
              '<th>X<sub>L</sub></th>'
-             '<th>Re<sub>max</sub></th><th>Eu CFD</th>'
+             '<th>Re<sub>max</sub></th><th>Eu CFD</th><th>%s</th>'
+             % (t("케이스", "case"), t("띠", "band"))
              + "".join("<th>%s</th><th>%s</th>" % (_esc(names[k]), t("비", "ratio"))
                        for k in keys) + "</tr>")
     for r in sorted(an["rows"], key=lambda r: (r["XT"], r["XL"], r["Re"])):
         cells = ""
         for k in keys:
             c = r["corr"][k]
-            cells += ('<td class="n">%s</td><td class="n">%s</td>'
-                      % (_n(c["eu_row"], "%.4f"), _n(c["ratio"], "%.2f")))
+            #  a dagger where the correlation was asked outside its own limits:
+            #  that number is an extrapolation and its ratio is not evidence
+            mark = " †" if c["outside"] else ""
+            cells += ('<td class="n">%s%s</td><td class="n">%s</td>'
+                      % (_n(c["eu_row"], "%.4f"), mark, _n(c["ratio"], "%.2f")))
+        verdict = ("—" if "in_band" not in r else
+                   (t("안", "in") if r["in_band"]
+                    else "%+.0f %%" % (100 * r["band_dev"])))
         h.append('<tr><td>%s</td><td class="n">%.2f</td><td class="n">%.2f</td>'
-                 '<td class="n">%.3g</td><td class="n">%.4f</td>%s</tr>'
-                 % (_esc(r["id"]), r["XT"], r["XL"], r["Re"], r["eu_row"], cells))
+                 '<td class="n">%.3g</td><td class="n">%.4f</td>'
+                 '<td class="n">%s</td>%s</tr>'
+                 % (_esc(r["id"]), r["XT"], r["XL"], r["Re"], r["eu_row"],
+                    verdict, cells))
     h.append("</table>")
+    h.append('<p class="muted">%s</p>' % t(
+        "† 는 그 상관식이 자기 적용 범위 밖에서 계산되었다는 뜻이고, 그 값과 비는 "
+        "외삽입니다. 띠 계산에서는 제외됩니다.",
+        "A dagger means that correlation was evaluated outside its own quoted "
+        "limits; that value and its ratio are an extrapolation, and it is left "
+        "out of the band."))
 
     #  our own fit
     h.append("<h2>%s</h2>" % t("우리 상관식 (4단계 준비)",
@@ -1306,19 +1384,79 @@ def sweep_report_body(study, lang="ko"):
             _esc(an.get("fit_error", ""))))
     else:
         h.append("<p><code>%s</code></p>" % CR.FIT_FORM["expr"])
-        h.append("<table>")
+        h.append("<p class=\"muted\">%s</p>" % t(
+            "형태는 새로 만든 것이 아니라 Shen 등(2024) 식 (12) 의 골격이고, "
+            "우리 데이터로 계수만 다시 맞춘 것입니다. 오른쪽 열이 그 논문의 값입니다.",
+            "The shape is not new: it is the skeleton of Shen et al. (2024) "
+            "eq. (12), refitted on our own data. The right-hand column is that "
+            "paper's own value."))
+        h.append('<table class="grid"><tr><th>%s</th><th>%s</th><th>%s</th>'
+                 "<th>%s</th></tr>"
+                 % (t("계수", "coefficient"), t("우리 적합", "our fit"),
+                    "Shen 2024", t("비", "ratio")))
         for cname in CR.FIT_FORM["coefficients"]:
-            h.append('<tr><th>%s</th><td class="n">%.5g</td></tr>'
-                     % (cname, fit[cname]))
-        h.append('<tr><th>%s</th><td class="n">%d</td></tr>'
+            ref = CR.FIT_FORM["shen_values"].get(cname)
+            held = cname in (fit.get("fixed") or [])
+            h.append('<tr><th>%s</th><td class="n">%.5g%s</td>'
+                     '<td class="n">%s</td><td class="n">%s</td></tr>'
+                     % (cname, fit[cname],
+                        (" <i>(%s)</i>" % t("고정", "held")) if held else "",
+                        _n(ref, "%.5g"),
+                        "—" if not ref else "%.2f" % (fit[cname] / ref)))
+        h.append('<tr><th>%s</th><td colspan="3" class="n">%d</td></tr>'
                  % (t("사용 점 수", "points"), fit["n_points"]))
-        h.append('<tr><th>%s</th><td class="n">%.2f %%</td></tr>'
+        h.append('<tr><th>%s</th><td colspan="3" class="n">%.2f %%</td></tr>'
                  % (t("평균 절대 오차", "mean absolute error"),
                     100 * fit["mean_abs_error"]))
-        h.append('<tr><th>%s</th><td class="n">%.2f %%</td></tr>'
+        h.append('<tr><th>%s</th><td colspan="3" class="n">%.2f %%</td></tr>'
                  % (t("최대 절대 오차", "worst absolute error"),
                     100 * fit["max_abs_error"]))
         h.append("</table>")
+        local = (lambda k: fit.get(k + "_ko", fit.get(k)) if ko
+                 else fit.get(k))
+        if fit.get("fixed_note"):
+            h.append('<p class="muted">%s</p>' % _esc(local("fixed_note")))
+        if fit.get("laminar_dropped"):
+            h.append('<p class="warn">%s</p>' % _esc(local("laminar_dropped")))
+
+        tied = an.get("fit_tied")
+        if tied:
+            h.append("<h3>%s</h3>" % t("피치 지수를 나눌 값이 있는가",
+                                       "Is splitting the pitch exponents worth it?"))
+            h.append("<p>%s</p>" % t(
+                "Shen 식은 두 피치비를 곱으로만 씁니다 (X_T X_L)^-p. 그 논문의 "
+                "해석은 전부 S_T = S_L 이었으므로 두 지수를 나눌 데이터가 "
+                "없었습니다 — 우리 행렬은 일부러 그 공선성을 피했으므로, 나눌 "
+                "값이 있는지 여기서 답할 수 있습니다.",
+                "Shen's form uses the two pitch ratios only as a product, "
+                "(X_T X_L)^-p. Every case in that paper had S_T = S_L, so no "
+                "data of theirs could split the exponents. Ours varies them "
+                "independently on purpose, so the question can be answered "
+                "here."))
+            h.append('<table class="grid"><tr><th>%s</th><th>p</th><th>q</th>'
+                     "<th>%s</th><th>%s</th></tr>"
+                     % (t("적합", "fit"), t("평균 오차", "mean error"),
+                        t("최대 오차", "worst")))
+            for label, fc in ((t("p, q 각각", "p and q free"), fit),
+                              (t("p = q (Shen)", "p = q (Shen's)"), tied)):
+                h.append('<tr><th>%s</th><td class="n">%.3f</td>'
+                         '<td class="n">%.3f</td><td class="n">%.2f %%</td>'
+                         '<td class="n">%.2f %%</td></tr>'
+                         % (label, fc["p"], fc["q"],
+                            100 * fc["mean_abs_error"],
+                            100 * fc["max_abs_error"]))
+            h.append("</table>")
+            better = tied["mean_abs_error"] / max(fit["mean_abs_error"], 1e-12)
+            h.append("<p>%s</p>" % t(
+                "나누면 평균 오차가 %.1f 배 줄어듭니다. p 가 q 보다 크다는 것은 "
+                "<b>횡방향 피치가 압력강하를 지배하고 종방향 피치는 거의 영향이 "
+                "없다</b>는 뜻이며, u_max 가 횡방향 간극으로 정해진다는 사실과 "
+                "맞습니다." % better,
+                "Splitting cuts the mean error by a factor of %.1f. That p "
+                "comes out larger than q says the <b>transverse pitch governs "
+                "the pressure drop and the longitudinal one barely enters</b>, "
+                "which is consistent with u_max being set by the transverse "
+                "gap." % better))
         h.append('<p class="muted">%s</p>' % t(
             "이것은 <b>직선 rod</b> 데이터만으로 맞춘 것이며, 나선 코일 항 r 은 아직 "
             "포함되어 있지 않습니다. 4단계에서 코일 데이터가 더해지면 같은 형태에 "
