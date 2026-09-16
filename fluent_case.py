@@ -1304,11 +1304,22 @@ class FluentDriver(BaseDriver):
         import ansys.fluent.core as pf
 
         every = self.monitor_interval()
+        #  Reading the residual history is a round trip to Fluent, and it used
+        #  to happen on EVERY iteration.  At 800 iterations that is 800 round
+        #  trips of roughly 0.2 s, and it dominated the run: on a parametric
+        #  study whose cases are 13k to 25k cells, an 82 % increase in cells
+        #  cost only 14 % more wall clock, which is the signature of a fixed
+        #  per-ITERATION cost rather than a per-CELL one.  Decomposing those
+        #  two measurements put ~173 s of each 210 s case in this callback.
+        #  The plot is polled about once a second by the browser, so reading
+        #  the history every iteration was never visible anyway.
+        res_every = every if every else 10
         state = {"k": 0, "failed": 0}
 
         def on_iter(session=None, event_info=None):    # noqa: ARG001
-            self.collect_residuals(quiet=True)
             state["k"] += 1
+            if state["k"] % res_every == 0:
+                self.collect_residuals(quiet=True)
             #  Sampling Δp means two surface integrals, so it is deliberately
             #  not done every iteration.  Three failures in a row and it stops
             #  trying: a monitor that cannot be read should cost one line in
