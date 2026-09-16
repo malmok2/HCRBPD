@@ -445,6 +445,9 @@
     display:block; max-width:660px; margin:14px 0 6px; background:#fff;
     border:1px solid #eef1f6; border-radius:8px}
   /*  the campaign panel  */
+  table.files tr.openable{cursor:pointer}
+  table.files tr.openable:hover{background:var(--glass2)}
+  .opener{font-size:10.5px; color:var(--accent); font-weight:640; margin-left:7px}
   .parprog{display:flex; gap:9px; flex-wrap:wrap; margin-bottom:11px}
   .parprog .pill{
     background:var(--glass2); border-radius:9px; padding:7px 12px;
@@ -3725,6 +3728,10 @@ Object.assign(STR.ko, {
   par_building:"보고서를 만드는 중…",
   par_written:p=>`보고서를 만들었습니다${p ? " · " + p : ""}`,
   par_first:"먼저 보고서를 만드십시오.",
+  par_open:"열기", par_opening:c=>`${c} 기록을 여는 중…`,
+  res_replay:c=>`${c} 는 기록입니다. 유동장은 저장되어 있지 않으므로 여기서 ` +
+    `볼 수 없습니다. 컨투어가 필요하면 그 케이스를 case 파일과 함께 다시 돌리십시오.`,
+  par_opened:c=>`${c} 기록을 해석 탭에 띄웠습니다.`,
   par_halted:"첫 케이스에서 중단했습니다 —",
   par_halted_why:"연구 정의가 잘못된 것이 아니라 해석 설정이 쓸 수 있는 해를 " +
     "내지 못하는 것입니다. 같은 것을 여러 번 더 돌려도 달라지지 않습니다. " +
@@ -3750,6 +3757,9 @@ Object.assign(STR.ko, {
   stages:{queued:"대기", meshing:"메시", launching:"Fluent 시작", setup:"설정",
           initialising:"초기화", iterating:"반복", finished:"완료"},
   r_none:"아직 실행한 해석이 없습니다.",
+  r_replay:(s,c)=>`<b>기록을 보고 있습니다</b> — ${s} 의 ${c}. 잔차와 Δp는 ` +
+    `그때 기록된 그대로이고, 새로 계산한 것이 아닙니다. 유동장은 기록에 없으므로 ` +
+    `결과 탭에서 볼 수 없습니다.`,
   r_running:st=>`진행 중 — ${st}`,
   r_done:s=>`완료 (${s}초)`,
   r_fail:e=>`실패 — ${e}`,
@@ -3890,6 +3900,11 @@ Object.assign(STR.en, {
   par_building:"building the report…",
   par_written:p=>`report built${p ? " · " + p : ""}`,
   par_first:"build the report first.",
+  par_open:"open", par_opening:c=>`opening the record for ${c}…`,
+  res_replay:c=>`${c} is a record. The solution fields were not saved, so ` +
+    `there is nothing to contour here. Re-run that case with the case file ` +
+    `written if you need them.`,
+  par_opened:c=>`${c} is on the Run tab.`,
   par_halted:"stopped after the first case -",
   par_halted_why:"nothing is wrong with the study definition; the SET-UP does " +
     "not produce a usable solution, and more of the same would not change " +
@@ -3916,6 +3931,9 @@ Object.assign(STR.en, {
   stages:{queued:"queued", meshing:"mesh", launching:"launch", setup:"set up",
           initialising:"initialise", iterating:"iterate", finished:"done"},
   r_none:"Nothing has been run yet.",
+  r_replay:(s,c)=>`<b>This is a record</b> - ${c} of ${s}. The residuals and ` +
+    `the pressure drop are as they were written down, not recomputed. The ` +
+    `solution fields are not in a record, so the Results tab has nothing to show.`,
   r_running:st=>`running — ${st}`,
   r_done:s=>`finished in ${s} s`,
   r_fail:e=>`failed — ${e}`,
@@ -4034,6 +4052,10 @@ let SRV = null;            // /api/info payload, or null when there is no server
 let SET = null;            // the current settings object
 let JOB = null;            // the last job status
 let logCursor = 0, pollTimer = 0;
+//  set while a RECORDED case is on screen instead of a live one.  The record
+//  carries histories and counts but no solution, so anything that would ask
+//  the solver a question has to say so rather than fail.
+let REPLAY = null;
 
 async function api(path, body){
   const opt = body===undefined ? {} :
@@ -4309,6 +4331,11 @@ function renderMeshStats(){
 }
 function setRunBanner(){
   const el=$("runBanner");
+  if(REPLAY){
+    el.className = "banner warn";
+    el.innerHTML = "<div>" + T("r_replay")(REPLAY.study, REPLAY.id) + "</div>";
+    return;
+  }
   if(!JOB){ el.className="banner"; el.innerHTML=T("r_none"); return; }
   if(JOB.error){ el.className="banner bad"; el.innerHTML=T("r_fail")(JOB.error); return; }
   if(!JOB.finished){ el.className="banner"; el.innerHTML=T("r_running")(T("stages")[JOB.stage]||JOB.stage); return; }
@@ -4657,7 +4684,7 @@ async function openCase(name){
   try{
     //  same reset as starting a run: nothing from the previous one should be
     //  on screen while this one opens
-    logCursor = 0; $("runLog").textContent = "";
+    logCursor = 0; $("runLog").textContent = ""; REPLAY = null;
     JOB = null; BBOX = null; OUTLINE = null; RES.data = []; drawRes(); drawResid(); drawDp();
     const j = await api("/api/load", {file:name, geometry:GK,
                                       params:geomParams(), settings:SET});
@@ -4950,6 +4977,9 @@ function paintCmapBar(){
 function drawRes(){
   if(!xw) sizeRes();
   xctx.clearRect(0,0,xw,xh);
+  //  one place decides what the Results tab says while a RECORD is on screen,
+  //  because everything else that writes this note runs after showPane does
+  if(REPLAY){ $("resNote").textContent = T("res_replay")(REPLAY.id); }
   if(!RES.data.length){ drawResAxes(); return; }
   const CM = activeCmap();
   const span = Math.max(1e-30, RES.hi-RES.lo);
@@ -5820,13 +5850,63 @@ function parCases(){
       extra = (r.eu_row != null ? "Eu " + (+r.eu_row).toFixed(4) : "") +
               (r.cells ? " · " + r.cells.toLocaleString() + " " + T("par_cells") : "");
     }else if(r){ st = "bad"; txt = T("par_failed"); extra = esc(r.error || ""); }
-    return `<tr><td class="nm">${esc(c.id)}</td>` +
+    //  a recorded case can be put back on screen with no solver, so every
+    //  row that HAS a record is a link to it
+    const has = !!(r && r.ok);
+    return `<tr${has ? ' class="openable" data-case="' + esc(c.id) + '"' : ""}>` +
+           `<td class="nm">${esc(c.id)}</td>` +
            `<td class="st ${st}">${esc(txt)}</td>` +
-           `<td class="sz">${extra}</td></tr>`;
+           `<td class="sz">${extra}${has ? ' <span class="opener">' +
+              esc(T("par_open")) + "</span>" : ""}</td></tr>`;
   }).join("");
   body.innerHTML = html;
+  body.querySelectorAll("tr.openable").forEach(tr =>
+    tr.addEventListener("click", () => replayCase(tr.dataset.case)));
   const done = PAR.rows.filter(r => r.ok && !r.mock).length;
   $("parCount").textContent = `${done}/${s.cases.length}`;
+}
+
+/*  Put a recorded case back on screen.
+
+    A run leaves two quite different things behind.  The SOLUTION - the fields
+    you draw contours of - lives in a Fluent case file and needs Fluent and a
+    licence to reopen; that is what the Results tab's own loader is for.
+    Everything else - how the residuals came down, how the pressure drop
+    moved, how big the mesh was, what the bundle drop measured - is in the
+    result record, and needs nothing at all.  This restores the second kind,
+    which is the kind you want when you are asking why a run did not converge
+    and the server has been restarted since.                                */
+async function replayCase(cid){
+  const name = parName();
+  if(!name || !cid) return;
+  try{
+    parNote(T("par_opening")(cid), "busy");
+    const j = await api("/api/study_case", {name, id: cid});
+    const r = j.row;
+    clearTimeout(pollTimer);              // a replay must not be overwritten
+    REPLAY = {study: name, id: cid, row: r};
+    JOB = {
+      id: "replay", stage: "finished", finished: true, error: r.error || null,
+      geometry: j.geometry, backend: r.mock ? "mock" : "fluent", mock: !!r.mock,
+      mesh: {cells: r.cells, nodes2d: r.nodes, quads: 0, points: 0, cracks: 0,
+             maxdev: 0, vol_err: 0, dev_max: r.skew_max || 0,
+             ar_max: r.ar_max || 0, vtot: r.volume || 0, patches: {}},
+      mesh_path: r.mesh_path || null, residuals: r.residual_history || [],
+      monitors: r.dp_history || [], surfaces: [], planes: {}, loaded: true,
+      snapshot: false, variables: null, criterion: r.criterion || null,
+      elapsed: r.seconds || 0, out_dir: (SRV && SRV.out_dir) || "",
+    };
+    //  the Results tab may still be holding the LAST case's field - the one
+    //  whose solver session is still open - and showing that beside a
+    //  different case's residuals is worse than showing nothing.  Drop it.
+    RES.data = []; RES.lo = 0; RES.hi = 1;
+    $("runStart").disabled = false;
+    $("runStop").disabled = true;
+    setRunBanner(); renderStages(); renderMeshStats(); drawResid(); drawDp();
+    drawRes();
+    showPane("run");
+    parNote(T("par_opened")(cid), "ok");
+  }catch(e){ parNote(e.message, "bad"); }
 }
 
 function parProgress(){

@@ -619,6 +619,13 @@ def make_mesh_study(geometry, name=None):
                 "%s · %s" % (label, lv["id"]), p, st,
                 meta={"X": X, "Re_target": Re, "velocity": vel},
                 ladder=lad_name))
+    #  A mesh study writes its case files.  Eight of them is affordable, and
+    #  when a ladder does something unexpected the thing you want is to open
+    #  the offending mesh and look at the field - which a result record cannot
+    #  give you, because it holds histories and numbers and no solution.  The
+    #  sweep leaves them off: thirty cases of this is a different question.
+    base_settings = {k: dict(v) for k, v in BASE_SETTINGS.items()}
+    base_settings["run"]["write_case"] = True
     d = {
         "name": name, "kind": "mesh", "geometry": geometry,
         "title": "2단계 · %s 격자 민감도" % geometry,
@@ -630,8 +637,11 @@ def make_mesh_study(geometry, name=None):
             "격자는 면내 방향으로 단계당 약 1.35배 세밀해지고, 반경 방향은 "
             "첫 셀을 y+ = 1에 고정한 채 성장비를 조여서 세밀해집니다.",
             "판정은 Celik 등(2008) / ASME V&V 20 의 GCI 절차로 합니다.",
+            "case 파일을 함께 씁니다 - 사다리가 이상하게 나올 때 그 격자를 열어 "
+            "유동장을 봐야 하기 때문입니다. 결과 기록만으로는 유동장을 되살릴 수 "
+            "없습니다.",
         ],
-        "base": {"params": dict(BASE_PARAMS), "settings": dict(BASE_SETTINGS)},
+        "base": {"params": dict(BASE_PARAMS), "settings": base_settings},
         "cases": cases,
     }
     return Study(d)
@@ -681,6 +691,9 @@ def make_sweep_study(geometry, level="L3", name=None):
         "notes": [
             "물 20 C, k-omega SST, y+ = 1, 정상상태, rod 외 벽은 모두 대칭면.",
             "격자 해상도는 2단계에서 고른 수준(%s)을 씁니다." % level,
+            "케이스 수가 많아 case 파일은 쓰지 않습니다. 결과 기록(잔차·Δp 이력, "
+            "격자 수, 측정된 압력강하)은 남으므로 파라메트릭 탭에서 다시 열 수 "
+            "있지만, 유동장은 남지 않습니다.",
             "X_T 와 X_L 을 독립적으로 바꿉니다. 정사각 피치만 훑으면 피치 항 두 개가 "
             "서로 구분되지 않아 상관식 적합 자체가 불가능해집니다.",
             "Re 1e5 점은 Jakob 적용 범위 밖이며, 1단계에서 두 상관식이 크게 "

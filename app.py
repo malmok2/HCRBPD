@@ -682,6 +682,22 @@ class Handler(BaseHTTPRequestHandler):
                 out["analysis"] = (ST.mesh_analysis(s) if s.kind == "mesh"
                                    else ST.sweep_analysis(s))
                 return self._json(out)
+            if path == "/api/study_case":
+                #  one recorded case, replayed.  Everything a run leaves behind
+                #  that is NOT the solution itself - the residual and Dp
+                #  histories, the mesh counts, the measured drop - is in the
+                #  result file, so it can be put back on screen with no solver
+                #  and no licence, long after the session that produced it.
+                s = ST.Study.load(str(body.get("name") or ""))
+                cid = str(body.get("id") or "")
+                row = next((r for r in s.results() if r.get("id") == cid), None)
+                if row is None:
+                    raise ValueError("%s has no recorded case %r" % (s.name, cid))
+                return self._json({"ok": True, "row": row,
+                                   "case": s.case(cid),
+                                   "geometry": s.d["geometry"],
+                                   "params": s.params_for(cid),
+                                   "settings": s.settings_for(cid)})
             if path == "/api/study_make":
                 made = []
                 for s in ST.make_campaign(str(body.get("level") or "L3")):
