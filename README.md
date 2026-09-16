@@ -108,6 +108,18 @@ diverging map for pressure and a sequential one for everything else.
 **Wall y+** is among the variables, marked as a wall quantity: ask for it on a
 plane or an inlet and the tab says so rather than drawing an empty surface.
 
+**Fixed views and a figure you can publish.** Seven view buttons — ISO and the
+six axis views — where the axis a button names is the one pointing at the
+viewer; each was solved from the projection rather than guessed, and the triad
+confirms it live. `Fit` resets zoom and pan without touching the angle, a free
+drag leaves the preset behind, and auto-rotate spins on the fast draw. `Save as
+PNG` renders at 1× to 6× of the on-screen size — real resolution, because the
+backing store and the transform go up together, so the line widths and type
+scale with it — on white or transparent, with the case name, variable, range,
+surfaces and the MOCK flag optionally stamped in the corner. The filename
+carries the case, the surfaces and the variable, so a figure stays identifiable
+long after the session that made it.
+
 **The CAD silhouette** draws the domain and the rods as a wireframe behind the
 field — a cut through a bundle is hard to place without the bundle around it.
 The polylines come from the same `Case` and through the same `XP()` as the mesh,

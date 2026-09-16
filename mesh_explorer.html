@@ -721,6 +721,45 @@
         <div class="reslist" id="resSurfaces"></div>
       </div>
       <div class="grp">
+        <h2>시점</h2>
+        <div class="seg" id="resViews">
+          <button data-rview="iso" class="on">ISO</button>
+          <button data-rview="-y">−Y</button>
+          <button data-rview="+z">+Z</button>
+          <button data-rview="-x">−X</button>
+        </div>
+        <div class="seg" style="margin-top:4px">
+          <button data-rview="+y">+Y</button>
+          <button data-rview="-z">−Z</button>
+          <button data-rview="+x">+X</button>
+          <button id="resFit" title="확대·이동 초기화">맞춤</button>
+        </div>
+        <label class="chk" style="margin-top:8px"><input type="checkbox" id="resSpin"><span class="box"></span>자동 회전</label>
+        <div class="note" id="resViewNote"></div>
+      </div>
+      <div class="grp">
+        <h2>그림 저장</h2>
+        <div class="row" style="gap:7px">
+          <select id="resPngScale" style="flex:1;font:inherit;font-size:13px;padding:6px 8px;
+            border:none;border-radius:9px;background:var(--glass2);
+            box-shadow:inset 0 1px 2px rgba(24,31,42,.10);color:var(--text)">
+            <option value="1">1× (화면 크기)</option>
+            <option value="2" selected>2×</option>
+            <option value="4">4×</option>
+            <option value="6">6×</option>
+          </select>
+          <select id="resPngBg" style="flex:1;font:inherit;font-size:13px;padding:6px 8px;
+            border:none;border-radius:9px;background:var(--glass2);
+            box-shadow:inset 0 1px 2px rgba(24,31,42,.10);color:var(--text)">
+            <option value="white">흰 배경</option>
+            <option value="transparent">투명 배경</option>
+          </select>
+        </div>
+        <label class="chk" style="margin-top:7px"><input type="checkbox" id="resPngStamp" checked><span class="box"></span>케이스 정보 새기기</label>
+        <button class="btn" id="resPng" style="margin-top:9px">PNG로 저장</button>
+        <div class="note" id="resPngNote"></div>
+      </div>
+      <div class="grp">
         <h2>저장된 결과 불러오기</h2>
         <div class="reslist" id="resLoadList"></div>
         <div class="note" id="resLoadNote"></div>
@@ -3446,6 +3485,14 @@ Object.assign(STR.ko, {
   cm_rain_note:"밝기가 단조롭지 않아 데이터에 없는 경계가 보입니다. 색각 이상에서는 순서를 읽을 수 없습니다.",
   cm_walls:"y+는 벽면에만 있습니다. 벽면이 아닌 면에서는 값이 오지 않습니다.",
   v_here:"설치됨", v_absent:"이 PC에 없음",
+  h_rview:"시점", h_png:"그림 저장",
+  rv_note:(k)=>`${k} 축이 보는 사람 쪽을 향합니다 · 드래그하면 자유 시점으로 돌아갑니다`,
+  rv_fit:"맞춤", rv_spin:"자동 회전", rv_iso:"ISO",
+  png_save:"PNG로 저장", png_stamp:"케이스 정보 새기기",
+  png_busy:"그리는 중…",
+  png_done:(px,mb)=>`저장했습니다 · ${px} px · ${mb} MB`,
+  png_bg:{white:"흰 배경", transparent:"투명 배경"},
+  png_scale:(n)=>n===1?"1× (화면 크기)":`${n}×`,
   res_save:"선택한 면 저장 (모든 변수)",
   res_saving:"저장 중… 변수마다 한 번씩 읽어옵니다.",
   res_saved:(f,mb)=>`${f} 저장 · ${mb} MB · Fluent 없이 다시 열 수 있습니다`,
@@ -3529,6 +3576,14 @@ Object.assign(STR.en, {
   cm_rain_note:"Lightness is not monotonic, so it shows edges the data does not have, and the order cannot be read with colour-blindness.",
   cm_walls:"y+ exists on walls only; a non-wall surface returns nothing for it.",
   v_here:"installed", v_absent:"not on this machine",
+  h_rview:"View", h_png:"Save the picture",
+  rv_note:(k)=>`${k} points at the viewer · drag to go back to a free view`,
+  rv_fit:"Fit", rv_spin:"Auto-rotate", rv_iso:"ISO",
+  png_save:"Save as PNG", png_stamp:"Stamp the case on the image",
+  png_busy:"rendering…",
+  png_done:(px,mb)=>`saved · ${px} px · ${mb} MB`,
+  png_bg:{white:"white background", transparent:"transparent background"},
+  png_scale:(n)=>n===1?"1× (as on screen)":`${n}×`,
   res_save:"Save the chosen surfaces (all variables)",
   res_saving:"saving - one read per variable…",
   res_saved:(f,mb)=>`${f} saved · ${mb} MB · reopens with no Fluent`,
@@ -4559,6 +4614,107 @@ function drawRes(){
   drawResAxes();
 }
 
+/* ====================== fixed views, spin, and saving ====================
+   Every preset below was solved from resProject rather than guessed: the axis
+   the button names is the one pointing AT the viewer, and the other two land
+   square on the screen.  The triad in the corner says the same thing live, so
+   the two can be checked against each other.                                */
+const RVIEWS = {
+  iso: [-0.62, 0.92],                      // the default three-quarter view
+  "+z": [0,            0],                 // x right, y up   - looking down
+  "-z": [0,            Math.PI],           // x right, y down
+  "-y": [0,           -Math.PI/2],         // x right, z up   - the elevation
+  "+y": [Math.PI,     -Math.PI/2],         // x left,  z up
+  "+x": [-Math.PI/2,  -Math.PI/2],         // y right, z up   - from the outlet
+  "-x": [Math.PI/2,   -Math.PI/2],         // y left,  z up   - from the inlet
+};
+function setRView(key){
+  const v = RVIEWS[key]; if(!v) return;
+  RES.yaw = v[0]; RES.pitch = v[1];
+  document.querySelectorAll("#resViews button[data-rview], .seg button[data-rview]")
+    .forEach(b => b.classList.toggle("on", b.dataset.rview === key));
+  $("resViewNote").textContent = T("rv_note")(key.toUpperCase());
+  drawRes();
+}
+document.querySelectorAll("[data-rview]").forEach(b =>
+  b.addEventListener("click", () => setRView(b.dataset.rview)));
+$("resFit").addEventListener("click", ()=>{
+  RES.zoom = 1; RES.panX = 0; RES.panY = 0; drawRes();
+});
+/*  Spinning draws flat, like a drag does - a quarter second per frame is not
+    a rotation.  */
+let spinRAF = 0;
+function spinFrame(){
+  if(!$("resSpin").checked){ spinRAF = 0; RES.fast = false; drawRes(); return; }
+  RES.yaw += 0.008; RES.fast = true; drawRes();
+  spinRAF = requestAnimationFrame(spinFrame);
+}
+$("resSpin").addEventListener("change", ()=>{
+  if($("resSpin").checked && !spinRAF) spinRAF = requestAnimationFrame(spinFrame);
+});
+
+/*  Save the view at a multiple of its on-screen size.
+
+    Everything draws from the logical xw/xh through the canvas transform, so
+    raising the backing store and the transform together renders the same
+    picture with more pixels in it - real resolution, not an upscale.  The
+    line widths and type scale with it, which is what a figure for a paper
+    wants.                                                                  */
+async function savePng(){
+  const scale = Math.max(1, Math.min(8, +$("resPngScale").value || 2));
+  const bg = $("resPngBg").value;
+  const stamp = $("resPngStamp").checked;
+  const w0 = xw, h0 = xh, bw = resC.width, bh = resC.height;
+  const wasFast = RES.fast;
+  $("resPng").disabled = true;
+  $("resPngNote").textContent = T("png_busy");
+  try{
+    RES.fast = false;                      // always save at full quality
+    resC.width = Math.round(w0 * scale);
+    resC.height = Math.round(h0 * scale);
+    xctx.setTransform(scale, 0, 0, scale, 0, 0);
+    if(bg === "white"){ xctx.fillStyle = "#ffffff"; xctx.fillRect(0, 0, w0, h0); }
+    drawResInto(stamp);
+    const blob = await new Promise(r => resC.toBlob(r, "image/png"));
+    const px = resC.width + "×" + resC.height;
+    save(blob, pngName() + ".png");
+    $("resPngNote").textContent = T("png_done")(px, (blob.size/1e6).toFixed(1));
+  }catch(e){ $("resPngNote").textContent = e.message; }
+  finally{
+    resC.width = bw; resC.height = bh;
+    xctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    RES.fast = wasFast;
+    $("resPng").disabled = false;
+    drawRes();
+  }
+}
+function drawResInto(stamp){
+  drawRes();
+  if(!stamp) return;
+  //  what the picture is of, on the picture - a figure that outlives the
+  //  session it came from
+  const vd = SRV.variables[RES.variable] || {};
+  const bits = [caseName(), L(vd) + " [" + (vd.unit||"") + "]",
+                fmtSci(RES.lo) + " ~ " + fmtSci(RES.hi),
+                chosenSurfaces().join(", ")];
+  if(RES.mock) bits.push("MOCK");
+  xctx.save();
+  xctx.font = "11px " + uiFont();
+  xctx.textAlign = "left"; xctx.textBaseline = "top";
+  let y = 14;
+  for(const line of bits){
+    xctx.fillStyle = (line === "MOCK") ? "rgba(168,63,43,.85)" : "rgba(24,31,42,.62)";
+    xctx.fillText(line, 14, y); y += 14;
+  }
+  xctx.restore();
+}
+function pngName(){
+  const v = RES.variable.replace(/[^a-z0-9-]/gi, "");
+  const sf = chosenSurfaces().join("-").replace(/[^a-z0-9_-]/gi, "") || "view";
+  return (caseName() + "_" + sf + "_" + v).slice(0, 150);
+}
+$("resPng").addEventListener("click", savePng);
+
 /*  A silhouette of the CAD behind the field.  A cut through a bundle is hard
     to place without the bundle around it, and the boundary patches alone do
     not say where the rods are once you have hidden them.  The polylines come
@@ -4687,7 +4843,9 @@ $("resOpacity").addEventListener("input", ()=>{
   resC.addEventListener("pointermove", e=>{
     if(!drag) return;
     if(pan){ RES.panX+=e.clientX-px; RES.panY+=e.clientY-py; }
-    else{ RES.yaw+=(e.clientX-px)*0.008; RES.pitch+=(e.clientY-py)*0.008; }
+    else{ RES.yaw+=(e.clientX-px)*0.008; RES.pitch+=(e.clientY-py)*0.008;
+          document.querySelectorAll("[data-rview]").forEach(o=>o.classList.remove("on"));
+          $("resViewNote").textContent=""; }
     px=e.clientX; py=e.clientY; drawRes();
   });
   const settle=()=>{ drag=false; if(RES.fast){ RES.fast=false; drawRes(); } };
@@ -4703,7 +4861,7 @@ $("resOpacity").addEventListener("input", ()=>{
     RES.zoom=Math.max(0.2,Math.min(12,RES.zoom)); drawRes();
   }, {passive:false});
   resC.addEventListener("dblclick", ()=>{
-    RES.yaw=-0.62; RES.pitch=0.92; RES.zoom=1; RES.panX=0; RES.panY=0; drawRes();
+    RES.zoom=1; RES.panX=0; RES.panY=0; setRView("iso");
   });
 })();
 
@@ -4788,6 +4946,20 @@ window.__appLang = function(){
     if(el && el.parentElement.lastChild.nodeType===3)
       el.parentElement.lastChild.nodeValue=T(key);
   }
+  $("resFit").textContent=T("rv_fit");
+  $("resPng").textContent=T("png_save");
+  for(const [id,key] of [["resSpin","rv_spin"],["resPngStamp","png_stamp"]]){
+    const el=$(id);
+    if(el && el.parentElement.lastChild.nodeType===3)
+      el.parentElement.lastChild.nodeValue=T(key);
+  }
+  for(const o of $("resPngBg").options) o.textContent=T("png_bg")[o.value];
+  for(const o of $("resPngScale").options) o.textContent=T("png_scale")(+o.value);
+  for(const g of [["resViews","h_rview"]]){
+    const h=$(g[0]).closest(".grp").querySelector("h2"); if(h) h.textContent=T(g[1]);
+  }
+  const ph=$("resPng").closest(".grp").querySelector("h2");
+  if(ph) ph.textContent=T("h_png");
   const cl=document.querySelector('label[for="resCmap"]');
   if(cl) cl.textContent=T("cm_label");
   $("resCmap").options.length = 0; buildCmapPicker(); paintCmapBar();
