@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Stage 1 - correlations</title>
+<style>
+body{margin:0;background:#eef1f5;padding:26px 16px;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans KR",sans-serif}
+.paper{max-width:900px;margin:0 auto;background:#fff;padding:38px 44px;
+  border-radius:10px;box-shadow:0 2px 18px rgba(20,28,40,.10);color:#181f2a;
+  font-size:13.5px;line-height:1.62}
+.paper h1{font-size:23px;margin:0 0 4px}
+.paper h2{font-size:16px;margin:30px 0 10px;padding-bottom:5px;
+  border-bottom:1px solid #dde3ea}
+.paper h3{font-size:13.5px;margin:20px 0 7px;color:#33415a}
+.paper .sub{color:#5a6678;font-size:12px;margin-bottom:18px}
+.paper table{border-collapse:collapse;width:100%;margin:9px 0;font-size:12.5px}
+.paper th,.paper td{border:1px solid #e2e7ee;padding:5px 9px;text-align:left;
+  vertical-align:top}
+.paper th{background:#f6f8fb;font-weight:640;width:24%;color:#33415a}
+.paper td.n{font-variant-numeric:tabular-nums}
+.paper tr>th:first-child:empty{width:auto}
+.paper .tiles{display:flex;gap:10px;margin:16px 0 4px;flex-wrap:wrap}
+.paper .tile{flex:1 1 130px;background:#f6f8fb;border:1px solid #e2e7ee;
+  border-radius:7px;padding:10px 13px}
+.paper .tile .k{font-size:11px;color:#5a6678}
+.paper .tile .v{font-size:19px;font-weight:660;font-variant-numeric:tabular-nums}
+.paper .muted{color:#5a6678;font-size:12px;margin:5px 0}
+.paper .flag{background:#fdeaea;color:#9b1c1c;border-radius:4px;padding:1px 7px;
+  font-size:11px;font-weight:640;margin-left:7px}
+.paper code{background:#f2f5f9;border-radius:3px;padding:1px 5px;font-size:12px}
+.paper .foot{margin-top:30px;padding-top:12px;border-top:1px solid #dde3ea;
+  color:#7a8595;font-size:11.5px}
+@media print{body{background:#fff;padding:0}
+  .paper{box-shadow:none;max-width:none;padding:0}}
+</style>
+</head>
+<body>
+<div class="paper">
+<h1>Stage 1 - the correlations, collected</h1>
+<div class="sub">Cross-flow pressure drop over a bank of straight rods - source, range, and whether it can actually be evaluated</div>
+<div class="tiles">
+<div class="tile"><div class="k">correlations listed</div><div class="v">6</div></div>
+<div class="tile"><div class="k">evaluable here</div><div class="v">2</div></div>
+<div class="tile"><div class="k">awaiting the source</div><div class="v">4</div></div>
+</div>
+<h2>The common definitions</h2>
+<p>Sources disagree about what f means - Jakob's appears as <code>dp = 2 f N rho u_max^2</code>, Zukauskas' as <code>dp = N chi f (rho u_max^2/2)</code> - so the f's are not comparable. Everything here is converted to the <b>Euler number per row</b>.</p>
+<table>
+<tr><th>Eu<sub>row</sub></th><td class="n">dp<sub>bundle</sub> / (N<sub>rows</sub> · &frac12; rho u<sub>max</sub><sup>2</sup>)</td></tr>
+<tr><th>Re<sub>max</sub></th><td class="n">u<sub>max</sub> D / nu</td></tr>
+<tr><th>u<sub>max</sub></th><td class="n">on the narrowest passage. In a staggered bank the transverse gap (S_T − D) is tested against the diagonal 2(S_D − D) and the tighter one governs.</td></tr>
+<tr><th>X<sub>T</sub>, X<sub>L</sub></th><td class="n">S_T/D, S_L/D</td></tr>
+</table>
+<h2>The list</h2>
+<h3>Jakob (1938) </h3>
+<table>
+<tr><th>source</th><td>M. Jakob, Trans. ASME 60 (1938) 384. In the form given by J. P. Holman, Heat Transfer, McGraw-Hill - the in-line and staggered friction factors, with dp = 2 f N rho u_max^2.</td></tr>
+<tr><th>range</th><td class="n">Re 2000–4e+04 · X_T 1.25–3 · X_L 1.25–3 · rows >= 10</td></tr>
+<tr><th>on that range</th><td>Holman quotes the correlation for 2000 < Re_max < 40 000. The pitch range is the range over which the source data were taken and is the weaker of the two limits.</td></tr>
+<tr><th>note</th><td>Closed form, and the one the Geometry tab has always shown. Held against Zukauskas' charts over a square-pitch grid in the stage-1 report - not asserted here, computed there. The short version: inside Jakob's own quoted Re range and for X >= 1.5 the two agree to about 20 % either way; at X = 1.25, or outside 2e3 < Re < 4e4, they part company by as much as a factor of 2.2. The tight-pitch corner is where a CFD point is worth the most.</td></tr>
+</table>
+<h3>Zukauskas (1972) </h3>
+<table>
+<tr><th>source</th><td>A. Zukauskas, Advances in Heat Transfer 8 (1972) 93-160; charts as reprinted in Bergman, Lavine, Incropera & DeWitt, Introduction to Heat Transfer, 6th ed., figs. 7.14 / 7.15. Read here through the digitisation published in the MIT-licensed `ht` library, copied into zukauskas_charts.py.</td></tr>
+<tr><th>range</th><td class="n">Re 100–1e+06 · X_T 1.25–2.5 · X_L 1.25–2.5 · rows >= 10</td></tr>
+<tr><th>on that range</th><td>The four fits carry their own domains, read off their knots at import; friction() clamps to them and says so. The pitch ratios are drawn only for 1.25 to 2.5.</td></tr>
+<tr><th>note</th><td>A chart, not a formula: the chain is chart -> digitiser -> spline. Where the chart says chi is exactly 1 (square pitch) the fit returns 1.00 to 1.08, and that 8 % is the honest floor on what a reading off it is worth. Reproduces both of `ht`'s own documented examples to the digit, which is what says the tables came across intact.</td></tr>
+</table>
+<h3>Gaddis & Gnielinski (1985) / VDI <span class="flag">source needed</span></h3>
+<table>
+<tr><th>source</th><td>E. S. Gaddis and V. Gnielinski, 'Pressure drop in cross flow across tube bundles', International Chemical Engineering 25 (1) (1985) 1-15; also the VDI Heat Atlas, section L1.4.</td></tr>
+<tr><th>range</th><td class="n">Re 1–3e+05 · X_T 1.02–3 · X_L 0.6–3 · rows >= 5</td></tr>
+<tr><th>on that range</th><td>Quoted range; not verified here.</td></tr>
+<tr><th>note</th><td>The best-regarded closed form for this problem, and the one worth having next: a laminar and a turbulent term superposed, each a function of the pitch ratios, valid from creeping flow to Re 3e5, in-line and staggered. The equations are long and the coefficients are not reproduced in anything reachable from here, so they are NOT written down from memory. Supply the source and this becomes an encoded entry.</td></tr>
+</table>
+<h3>Grimison (1937) <span class="flag">source needed</span></h3>
+<table>
+<tr><th>source</th><td>E. D. Grimison, Trans. ASME 59 (1937) 583.</td></tr>
+<tr><th>range</th><td class="n">Re 2000–4e+04 · X_T 1.25–3 · X_L 1.25–3 · rows >= 10</td></tr>
+<tr><th>on that range</th><td>Quoted range; not verified here.</td></tr>
+<tr><th>note</th><td>The other classical chart set, and the data Jakob's form was fitted to. Tabulated, not closed form.</td></tr>
+</table>
+<h3>Idelchik, Handbook of Hydraulic Resistance <span class="flag">source needed</span></h3>
+<table>
+<tr><th>source</th><td>I. E. Idelchik, Handbook of Hydraulic Resistance, 3rd ed., section 8, diagrams for banks of tubes in cross flow.</td></tr>
+<tr><th>range</th><td class="n">Re 3–1e+05 · X_T 1.1–4 · X_L 1.1–4 · rows >= 1</td></tr>
+<tr><th>on that range</th><td>Quoted range; not verified here.</td></tr>
+<tr><th>note</th><td>Diagram-based, covers the low-Re end better than the others and handles short banks explicitly.</td></tr>
+</table>
+<h3>ESDU 79034 <span class="flag">source needed</span></h3>
+<table>
+<tr><th>source</th><td>ESDU 79034, 'Crossflow pressure loss over banks of plain tubes in square and equilateral triangular arrays'.</td></tr>
+<tr><th>range</th><td class="n">Re 10–1e+06 · X_T 1.2–4 · X_L 1.2–4 · rows >= 4</td></tr>
+<tr><th>on that range</th><td>Quoted range; not verified here.</td></tr>
+<tr><th>note</th><td>The engineering-practice standard, behind a licence. Listed so that it is visibly absent rather than invisibly missing.</td></tr>
+</table>
+<h2>The two evaluable correlations, against each other</h2>
+<p>Computed by this file's own code, now. Square pitch (X_T = X_L = X), 10 rows, water. The two come from independent sources, so the spread between them is the width of the baseline itself.</p>
+<h3>in-line</h3>
+<table><tr><th>X</th><th>Re<sub>max</sub></th><th>Eu<sub>row</sub> Jakob</th><th>Eu<sub>row</sub> Zukauskas</th><th>Jakob / Zukauskas</th></tr>
+<tr><td class="n">1.25</td><td class="n">1e+03</td><td class="n">0.9645</td><td class="n">0.4379</td><td class="n">2.20</td></tr>
+<tr><td class="n">1.25</td><td class="n">3e+03</td><td class="n">0.8179</td><td class="n">0.5305</td><td class="n">1.54</td></tr>
+<tr><td class="n">1.25</td><td class="n">1e+04</td><td class="n">0.6828</td><td class="n">0.4501</td><td class="n">1.52</td></tr>
+<tr><td class="n">1.25</td><td class="n">3e+04</td><td class="n">0.5790</td><td class="n">0.3757</td><td class="n">1.54</td></tr>
+<tr><td class="n">1.25</td><td class="n">1e+05</td><td class="n">0.4834</td><td class="n">0.2917</td><td class="n">1.66</td></tr>
+<tr><td class="n">1.50</td><td class="n">1e+03</td><td class="n">0.4492</td><td class="n">0.2582</td><td class="n">1.74</td></tr>
+<tr><td class="n">1.50</td><td class="n">3e+03</td><td class="n">0.3810</td><td class="n">0.3487</td><td class="n">1.09</td></tr>
+<tr><td class="n">1.50</td><td class="n">1e+04</td><td class="n">0.3180</td><td class="n">0.3331</td><td class="n">0.95</td></tr>
+<tr><td class="n">1.50</td><td class="n">3e+04</td><td class="n">0.2697</td><td class="n">0.3014</td><td class="n">0.89</td></tr>
+<tr><td class="n">1.50</td><td class="n">1e+05</td><td class="n">0.2251</td><td class="n">0.2506</td><td class="n">0.90</td></tr>
+<tr><td class="n">2.00</td><td class="n">1e+03</td><td class="n">0.2895</td><td class="n">0.2249</td><td class="n">1.29</td></tr>
+<tr><td class="n">2.00</td><td class="n">3e+03</td><td class="n">0.2455</td><td class="n">0.2282</td><td class="n">1.08</td></tr>
+<tr><td class="n">2.00</td><td class="n">1e+04</td><td class="n">0.2050</td><td class="n">0.2324</td><td class="n">0.88</td></tr>
+<tr><td class="n">2.00</td><td class="n">3e+04</td><td class="n">0.1738</td><td class="n">0.2089</td><td class="n">0.83</td></tr>
+<tr><td class="n">2.00</td><td class="n">1e+05</td><td class="n">0.1451</td><td class="n">0.1865</td><td class="n">0.78</td></tr>
+<tr><td class="n">2.50</td><td class="n">1e+03</td><td class="n">0.2610</td><td class="n">0.1759</td><td class="n">1.48</td></tr>
+<tr><td class="n">2.50</td><td class="n">3e+03</td><td class="n">0.2213</td><td class="n">0.1798</td><td class="n">1.23</td></tr>
+<tr><td class="n">2.50</td><td class="n">1e+04</td><td class="n">0.1847</td><td class="n">0.1834</td><td class="n">1.01</td></tr>
+<tr><td class="n">2.50</td><td class="n">3e+04</td><td class="n">0.1567</td><td class="n">0.1801</td><td class="n">0.87</td></tr>
+<tr><td class="n">2.50</td><td class="n">1e+05</td><td class="n">0.1308</td><td class="n">0.1663</td><td class="n">0.79</td></tr>
+</table>
+<h3>staggered</h3>
+<table><tr><th>X</th><th>Re<sub>max</sub></th><th>Eu<sub>row</sub> Jakob</th><th>Eu<sub>row</sub> Zukauskas</th><th>Jakob / Zukauskas</th></tr>
+<tr><td class="n">1.25</td><td class="n">1e+03</td><td class="n">1.0296</td><td class="n">0.8435</td><td class="n">1.22</td></tr>
+<tr><td class="n">1.25</td><td class="n">3e+03</td><td class="n">0.8637</td><td class="n">0.6751</td><td class="n">1.28</td></tr>
+<tr><td class="n">1.25</td><td class="n">1e+04</td><td class="n">0.7123</td><td class="n">0.5261</td><td class="n">1.35</td></tr>
+<tr><td class="n">1.25</td><td class="n">3e+04</td><td class="n">0.5975</td><td class="n">0.4971</td><td class="n">1.20</td></tr>
+<tr><td class="n">1.25</td><td class="n">1e+05</td><td class="n">0.4928</td><td class="n">0.2954</td><td class="n">1.67</td></tr>
+<tr><td class="n">1.50</td><td class="n">1e+03</td><td class="n">0.6615</td><td class="n">0.6152</td><td class="n">1.08</td></tr>
+<tr><td class="n">1.50</td><td class="n">3e+03</td><td class="n">0.5549</td><td class="n">0.5110</td><td class="n">1.09</td></tr>
+<tr><td class="n">1.50</td><td class="n">1e+04</td><td class="n">0.4577</td><td class="n">0.4126</td><td class="n">1.11</td></tr>
+<tr><td class="n">1.50</td><td class="n">3e+04</td><td class="n">0.3839</td><td class="n">0.3963</td><td class="n">0.97</td></tr>
+<tr><td class="n">1.50</td><td class="n">1e+05</td><td class="n">0.3166</td><td class="n">0.2295</td><td class="n">1.38</td></tr>
+<tr><td class="n">2.00</td><td class="n">1e+03</td><td class="n">0.4874</td><td class="n">0.4943</td><td class="n">0.99</td></tr>
+<tr><td class="n">2.00</td><td class="n">3e+03</td><td class="n">0.4089</td><td class="n">0.4265</td><td class="n">0.96</td></tr>
+<tr><td class="n">2.00</td><td class="n">1e+04</td><td class="n">0.3372</td><td class="n">0.3637</td><td class="n">0.93</td></tr>
+<tr><td class="n">2.00</td><td class="n">3e+04</td><td class="n">0.2829</td><td class="n">0.3486</td><td class="n">0.81</td></tr>
+<tr><td class="n">2.00</td><td class="n">1e+05</td><td class="n">0.2333</td><td class="n">0.2040</td><td class="n">1.14</td></tr>
+<tr><td class="n">2.50</td><td class="n">1e+03</td><td class="n">0.4320</td><td class="n">0.4311</td><td class="n">1.00</td></tr>
+<tr><td class="n">2.50</td><td class="n">3e+03</td><td class="n">0.3624</td><td class="n">0.3776</td><td class="n">0.96</td></tr>
+<tr><td class="n">2.50</td><td class="n">1e+04</td><td class="n">0.2989</td><td class="n">0.3288</td><td class="n">0.91</td></tr>
+<tr><td class="n">2.50</td><td class="n">3e+04</td><td class="n">0.2507</td><td class="n">0.3191</td><td class="n">0.79</td></tr>
+<tr><td class="n">2.50</td><td class="n">1e+05</td><td class="n">0.2068</td><td class="n">0.1859</td><td class="n">1.11</td></tr>
+</table>
+<h3>In summary</h3>
+<table><tr><th>over</th><th>in-line</th><th>staggered</th></tr>
+<tr><th>the whole grid</th><td class="n">0.78 – 2.20 (mean 1.21)</td><td class="n">0.79 – 1.67 (mean 1.10)</td></tr>
+<tr><th>Jakob's quoted Re, 2e3–4e4</th><td class="n">0.83 – 1.54 (mean 1.12)</td><td class="n">0.79 – 1.35 (mean 1.03)</td></tr>
+<tr><th>... and X >= 1.5</th><td class="n">0.83 – 1.23 (mean 0.98)</td><td class="n">0.79 – 1.11 (mean 0.95)</td></tr>
+</table>
+<p>How to read it: inside Jakob's quoted Re range and for pitch ratios of 1.5 and up, the two agree to within about 20 % either way. There, 'the existing correlation' is close to a single number and CFD that misses it by much is CFD to be suspicious of. At <b>X = 1.25</b> and <b>outside that Re range</b> they part by up to a factor of 2.2 - there is no baseline there, and that is where one CFD point is worth the most. The stage-3 matrix is laid out to cross both regions.</p>
+<h2>The form stage 4 will fit</h2>
+<p><code>Eu_row = C * Re^(-m) * (X_T-1)^(-p) * X_L^q</code></p>
+<p>Every correlation above reduces to a power of Re times a function of the pitch ratios, so ours starts from the same shape. The coil adds one factor in the helix angle, which is 1 at zero lean - so the straight-rod fit is the coil fit's own limit rather than a different correlation.</p>
+<p>Eu_row *= (cos alpha)^(-r); alpha the helix angle, r the fifth coefficient. At alpha = 0 it is 1, so the straight-rod fit is the coil fit's own limit.</p>
+<h2>What to watch for in THIS bundle</h2>
+<p class="muted">· Every correlation here is quoted for a FULLY DEVELOPED bank, meaning about ten rows or more. The first row or two do not drop the same pressure, so a short bundle compared per row carries that difference straight into the ratio.</p>
+<p class="muted">· The correlations are for a bank with no side walls. This domain has them - with or without the half rods - and they add wall friction and a passage of their own. The fewer the columns, the more it matters.</p>
+<p class="muted">· The CFD's inlet-minus-outlet spans the inlet and outlet boxes as well. The correlation predicts the bundle alone, so the comparison has to be against two planes on the bundle faces - which is what the report tab already measures.</p>
+<p class="muted">· The y+ target has to suit the turbulence model. k-omega SST with a target of 30 puts the first cell in the buffer layer, the wall shear comes out wrong, and the pressure drop with it.</p>
+<div class="foot">generated by correlations.py - every number in the tables computed by the same code the study uses</div>
+</div>
+</body></html>
