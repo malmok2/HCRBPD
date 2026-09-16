@@ -747,10 +747,16 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/study_report":
                 s = ST.Study.load(str(body.get("name") or ""))
                 lang = "en" if body.get("lang") == "en" else "ko"
-                body_html = ST.report_body(s, lang)
-                out = {"ok": True, "body": body_html}
+                #  two views of one record: the stage report reads end to end
+                #  and argues, the overview puts every case on one screen and
+                #  compares.  Same numbers, same file, different arrangement.
+                over = body.get("view") == "overview"
+                body_html = (ST.overview_body(s, lang) if over
+                             else ST.report_body(s, lang))
+                out = {"ok": True, "body": body_html, "view": body.get("view")}
                 if body.get("write"):
-                    out["path"] = ST.write_report(s, lang)
+                    out["path"] = ST.write_report(
+                        s, lang, overview=over)
                 return self._json(out)
             if path == "/api/correlations_report":
                 lang = "en" if body.get("lang") == "en" else "ko"

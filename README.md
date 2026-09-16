@@ -419,6 +419,25 @@ the Run tab and says in the banner that this is a record, not a run. Mesh
 studies write their case files too, so the fields are recoverable there; the
 thirty-case sweeps do not, and say so.
 
+**A campaign is read as a wall, not as a stack of cases.** The stage report
+argues end to end and draws the residual curve of the one case its argument
+turns on. The question asked far more often is "how did the whole batch go?",
+and answering that by opening eight cases one at a time is how a bad set-up
+survives a night. **한눈에 보기** puts every case on one screen: one panel each,
+with its status colour, its numbers, its residual envelope and its Δp trace —
+and every panel on the **same axes**, because the comparison is the whole
+point. A flat residual curve beside a descending one is obvious; a flat curve
+on its own is not. The abscissa is each run's progress from 0 to 1 rather than
+its iteration count, so runs of different length still compare by shape, and
+the Δp panel is drawn as a percentage of that case's own settled mean, so cases
+whose pressure drops differ by orders of magnitude are still on one scale.
+Under the wall the same traces are overlaid, coloured by status rather than by
+case — with thirty cases and six palette colours a per-case key would put the
+same blue against six names, and the question a stack of curves is read for is
+which ones went wrong. Clicking a panel replays that case. Nothing here is
+computed that the report does not already compute; it is the same record,
+arranged for the eye.
+
 Do not go looking for the residual history in the `.cas.h5`. Reopening one
 needs Fluent and a licence, and what Fluent puts in it is the converged
 **field**, not the road the solver took to get there — the app tries anyway

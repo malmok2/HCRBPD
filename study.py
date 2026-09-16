@@ -1307,8 +1307,24 @@ def svg_plot(series, xlabel="", ylabel="", xlog=False, ylog=False,
     #  the legend sits ABOVE the frame, not inside it: in a log-log Eu-Re plot
     #  the curves run straight through the top-left corner, which is the only
     #  place a boxed legend fits
-    n_leg = len([s for s in series if s.get("label")])
-    L, R, T, B = 66, 14, 16 + (16 if title else 0) + (14 if n_leg else 0), 44
+    #  the legend wraps.  Eight cases on one row ran off the right-hand edge
+    #  and the last labels were simply cut, which is the one failure mode a
+    #  legend must not have - a chart you cannot read the key of is a chart
+    #  that says nothing.
+    L, R, B = 66, 14, 44
+    legend, row, used = [], [], 0.0
+    for i, sr in enumerate(series):
+        if not sr.get("label"):
+            continue
+        w = 26 + 6.0 * len(sr["label"])
+        if row and used + w > width - L - R:
+            legend.append(row)
+            row, used = [], 0.0
+        row.append((i, sr))
+        used += w
+    if row:
+        legend.append(row)
+    T = 16 + (16 if title else 0) + 14 * len(legend)
     iw, ih = width - L - R, height - T - B
 
     def px(v):
@@ -1362,19 +1378,46 @@ def svg_plot(series, xlabel="", ylabel="", xlog=False, ylog=False,
             for x, y in ps:
                 o.append('<circle cx="%.1f" cy="%.1f" r="2.9" fill="%s"/>'
                          % (px(x), py(y), col))
-    #  legend: one row, above the frame
-    lx, ly = L, T - 6
-    for i, s in enumerate(series):
-        if not s.get("label"):
-            continue
-        col = s.get("color") or PALETTE[i % len(PALETTE)]
-        o.append('<rect x="%.1f" y="%.1f" width="15" height="2.6" fill="%s"/>'
-                 % (lx, ly - 3, col))
-        o.append('<text x="%.1f" y="%.1f" font-size="10" fill="#33415a">%s</text>'
-                 % (lx + 20, ly + 1, s["label"]))
-        lx += 26 + 6.0 * len(s["label"])
+    #  legend: as many rows as it takes, above the frame
+    for ri, row in enumerate(legend):
+        lx = L
+        ly = T - 6 - 14 * (len(legend) - 1 - ri)
+        for i, sr in row:
+            col = sr.get("color") or PALETTE[i % len(PALETTE)]
+            o.append('<rect x="%.1f" y="%.1f" width="15" height="2.6" '
+                     'fill="%s"/>' % (lx, ly - 3, col))
+            o.append('<text x="%.1f" y="%.1f" font-size="10" '
+                     'fill="#33415a">%s</text>' % (lx + 20, ly + 1, sr["label"]))
+            lx += 26 + 6.0 * len(sr["label"])
     o.append("</svg>")
     return "".join(o)
+
+
+#  The two charts that ARE the result of a stage, built in one place because
+#  the stage report and the at-a-glance panel both draw them and a second copy
+#  is a second thing to keep in step.
+def _grid_series(lad, levels, t):
+    """Δp against cell size, with the Richardson extrapolation as a line."""
+    pts = [(r["h"], r["dp_bundle"]) for r in sorted(levels, key=lambda r: r["h"])]
+    hs = [p[0] for p in pts]
+    return [{"label": t("CFD", "CFD"), "points": pts},
+            {"label": t("Richardson 외삽 (h→0)", "Richardson h -> 0"),
+             "points": [(min(hs) * 0.7, lad["phi_ext"]),
+                        (max(hs) * 1.1, lad["phi_ext"])],
+             "dash": True, "marker": False, "color": "#64748b"}]
+
+
+def _eu_re_series(rs, keys, names):
+    """Our Eu against Re, and every correlation that is in range, dashed."""
+    series = [{"label": "CFD", "points": [(r["Re"], r["eu_row"]) for r in rs],
+               "color": PALETTE[0]}]
+    for j, k in enumerate(keys):
+        pts = [(r["Re"], r["corr"][k]["eu_row"]) for r in rs
+               if r["corr"][k]["eu_row"]]
+        if pts:
+            series.append({"label": names[k], "points": pts, "dash": True,
+                           "color": PALETTE[(j + 1) % len(PALETTE)]})
+    return series
 
 
 # =============================================================================
@@ -1561,17 +1604,9 @@ def mesh_report_body(study, lang="ko", tol=0.01):
                     "extrapolation does not mean anything."))
 
         if lad.get("phi_ext"):
-            pts = [(r["h"], r["dp_bundle"]) for r in
-                   sorted(levels, key=lambda r: r["h"])]
-            hs = [p[0] for p in pts]
-            h.append(svg_plot(
-                [{"label": t("CFD", "CFD"), "points": pts},
-                 {"label": t("Richardson 외삽 (h→0)", "Richardson h -> 0"),
-                  "points": [(min(hs) * 0.7, lad["phi_ext"]),
-                             (max(hs) * 1.1, lad["phi_ext"])],
-                  "dash": True, "marker": False, "color": "#64748b"}],
-                xlabel="h [m]", ylabel="Δp_bundle [Pa]",
-                title=t("격자 수렴", "grid convergence")))
+            h.append(svg_plot(_grid_series(lad, levels, t),
+                              xlabel="h [m]", ylabel="Δp_bundle [Pa]",
+                              title=t("격자 수렴", "grid convergence")))
             h.append('<p class="muted">%s</p>' % t(
                 "가로축은 대표 셀 크기입니다. 위·아래가 대칭면이고 z 방향 셀 수가 "
                 "고정이므로 이 세밀화는 2차원이고, h 는 셀 하나의 면적의 제곱근입니다. "
@@ -1735,14 +1770,7 @@ def sweep_report_body(study, lang="ko"):
         rs = sorted(by_pitch[key], key=lambda r: r["Re"])
         if len(rs) < 2:
             continue
-        series = [{"label": "CFD", "points": [(r["Re"], r["eu_row"]) for r in rs],
-                   "color": PALETTE[0]}]
-        for j, k in enumerate(keys):
-            pts = [(r["Re"], r["corr"][k]["eu_row"]) for r in rs
-                   if r["corr"][k]["eu_row"]]
-            if pts:
-                series.append({"label": names[k], "points": pts, "dash": True,
-                               "color": PALETTE[(j + 1) % len(PALETTE)]})
+        series = _eu_re_series(rs, keys, names)
         h.append(svg_plot(series, xlabel="Re_max", ylabel="Eu per row",
                           xlog=True, ylog=True,
                           title="X_T = %g, X_L = %g" % key))
@@ -1909,6 +1937,392 @@ def sweep_report_body(study, lang="ko"):
     return "\n".join(h)
 
 
+# =============================================================================
+#  AT A GLANCE
+# =============================================================================
+#  A stage report is written to be read end to end, and it draws the residual
+#  curve of ONE case - the finest - because that is the one its argument turns
+#  on.  That is the wrong shape for the question actually asked most often,
+#  which is "how did the whole batch go?"  Answering it by opening eight or
+#  thirty cases one at a time is how a bad set-up survives a night.
+#
+#  So: small multiples.  Every case on one screen, every panel on the SAME
+#  axes, because the comparison is the entire point - a flat residual curve
+#  next to a descending one is obvious, and a flat curve on its own is not.
+#  Nothing here is computed that the report does not already compute; this is
+#  the same record, arranged for the eye instead of for the argument.
+OV_STATUS = {
+    #  key:      (colour,    ko,            en)
+    "queued":    ("#94a3b8", "대기",        "queued"),
+    "failed":    ("#9b1c1c", "실패",        "failed"),
+    "mock":      ("#7c3aed", "MOCK",        "MOCK"),
+    "good":      ("#15803d", "정상",        "settled"),
+    "moving":    ("#d97706", "아직 이동 중", "still moving"),
+    "stalled":   ("#b91c1c", "미수렴",      "not converged"),
+}
+
+
+def case_status(row):
+    """One word for how a case went, by the same rules the runner judges it.
+
+    Deliberately delegates to Runner._first_case_verdict rather than
+    re-deriving the test: two places deciding what "converged" means is two
+    places to disagree, and the one that decides whether a campaign keeps
+    running has to be the one that wins.
+    """
+    if row is None:
+        return "queued"
+    if not row.get("ok"):
+        return "failed"
+    if row.get("mock"):
+        return "mock"
+    if Runner._first_case_verdict(row) is None:
+        return "good"
+    #  the verdict says there is a problem; these three say WHICH, in the order
+    #  that matters.  A steady run that never met its criterion is stalled; a
+    #  run that finished but measured nothing is no more use than one that
+    #  crashed; everything else is an answer that had not stopped moving.
+    if row.get("converged") is False and not row.get("transient"):
+        return "stalled"
+    if row.get("dp_bundle") is None:
+        return "failed"
+    return "moving"
+
+
+def _worst_trace(hist):
+    """The largest residual at each recorded point.
+
+    Six equations on one panel at thumbnail size is a smudge.  The envelope is
+    what the convergence test looks at anyway, so the panel shows exactly the
+    number the verdict was made on.
+    """
+    out = []
+    for r in hist:
+        vals = [v for k, v in r.items() if k != "iter"
+                and isinstance(v, (int, float)) and v > 0]
+        if vals:
+            out.append((r["iter"], max(vals)))
+    return out
+
+
+def _dp_deviation(hist):
+    """The Dp trace as a percentage of its own settled mean.
+
+    Cases at different Reynolds numbers have pressure drops orders of
+    magnitude apart, so a shared Pa axis would show one curve and five flat
+    lines.  What is being compared is not the value but whether it stopped
+    moving, and that is scale-free.  The reference is the mean of the last
+    fifth, which is the window the run itself averages over.
+    """
+    vals = [(r["iter"], r["dp"]) for r in hist if r.get("dp") is not None]
+    if len(vals) < 2:
+        return [], None
+    tail = vals[max(0, len(vals) - max(2, len(vals) // 5)):]
+    mean = sum(v for _, v in tail) / len(tail)
+    if not mean:
+        return [], None
+    return [(i, 100.0 * (v / mean - 1.0)) for i, v in vals], mean
+
+
+def svg_spark(series, width=236, height=86, ylog=False, yrange=None,
+              xrange=None, hline=None, band=None, note=""):
+    """A panel of one small multiple: the curve, a frame, and nothing else.
+
+    The ranges are passed IN rather than fitted here - that is what makes a
+    wall of these comparable.  A panel whose data leaves the given range is
+    clipped at the frame rather than rescaled, because a panel that quietly
+    rescaled itself would break the only promise this layout makes.
+    """
+    pts = [p for s in series for p in s["points"]]
+    if not pts:
+        return ('<svg class="spark" viewBox="0 0 %d %d" width="100%%" '
+                'xmlns="http://www.w3.org/2000/svg"><text x="%d" y="%d" '
+                'font-size="10.5" fill="#94a3b8" text-anchor="middle">%s'
+                '</text></svg>' % (width, height, width // 2, height // 2 + 3,
+                                   _esc(note or "-")))
+    x0, x1 = xrange or (min(p[0] for p in pts), max(p[0] for p in pts))
+    y0, y1 = yrange or (min(p[1] for p in pts), max(p[1] for p in pts))
+    if x1 <= x0:
+        x1 = x0 + 1
+    if y1 <= y0:
+        y1 = y0 + (abs(y0) or 1.0) * 0.1
+    L, R, T, B = 4, 4, 4, 4
+
+    def px(v):
+        return L + (v - x0) / float(x1 - x0) * (width - L - R)
+
+    def py(v):
+        f = ((math.log10(max(v, 1e-30)) - math.log10(y0))
+             / (math.log10(y1) - math.log10(y0)) if ylog
+             else (v - y0) / float(y1 - y0))
+        return T + (1.0 - min(max(f, 0.0), 1.0)) * (height - T - B)
+
+    o = ['<svg class="spark" viewBox="0 0 %d %d" width="100%%" '
+         'xmlns="http://www.w3.org/2000/svg" font-family="inherit">'
+         % (width, height)]
+    if band:
+        lo, hi = band
+        o.append('<rect x="%d" y="%.1f" width="%.1f" height="%.1f" '
+                 'fill="#dcfce7"/>' % (L, py(hi), width - L - R,
+                                       max(py(lo) - py(hi), 1.0)))
+    if hline is not None and y0 < hline < y1:
+        o.append('<line x1="%d" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#94a3b8" '
+                 'stroke-width="1" stroke-dasharray="4 3"/>'
+                 % (L, py(hline), width - R, py(hline)))
+    for s in series:
+        ps = s["points"]
+        if len(ps) < 2:
+            continue
+        d = " ".join("%s%.1f,%.1f" % ("M" if j == 0 else "L", px(x), py(y))
+                     for j, (x, y) in enumerate(ps))
+        o.append('<path d="%s" fill="none" stroke="%s" stroke-width="%s"/>'
+                 % (d, s.get("color") or "#2563eb", s.get("width") or "1.5"))
+    o.append('<rect x="%d" y="%d" width="%d" height="%d" fill="none" '
+             'stroke="#dde3ea"/>' % (L, T, width - L - R, height - T - B))
+    o.append("</svg>")
+    return "".join(o)
+
+
+def _ov_cards(study, rows, ko, t):
+    """One panel per case, all on shared axes."""
+    by = {r["id"]: r for r in rows}
+    cases = [(c["id"], by.get(c["id"])) for c in study.cases]
+    #  the shared ranges, over every case that has anything to show
+    rv = [v for _, r in cases if r for _, v in
+          _worst_trace(r.get("residual_history") or [])]
+    crits = [r.get("criterion") for _, r in cases
+             if r and r.get("criterion")]
+    if crits:
+        rv.append(min(crits))
+    ry = ((min(rv) / 2.0, max(rv) * 2.0) if len(rv) > 1 else None)
+    devs = [abs(v) for _, r in cases if r for _, v in
+            _dp_deviation(r.get("dp_history") or [])[0]]
+    #  at least +-2 % so a settled batch does not get magnified into noise,
+    #  at most +-50 % so one wild case does not flatten all the others - and
+    #  snapped to a round number, because the limit is written in the panel
+    #  label and "+-34.2455 %" is a number nobody asked for
+    want = min(max(max(devs) * 1.15 if devs else 2.0, 2.0), 50.0)
+    lim = next(v for v in (2, 5, 10, 20, 50) if v >= want - 1e-9)
+    #  the x axis is the FRACTION of each run, not the iteration count: cases
+    #  that ran for different numbers of iterations are still comparable in
+    #  shape, which is what a wall of these is read for
+    h = ['<div class="ovgrid">']
+    for cid, r in cases:
+        key = case_status(r)
+        col, kko, ken = OV_STATUS[key]
+        h.append('<div class="ovcard" data-case="%s" style="border-left-color:%s">'
+                 % (_esc(cid), col))
+        h.append('<div class="ovhead"><b>%s</b>'
+                 '<span class="ovst" style="color:%s">%s</span></div>'
+                 % (_esc(cid), col, _esc(kko if ko else ken)))
+        if r is None:
+            h.append('<div class="ovnums">%s</div></div>'
+                     % t("아직 실행되지 않았습니다", "not run yet"))
+            continue
+        bits = []
+        if r.get("eu_row") is not None:
+            bits.append("Eu %s" % _n(r["eu_row"], "%.3f"))
+        if r.get("cells"):
+            bits.append("{:,}".format(r["cells"]).replace(",", " ") +
+                        t(" 셀", " cells"))
+        if r.get("Re"):
+            bits.append("Re %s" % _n(r["Re"], "%.3g"))
+        if r.get("residual_worst") is not None:
+            bits.append("%s %s" % (t("최종 잔차", "final res"),
+                                   _n(r["residual_worst"], "%.1e")))
+        #  the number the verdict was actually made on, so the colour of the
+        #  border is never something the reader has to take on trust
+        if r.get("transient") and r.get("dp_spread") is not None:
+            bits.append("%s %s" % (t("Δp 진폭", "Δp swing"),
+                                   "%.0f %%" % (100 * r["dp_spread"])))
+        elif r.get("dp_drift") is not None:
+            bits.append("%s %s" % (t("Δp 이동", "Δp drift"),
+                                   "%.1f %%" % (100 * r["dp_drift"])))
+        h.append('<div class="ovnums">%s</div>' % _esc(" · ".join(bits) or "—"))
+        res = _thin(_worst_trace(r.get("residual_history") or []), 140)
+        h.append('<div class="ovplot"><span>%s</span>%s</div>'
+                 % (t("잔차(최대)", "residual (worst)"),
+                    svg_spark([{"points": _fracx(res), "color": col}],
+                              ylog=True, yrange=ry, xrange=(0.0, 1.0),
+                              hline=r.get("criterion"),
+                              note=t("이력 없음", "no history"))))
+        dev, mean = _dp_deviation(r.get("dp_history") or [])
+        h.append('<div class="ovplot"><span>%s</span>%s</div>'
+                 % (t("Δp 정착 ±%g%%" % lim, "Δp settling ±%g%%" % lim),
+                    svg_spark([{"points": _fracx(_thin(dev, 140)),
+                                "color": col}],
+                              yrange=(-lim, lim), xrange=(0.0, 1.0),
+                              band=(-1.0, 1.0), hline=0.0,
+                              note=t("이력 없음", "no history"))))
+        h.append("</div>")
+    h.append("</div>")
+    return "\n".join(h)
+
+
+def _fracx(pts):
+    """Re-index a trace onto 0..1 so runs of different length line up."""
+    if len(pts) < 2:
+        return list(pts)
+    x0, x1 = pts[0][0], pts[-1][0]
+    if x1 <= x0:
+        return [(0.0, y) for _, y in pts]
+    return [((x - x0) / float(x1 - x0), y) for x, y in pts]
+
+
+def overview_body(study, lang="ko"):
+    """Every case of one study on a single screen."""
+    ko = lang == "ko"
+    t = lambda a, b: a if ko else b                          # noqa: E731
+    rows = study.results()
+    h = ['<h1>%s · %s</h1>' % (_esc(study.d.get("title") or study.name),
+                               t("한눈에 보기", "at a glance"))]
+    counts = {}
+    for c in study.cases:
+        r = next((x for x in rows if x["id"] == c["id"]), None)
+        k = case_status(r)
+        counts[k] = counts.get(k, 0) + 1
+    h.append('<p class="sub">%s</p>' % _esc(" · ".join(
+        "%s %d" % ((OV_STATUS[k][1] if ko else OV_STATUS[k][2]), n)
+        for k, n in sorted(counts.items(), key=lambda kv: -kv[1]))))
+    for level, msg in _warnings(study, [r for r in rows if r.get("ok")], ko):
+        h.append('<p class="%s">%s</p>'
+                 % ("bad" if level == "bad" else "warn", _esc(msg)))
+    h.append('<p class="muted">%s</p>' % t(
+        "패널 하나가 케이스 하나입니다. 모든 패널의 축은 <b>동일</b>하므로 "
+        "옆칸과 바로 비교할 수 있습니다. 가로축은 반복 횟수가 아니라 그 런의 "
+        "<b>진행률(0→1)</b>이라 길이가 다른 런도 모양으로 비교됩니다. "
+        "잔차 패널의 점선은 수렴 판정선, Δp 패널의 초록 띠는 ±1 % 입니다. "
+        "패널을 클릭하면 그 케이스가 해석 탭에 복원됩니다.",
+        "One panel per case. Every panel is on the <b>same</b> axes, so a "
+        "panel can be read against the one beside it. The abscissa is each "
+        "run's <b>progress, 0 to 1</b>, not its iteration count, so runs of "
+        "different length still compare by shape. The dashed line in a "
+        "residual panel is the convergence criterion; the green band in a Δp "
+        "panel is ±1 %. Clicking a panel puts that case back on the Run tab."))
+    h.append(_ov_cards(study, rows, ko, t))
+
+    #  the same traces again, overlaid.  The wall says which case; the overlay
+    #  says how far apart they are, which a wall of separate frames cannot.
+    good = [r for r in rows if r.get("ok") and (r.get("residual_history")
+                                                or r.get("dp_history"))]
+    if len(good) > 1:
+        h.append("<h2>%s</h2>" % t("겹쳐 보기", "overlaid"))
+        wide = lambda svg: '<div class="ovwide">%s</div>' % svg   # noqa: E731
+        #  Coloured by STATUS, not by case, and with a status key rather than
+        #  thirty names.  A thirty-case sweep has five times more curves than
+        #  the palette has colours, so a per-case legend would put the same
+        #  blue against six different names - and the question a stack of
+        #  curves is read for is not which one is main-L3, it is which ones
+        #  went wrong.  The colours are the same ones the panels above are
+        #  bordered with, so the two read as one picture.
+        h.append('<p class="muted">%s</p>' % t(
+            "곡선 색은 위 패널의 테두리 색과 같은 상태 색입니다 (케이스별 색이 "
+            "아닙니다). 어느 케이스인지는 위 패널에서 보세요.",
+            "Curve colour is the status colour the panels above are bordered "
+            "with, not a per-case colour. Which case is which is in the panels."))
+
+        def _stack(trace_of, **kw):
+            out, seen = [], []
+            for r in good:
+                tr = trace_of(r)
+                if not tr:
+                    continue
+                key = case_status(r)
+                col = OV_STATUS[key][0]
+                out.append({"points": tr, "marker": False, "color": col})
+                if key not in seen:
+                    seen.append(key)
+            for key in seen:
+                col, kko, ken = OV_STATUS[key]
+                out.append({"label": kko if ko else ken, "points": [],
+                            "color": col})
+            return out
+
+        series = _stack(lambda r: _fracx(_thin(
+            _worst_trace(r.get("residual_history") or []), 140)))
+        if series:
+            crit = next((r.get("criterion") for r in good if r.get("criterion")),
+                        None)
+            if crit:
+                series.append({"label": t("판정 기준", "criterion"),
+                               "points": [(0.0, crit), (1.0, crit)],
+                               "dash": True, "marker": False, "color": "#94a3b8"})
+            h.append(wide(svg_plot(
+                series, xlabel=t("진행률", "progress"),
+                ylabel=t("최대 잔차", "worst residual"), ylog=True, width=880,
+                height=340, title=t("케이스별 잔차", "residual, every case"))))
+        series = _stack(lambda r: _fracx(_thin(
+            _dp_deviation(r.get("dp_history") or [])[0], 140)))
+        if series:
+            h.append(wide(svg_plot(
+                series, xlabel=t("진행률", "progress"),
+                ylabel=t("자기 평균 대비 [%]", "from own mean [%]"),
+                width=880, height=340, title=t("Δp 정착", "Δp settling"))))
+            h.append('<p class="muted">%s</p>' % t(
+                "0 에 가까이 붙어 평평해진 곡선은 정착한 것이고, 끝에서 "
+                "기울어져 있으면 아직 이동 중, 규칙적으로 진동하면 와류 "
+                "이탈입니다 — 비정상 해석에서는 정상입니다.",
+                "A curve that flattens onto 0 has settled; one still sloping "
+                "at the right-hand edge has not; a regular oscillation is "
+                "vortex shedding, which on a transient run is what should "
+                "happen."))
+    h.extend(_ov_result(study, ko, t))
+    h.append('<div class="foot">study.py · %s</div>'
+             % _esc(time.strftime("%Y-%m-%d %H:%M:%S")))
+    return "\n".join(h)
+
+
+def _ov_result(study, ko, t):
+    """The one chart the stage exists to produce, at the bottom of the wall.
+
+    The panels above say whether the runs are trustworthy; this says what they
+    measured.  Both on one screen, because the second is worth nothing without
+    the first and reading them in different places is how that gets forgotten.
+    """
+    h = []
+    try:
+        an = (mesh_analysis(study) if study.kind == "mesh"
+              else sweep_analysis(study))
+    except Exception:                                       # noqa: BLE001
+        return h
+    if study.kind == "mesh":
+        for lad in an.get("ladders", []):
+            levels = lad.get("levels") or []
+            if not lad.get("phi_ext") or len(levels) < 2:
+                continue
+            h.append("<h2>%s · %s</h2>"
+                     % (t("결과", "the result"), _esc(lad["ladder"])))
+            h.append('<div class="ovwide">%s</div>' % svg_plot(
+                _grid_series(lad, levels, t), width=880, height=340,
+                xlabel="h [m]", ylabel="Δp_bundle [Pa]",
+                title=t("격자 수렴", "grid convergence")))
+            if lad.get("chosen"):
+                h.append('<p class="muted">%s</p>'
+                         % t("선택된 격자: <b>%s</b>" % _esc(lad["chosen"]),
+                             "the mesh to use: <b>%s</b>" % _esc(lad["chosen"])))
+        return h
+    rows = an.get("rows") or []
+    if not rows:
+        return h
+    keys = an.get("keys") or []
+    names = {k: CR.BY_KEY[k]["name"] for k in keys}
+    by_pitch = {}
+    for r in rows:
+        by_pitch.setdefault((r["XT"], r["XL"]), []).append(r)
+    drawn = []
+    for key in sorted(by_pitch):
+        rs = sorted(by_pitch[key], key=lambda r: r["Re"])
+        if len(rs) >= 2:
+            drawn.append('<div class="ovwide">%s</div>' % svg_plot(
+                _eu_re_series(rs, keys, names), width=880, height=340,
+                xlabel="Re_max", ylabel="Eu per row", xlog=True, ylog=True,
+                title="X_T = %g, X_L = %g" % key))
+    if drawn:
+        h.append("<h2>%s</h2>" % t("결과", "the result"))
+        h.extend(drawn)
+    return h
+
+
 def report_body(study, lang="ko"):
     return (mesh_report_body(study, lang) if study.kind == "mesh"
             else sweep_report_body(study, lang))
@@ -1982,9 +2396,10 @@ def write_histories(study, path=None):
     return written
 
 
-def write_report(study, lang="ko", path=None):
-    body = report_body(study, lang)
-    path = path or os.path.join(study.dir, "report.html")
+def write_report(study, lang="ko", path=None, overview=False):
+    body = overview_body(study, lang) if overview else report_body(study, lang)
+    path = path or os.path.join(
+        study.dir, "overview.html" if overview else "report.html")
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(CR.standalone(body, study.d.get("title") or study.name, lang))

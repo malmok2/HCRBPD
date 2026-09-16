@@ -8,6 +8,7 @@ report each stage produced. One folder per study, and inside it
 | `study.json` | the definition — the base case and every case in the matrix | committed by hand, or by the 파라메트릭 tab |
 | `results.json` | one record per case as it finishes: mesh, Δp, convergence | the app, as the study runs |
 | `report.html` | the stage report, standalone | the app, or `python3 -m …` |
+| `overview.html` | every case on one screen, standalone | the 파라메트릭 tab's **한눈에 보기** button |
 | `history/*.csv` | one file per case: the residual and Δp traces as plain text | the 파라메트릭 tab's **CSV로 내보내기** button |
 
 A study definition is small, exact and reviewable; the results are the

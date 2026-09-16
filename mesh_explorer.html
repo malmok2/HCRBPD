@@ -444,6 +444,31 @@
   .paper svg.plot{
     display:block; max-width:660px; margin:14px 0 6px; background:#fff;
     border:1px solid #eef1f6; border-radius:8px}
+  /*  the at-a-glance wall: one panel per case, every panel on the same axes.
+      auto-fill rather than a fixed count, so eight cases and thirty cases
+      both fill the width they are given instead of one of them wrapping to a
+      column of stripes.                                                    */
+  .paper .ovgrid{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(236px,1fr));
+    gap:11px; margin:14px 0 6px}
+  .paper .ovcard{
+    border:1px solid #e4e9f0; border-left:3px solid #94a3b8; border-radius:8px;
+    padding:9px 11px 7px; background:#fbfcfe; cursor:pointer}
+  .paper .ovcard:hover{background:#f2f6fc; border-color:#c3d2e6}
+  .paper .ovhead{display:flex; justify-content:space-between; align-items:baseline;
+    gap:8px; font-size:12px}
+  .paper .ovhead b{font-weight:660; color:#1b2431}
+  .paper .ovst{font-size:10.5px; font-weight:650; white-space:nowrap}
+  .paper .ovnums{
+    font-size:10.5px; color:#5d6672; margin:3px 0 5px;
+    font-variant-numeric:tabular-nums}
+  .paper .ovplot{margin-bottom:4px}
+  .paper .ovplot>span{
+    display:block; font-size:9.5px; color:#7a8595; letter-spacing:.02em;
+    margin-bottom:1px}
+  .paper svg.spark{display:block; width:100%; height:auto; background:#fff;
+    border-radius:4px}
+  .paper .ovwide svg.plot{max-width:none; width:100%}
   /*  the campaign panel  */
   table.files tr.openable{cursor:pointer}
   table.files tr.openable:hover{background:var(--glass2)}
@@ -1018,6 +1043,7 @@
           <option value="8">8개 동시</option>
         </select>
         <button class="btn" id="parStop" style="width:auto;padding:9px 16px">중지</button>
+        <button class="btn" id="parOver" style="width:auto;padding:9px 16px">한눈에 보기</button>
         <button class="btn" id="parReport" style="width:auto;padding:9px 16px">보고서</button>
         <button class="btn" id="parSave" style="width:auto;padding:9px 16px">HTML로 저장</button>
         <button class="btn" id="parCsv" style="width:auto;padding:9px 16px">CSV로 내보내기</button>
@@ -3714,6 +3740,7 @@ Object.assign(STR.ko, {
   tabs:{geom:"형상", set:"세팅", run:"해석", res:"결과", rep:"보고서", par:"파라메트릭"},
   /* --- 파라메트릭 : the campaign ------------------------------------- */
   parRun:"실행", parStop:"중지", parReport:"보고서", parSave:"HTML로 저장",
+  parOver:"한눈에 보기",
   parCsv:"CSV로 내보내기",
   par_csv_done:(n,d)=>"이력 " + n + "개를 " + d + " 에 CSV로 저장했습니다.",
   parCorr:"1단계 · 상관식", parClear:"결과 지우기",
@@ -3892,6 +3919,7 @@ Object.assign(STR.en, {
         par:"Campaign"},
   /* --- the campaign --------------------------------------------------- */
   parRun:"Run", parStop:"Stop", parReport:"Report", parSave:"Save as HTML",
+  parOver:"At a glance",
   parCsv:"Export CSV",
   par_csv_done:(n,d)=>"wrote " + n + " history file(s) to " + d + ".",
   parCorr:"Stage 1 · correlations", parClear:"Clear results",
@@ -6059,6 +6087,27 @@ async function parReport(){
 }
 $("parReport").addEventListener("click", parReport);
 
+/*  The same record, arranged for the eye: every case on one screen.  The
+    panels are clickable because the question a wall of them raises - "what
+    happened in THAT one?" - is answered by the replay that already exists. */
+async function parOverview(){
+  const name = parName();
+  if(!name) return;
+  $("parOver").disabled = true;
+  parNote(T("par_building"), "busy");
+  try{
+    const j = await api("/api/study_report",
+                        {name, lang:LANG, view:"overview", write:true});
+    parShow(j.body);
+    PAR.showing = {kind:"study", name, view:"overview"};
+    $("parBody").querySelectorAll(".ovcard[data-case]").forEach(el =>
+      el.addEventListener("click", () => replayCase(el.dataset.case)));
+    parNote(T("par_written")(j.path || ""), "ok");
+  }catch(e){ parNote(e.message, "bad"); }
+  finally{ $("parOver").disabled = false; }
+}
+$("parOver").addEventListener("click", parOverview);
+
 $("parCorr").addEventListener("click", async ()=>{
   $("parCorr").disabled = true;
   parNote(T("par_building"), "busy");
@@ -6093,7 +6142,8 @@ $("parSave").addEventListener("click", ()=>{
   const body = $("parBody").innerHTML;
   if(!body.trim()){ parNote(T("par_first"), "bad"); return; }
   const nm = PAR.showing && PAR.showing.kind === "study"
-    ? PAR.showing.name : "stage1-correlations";
+    ? PAR.showing.name + (PAR.showing.view === "overview" ? "_overview" : "")
+    : "stage1-correlations";
   const doc = "<!doctype html>\n<html lang=\"" + (LANG === "ko" ? "ko" : "en") +
     "\"><head><meta charset=\"utf-8\">\n<title>" + esc(nm) +
     "</title>\n<style>\nbody{margin:0;background:#eef1f5;padding:26px 16px;" +
@@ -6114,7 +6164,7 @@ window.__appLang = function(){
   $("runStart").textContent=T("runStart");
   $("runStop").textContent=T("runStop");
   $("runMeshOnly").textContent=T("runMeshOnly");
-  for(const id of ["parRun","parStop","parReport","parSave","parCsv","parCorr","parClear"])
+  for(const id of ["parRun","parStop","parOver","parReport","parSave","parCsv","parCorr","parClear"])
     $(id).textContent = T(id);
   $("parProg").closest(".card").querySelector("h3").textContent = T("par_h_prog");
   const pc=$("parCases").closest(".card").querySelector("h3");

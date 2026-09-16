@@ -40,6 +40,23 @@ body{margin:0;background:#eef1f5;padding:26px 16px;
 .paper li{margin:3px 0}
 .paper svg.plot{display:block;max-width:660px;margin:14px 0 6px;
   background:#fff;border:1px solid #eef1f6;border-radius:6px}
+.paper .ovgrid{display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(236px,1fr));gap:11px;
+  margin:14px 0 6px}
+.paper .ovcard{border:1px solid #e4e9f0;border-left:3px solid #94a3b8;
+  border-radius:8px;padding:9px 11px 7px;background:#fbfcfe}
+.paper .ovhead{display:flex;justify-content:space-between;align-items:baseline;
+  gap:8px;font-size:12px}
+.paper .ovhead b{font-weight:660;color:#1b2431}
+.paper .ovst{font-size:10.5px;font-weight:650;white-space:nowrap}
+.paper .ovnums{font-size:10.5px;color:#5a6678;margin:3px 0 5px;
+  font-variant-numeric:tabular-nums}
+.paper .ovplot{margin-bottom:4px}
+.paper .ovplot>span{display:block;font-size:9.5px;color:#7a8595;
+  margin-bottom:1px}
+.paper svg.spark{display:block;width:100%;height:auto;background:#fff;
+  border-radius:4px}
+.paper .ovwide svg.plot{max-width:none;width:100%}
 @media print{body{background:#fff;padding:0}
   .paper{box-shadow:none;max-width:none;padding:0}
   .paper svg.plot{break-inside:avoid}}
