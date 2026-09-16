@@ -8,9 +8,12 @@ report each stage produced. One folder per study, and inside it
 | `study.json` | the definition — the base case and every case in the matrix | committed by hand, or by the 파라메트릭 tab |
 | `results.json` | one record per case as it finishes: mesh, Δp, convergence | the app, as the study runs |
 | `report.html` | the stage report, standalone | the app, or `python3 -m …` |
+| `history/*.csv` | one file per case: the residual and Δp traces as plain text | the 파라메트릭 tab's **CSV로 내보내기** button |
 
 A study definition is small, exact and reviewable; the results are the
-measurements. Both are worth committing, and both are worth reading before
+measurements.  `history/` is `results.json` in a second spelling, for plotting
+the traces somewhere that is not this app — it holds nothing the record does
+not, so it is regenerable at any time and not worth committing. Both are worth committing, and both are worth reading before
 the next stage is planned. The meshes and the Fluent case/data files are not
 here — those live in `runs/` and are ignored by git, because every one of them
 is reproducible from `study.json` plus the code revision recorded in

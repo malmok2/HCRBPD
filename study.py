@@ -43,6 +43,7 @@ in the study definition rather than left in somebody's head.
 import json
 import math
 import os
+import re
 import sys
 import threading
 import time
@@ -348,6 +349,28 @@ class Study(object):
 # =============================================================================
 #  GRID CONVERGENCE
 # =============================================================================
+#  How much of each history the record keeps.
+#
+#  These two are not the same kind of data and must not share a budget.
+#
+#  The residual history is a DIAGNOSIS: what is wanted from it is the shape -
+#  falling, flat, or falling and then flat - and a few hundred points draw
+#  that as well as six thousand do.  A transient run reports every inner
+#  iteration, so 500 time steps x 12 inner iterations is 6000 rows for one
+#  case; thinning them costs nothing.
+#
+#  The Dp history is the RESULT.  A transient run samples it once per time
+#  step, and the trace is a shedding oscillation resolved at 25 steps per
+#  period.  Thin 500 samples to 150 and the same signal is left at 7.5
+#  points per period - too few to read a frequency off honestly, and thinning
+#  at a non-integer stride aliases the oscillation rather than merely
+#  coarsening it.  So the cap is set above any run this campaign defines
+#  (20 periods x 25 steps = 500), and nothing is dropped in practice.  The
+#  cost is about 60 kB per case.
+RES_KEEP = 400
+DP_KEEP = 2000
+
+
 def _thin(rows, keep):
     """Every nth row, ends included, so a history fits in a result file."""
     n = len(rows)
@@ -1190,9 +1213,9 @@ class Runner(object):
             #  just wanted more iterations - and it lived only in the server
             #  process's memory.  Restart the server and the one thing needed
             #  to tell those apart was gone.  It goes in the record now.
-            row["residual_history"] = _thin(res, 150)
+            row["residual_history"] = _thin(res, RES_KEEP)
         mon = list(getattr(job.driver, "monitors", []) or [])
-        row["dp_history"] = _thin(mon, 150)
+        row["dp_history"] = _thin(mon, DP_KEEP)
         if len(mon) >= 2:
             #  how much the answer was still moving over the last fifth of the
             #  run.  Residuals settling is not the answer settling, and a study
@@ -1889,6 +1912,74 @@ def sweep_report_body(study, lang="ko"):
 def report_body(study, lang="ko"):
     return (mesh_report_body(study, lang) if study.kind == "mesh"
             else sweep_report_body(study, lang))
+
+
+#  The histories, as plain text.
+#
+#  A .cas.h5 needs Fluent and a licence to reopen, and Fluent does not put the
+#  residual history in it anyway: reading a case back gives you the converged
+#  field, not the road to it.  The record does carry both histories, so the
+#  plot can always be redrawn - in the app, or in whatever else the user
+#  plots with.  That second one needs a file format that is not ours.
+def history_csv(row):
+    """One case's residual and Dp histories as a CSV table.
+
+    Both are indexed by the same counter - iteration for a steady run, time
+    step for a transient one - so they go in one table joined on it, with a
+    blank where one of them has no sample at that index.
+    """
+    res = list(row.get("residual_history") or [])
+    dp = list(row.get("dp_history") or [])
+    eqs = []
+    for r in res:
+        for k in r:
+            if k != "iter" and k not in eqs:
+                eqs.append(k)
+    dpk = []
+    for m in dp:
+        for k in m:
+            if k != "iter" and k not in dpk:
+                dpk.append(k)
+    by = {}
+    for r in res:
+        by.setdefault(int(r.get("iter", 0)), {}).update(
+            {"res:" + k: r[k] for k in eqs if r.get(k) is not None})
+    for m in dp:
+        by.setdefault(int(m.get("iter", 0)), {}).update(
+            {k: m[k] for k in dpk if m.get(k) is not None})
+    cols = ["res:" + e for e in eqs] + list(dpk)
+    head = ["time_step" if row.get("transient") else "iter"] + cols
+    out = ["# case: %s" % row.get("id", "?"),
+           "# %s" % ("transient - the counter is the time step"
+                     if row.get("transient")
+                     else "steady - the counter is the iteration"),
+           ",".join(head)]
+    for n in sorted(by):
+        r = by[n]
+        out.append(",".join([str(n)] + ["" if r.get(c) is None
+                                        else repr(float(r[c]))
+                                        for c in cols]))
+    return "\n".join(out) + "\n"
+
+
+def write_histories(study, path=None):
+    """Every recorded case's histories, one CSV each, into <study>/history/.
+
+    Returns the paths written.  Cases with no history are skipped rather than
+    written empty, so what is on disk is what actually ran.
+    """
+    out_dir = path or os.path.join(study.dir, "history")
+    os.makedirs(out_dir, exist_ok=True)
+    written = []
+    for row in study.results():
+        if not (row.get("residual_history") or row.get("dp_history")):
+            continue
+        name = re.sub(r"[^A-Za-z0-9._-]", "_", str(row.get("id") or "case"))
+        p = os.path.join(out_dir, name + ".csv")
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(history_csv(row))
+        written.append(p)
+    return written
 
 
 def write_report(study, lang="ko", path=None):

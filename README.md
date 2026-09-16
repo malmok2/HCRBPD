@@ -419,6 +419,18 @@ the Run tab and says in the banner that this is a record, not a run. Mesh
 studies write their case files too, so the fields are recoverable there; the
 thirty-case sweeps do not, and say so.
 
+Do not go looking for the residual history in the `.cas.h5`. Reopening one
+needs Fluent and a licence, and what Fluent puts in it is the converged
+**field**, not the road the solver took to get there — the app tries anyway
+when it loads a case and says in the log which of the two it got. The traces
+are in `results.json`, which is why they are kept there: the Δp trace is
+capped at 2000 samples so a 500-step transient run is stored whole (thinning
+a shedding oscillation at a non-integer stride aliases it, and the frequency
+is a thing worth reading off later), the residual trace at 400, which draws
+the same shape a six-thousand-iteration history would. **CSV로 내보내기** in
+the campaign tab writes them out one file per case, under
+`studies/<name>/history/`, for plotting in anything.
+
 **A mock run is not a result, and the tab is built so it cannot become one.**
 Every mock row is badged MOCK, the progress counter does not count it, and the
 report says at the top that it excluded them and then declines to draw any

@@ -1020,6 +1020,7 @@
         <button class="btn" id="parStop" style="width:auto;padding:9px 16px">중지</button>
         <button class="btn" id="parReport" style="width:auto;padding:9px 16px">보고서</button>
         <button class="btn" id="parSave" style="width:auto;padding:9px 16px">HTML로 저장</button>
+        <button class="btn" id="parCsv" style="width:auto;padding:9px 16px">CSV로 내보내기</button>
         <button class="btn" id="parCorr" style="width:auto;padding:9px 16px">1단계 · 상관식</button>
         <button class="btn" id="parClear" style="width:auto;padding:9px 16px">결과 지우기</button>
         <span class="savenote" id="parNote"></span>
@@ -3713,6 +3714,8 @@ Object.assign(STR.ko, {
   tabs:{geom:"형상", set:"세팅", run:"해석", res:"결과", rep:"보고서", par:"파라메트릭"},
   /* --- 파라메트릭 : the campaign ------------------------------------- */
   parRun:"실행", parStop:"중지", parReport:"보고서", parSave:"HTML로 저장",
+  parCsv:"CSV로 내보내기",
+  par_csv_done:(n,d)=>"이력 " + n + "개를 " + d + " 에 CSV로 저장했습니다.",
   parCorr:"1단계 · 상관식", parClear:"결과 지우기",
   par_h_prog:"진행", par_h_cases:"케이스",
   par_none:"정의된 연구가 없습니다 — python3 study.py --make",
@@ -3889,6 +3892,8 @@ Object.assign(STR.en, {
         par:"Campaign"},
   /* --- the campaign --------------------------------------------------- */
   parRun:"Run", parStop:"Stop", parReport:"Report", parSave:"Save as HTML",
+  parCsv:"Export CSV",
+  par_csv_done:(n,d)=>"wrote " + n + " history file(s) to " + d + ".",
   parCorr:"Stage 1 · correlations", parClear:"Clear results",
   par_h_prog:"Progress", par_h_cases:"Cases",
   par_none:"no studies defined — python3 study.py --make",
@@ -6066,6 +6071,24 @@ $("parCorr").addEventListener("click", async ()=>{
   finally{ $("parCorr").disabled = false; }
 });
 
+/*  The histories, as CSV.
+
+    A .cas.h5 is not the place to look for them: reopening one needs Fluent
+    and a licence, and Fluent writes the converged FIELD into it, not the
+    residual history that got there.  Both histories are in results.json
+    already - this writes them out in a form anything can plot.            */
+$("parCsv").addEventListener("click", async ()=>{
+  const name = parName();
+  if(!name) return;
+  $("parCsv").disabled = true;
+  parNote(T("par_building"), "busy");
+  try{
+    const j = await api("/api/study_csv", {name});
+    parNote(T("par_csv_done")(j.files.length, j.dir), "ok");
+  }catch(e){ parNote(e.message, "bad"); }
+  finally{ $("parCsv").disabled = false; }
+});
+
 $("parSave").addEventListener("click", ()=>{
   const body = $("parBody").innerHTML;
   if(!body.trim()){ parNote(T("par_first"), "bad"); return; }
@@ -6091,7 +6114,7 @@ window.__appLang = function(){
   $("runStart").textContent=T("runStart");
   $("runStop").textContent=T("runStop");
   $("runMeshOnly").textContent=T("runMeshOnly");
-  for(const id of ["parRun","parStop","parReport","parSave","parCorr","parClear"])
+  for(const id of ["parRun","parStop","parReport","parSave","parCsv","parCorr","parClear"])
     $(id).textContent = T(id);
   $("parProg").closest(".card").querySelector("h3").textContent = T("par_h_prog");
   const pc=$("parCases").closest(".card").querySelector("h3");

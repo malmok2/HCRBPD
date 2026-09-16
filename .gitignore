@@ -13,6 +13,10 @@ runs/
 *.cas.h5
 *.dat.h5
 
+# the histories re-spelled as CSV.  Nothing in here that results.json does
+# not already carry, and the button regenerates the lot in a second.
+studies/*/history/
+
 # python
 __pycache__/
 *.pyc

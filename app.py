@@ -724,6 +724,26 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("stop the running study first")
                 s.clear_results()
                 return self._json({"ok": True, "cleared": s.name})
+            if path == "/api/study_csv":
+                #  the histories as plain text, so the plot can be redrawn in
+                #  anything.  No solver, no licence, no .h5 - the record is
+                #  already on disk and this is a different spelling of it.
+                s = ST.Study.load(str(body.get("name") or ""))
+                cid = str(body.get("id") or "")
+                if cid:
+                    row = next((r for r in s.results()
+                                if r.get("id") == cid), None)
+                    if row is None:
+                        raise ValueError("%s has no recorded case %r"
+                                         % (s.name, cid))
+                    return self._json({"ok": True, "name": cid + ".csv",
+                                       "csv": ST.history_csv(row)})
+                paths = ST.write_histories(s)
+                if not paths:
+                    raise ValueError("%s has no recorded history yet" % s.name)
+                return self._json({"ok": True, "dir": os.path.dirname(paths[0]),
+                                   "files": [os.path.basename(x)
+                                             for x in paths]})
             if path == "/api/study_report":
                 s = ST.Study.load(str(body.get("name") or ""))
                 lang = "en" if body.get("lang") == "en" else "ko"
