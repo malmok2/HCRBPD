@@ -157,6 +157,13 @@ These are invariants that took real debugging to find. Preserve them.
   happens to overshoot — do not rely on it.
 - **One source for preview and export.** The picture on screen and the exported
   file come from the same block list, or they will drift apart.
+- **A meshing parameter that only makes sense against a solver setting must be
+  checked against it.** The y+ target is chosen while meshing; the turbulence
+  model is chosen in the solver panel. Nothing compared them, and the shipped
+  default paired k-omega SST with a target of 30 - the buffer layer, where the
+  wall shear is wrong and the pressure drop with it. A user found it by
+  matching a correlation. If two tabs hold halves of one decision, one of them
+  has to say so.
 - **A report restates; it never recomputes.** The Report tab is assembled from
   the values the other tabs are already showing - the settings out of the
   schema, the mesh checks out of the run, the pressure drop out of the monitor.

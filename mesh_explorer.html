@@ -150,6 +150,7 @@
 
   .note{font-size:11.5px; color:var(--muted); line-height:1.55; margin-top:11px}
   .note.ok{color:var(--ok)} .note.busy{color:var(--accent)} .note.bad{color:var(--bad)}
+  .bad{color:var(--bad)} .warnt{color:var(--warn,#b4690e)}
   .note b{font-family:var(--mono); font-weight:500; color:var(--text)}
   .btn.lang{width:auto; padding:6px 13px; font-size:12px; font-weight:600;
             letter-spacing:.02em; margin-left:12px; order:3}
@@ -1186,7 +1187,13 @@ const DEFAULTS = {
 };
 DEFAULTS.zCut=0.5;                 // section plane, as a fraction of H
 DEFAULTS.unit="mm"; DEFAULTS.vel=2; DEFAULTS.nu=1.004; DEFAULTS.rho=998.2;
-DEFAULTS.ypl=30; DEFAULTS.fluid="water";
+//  1, not 30: the default viscous model is k-omega SST, which integrates to
+//  the wall and wants the viscous sublayer resolved.  A target of 30 put the
+//  first cell in the buffer layer, where neither the sublayer nor the log law
+//  is resolved and the wall shear - and with it the pressure drop - comes out
+//  wrong.  yPlusAdvice() below now checks the pair rather than leaving them
+//  in two different tabs to be reconciled by hand.
+DEFAULTS.ypl=1; DEFAULTS.fluid="water";
 const P = Object.assign({}, DEFAULTS, GEOM[GK].def);
 const RANGES = ["D","H","sector","ST","SL","helix","rMid","nRows","nCols","lIn","lOut",
                 "nAz","nRad","firstLayer","nZ","nxIn","nxOut","vel","nu","rho","ypl"];
@@ -2798,6 +2805,53 @@ function flow(){
   const yplCur = cur>0 ? (cur*k/2)*ut/nu : 0;
   return {umax, nu, Re, ut, y1, y1model:y1/k, yplCur};
 }
+/*  Does the y+ being aimed at suit the turbulence model that will be run?
+
+    The two live in different tabs - the target is a meshing parameter, the
+    model a solver setting - so nothing was comparing them, and a default pair
+    of "k-omega SST" with "y+ 30" shipped for weeks.  That pair puts the first
+    cell in the buffer layer, which is the one place neither branch of the
+    near-wall treatment is valid.
+
+    The ranges below are the standard ones:
+      - k-omega (all variants) and Spalart-Allmaras integrate to the wall and
+        want the sublayer resolved, y+ of order 1.
+      - k-epsilon with STANDARD or non-equilibrium wall functions places the
+        first node in the log layer: roughly 30 to 300.  Refining past that is
+        not "more accurate", it is outside the wall function's validity.
+      - k-epsilon with ENHANCED wall treatment or SCALABLE wall functions
+        blends, so either end is fine; only the buffer layer is awkward, and
+        scalable wall functions clamp it away entirely.
+    5 < y+ < 30 is the buffer layer and is what every non-blended case should
+    avoid.                                                                  */
+function yPlusAdvice(target){
+  let t = null;
+  try{ t = (SET && SET.turbulence) ? SET.turbulence : null; }
+  catch(e){ t = null; }                 // read before SET is initialised
+  const model = t ? t.viscous : "k-omega";
+  const wall  = t ? (t.wall_treatment || "") : "";
+  const y = +target;
+  if(model === "laminar") return {level:"na", model:model};
+  const blended = (model === "k-epsilon") &&
+                  /enhanced|scalable/.test(wall);
+  let lo, hi, want;
+  if(model === "k-epsilon" && !blended){ lo = 30; hi = 300; want = "log"; }
+  else if(blended){ lo = 0; hi = 1e9; want = "either"; }
+  else { lo = 0; hi = 5; want = "wall"; }         // k-omega, Spalart-Allmaras
+  let level = "ok";
+  if(want === "wall" && y > 5) level = (y < 30) ? "bad" : "warn";
+  else if(want === "log" && y < 30) level = (y > 11) ? "warn" : "bad";
+  else if(want === "log" && y > 300) level = "warn";
+  else if(want === "either" && y > 5 && y < 30) level = "warn";
+  return {level, model, wall, want, lo, hi, y};
+}
+function yPlusNote(target){
+  const a = yPlusAdvice(target);
+  if(a.level === "na" || a.level === "ok") return "";
+  return T("yp_" + a.level)(a.model + (a.wall ? " · " + a.wall : ""),
+                            a.want === "wall" ? "1" :
+                            a.want === "log"  ? "30 – 300" : "1 " + T("yp_or") + " > 30");
+}
 function physNote(){
   const f=flow(), el=$("physOut");
   if(!el) return;
@@ -2806,6 +2860,13 @@ function physNote(){
     ` · u<sub>τ</sub> <b>${f.ut.toFixed(3)}</b> m/s<br>` +
     `${T("needFirst")} <span class="hi">${fmt2(f.y1model)}</span> ${P.unit}` +
     ` · ${T("nowYplus")} <b>${f.yplCur>0?f.yplCur.toFixed(1):"—"}</b>`;
+  //  the target and the turbulence model live in different tabs; this is the
+  //  only place that puts them side by side
+  const warn = yPlusNote(P.ypl);
+  if(warn){
+    const a = yPlusAdvice(P.ypl);
+    el.innerHTML += `<br><span class="${a.level==="bad"?"bad":"warnt"}">${warn}</span>`;
+  }
 }
 
 function rebuild(){ build(); syncLabels(); modeNote(); physNote(); flowNote(); needsDraw=true; }
@@ -3620,6 +3681,9 @@ Object.assign(STR.ko, {
   cm_rain_note:"밝기가 단조롭지 않아 데이터에 없는 경계가 보입니다. 색각 이상에서는 순서를 읽을 수 없습니다.",
   cm_walls:"y+는 벽면에만 있습니다. 벽면이 아닌 면에서는 값이 오지 않습니다.",
   v_here:"설치됨", v_absent:"이 PC에 없음",
+  yp_or:"또는",
+  yp_bad:(m,r)=>`y+ 목표가 ${m} 에 맞지 않습니다. 이 모델은 y+ ${r} 을 원합니다. 지금 값은 완충층(5 < y+ < 30)이라 점성저층도 로그층도 풀리지 않아 벽면 전단이 틀리고, 압력강하가 따라서 틀립니다.`,
+  yp_warn:(m,r)=>`y+ 목표가 ${m} 의 권장 범위(${r}) 밖입니다. 벽면 값의 정확도를 확인하십시오.`,
   rep_title:"해석 요약 보고서",
   rep_busy:"보고서를 만드는 중… 그림마다 장을 다시 그립니다.",
   rep_done:(t)=>`${t}에 생성`,
@@ -3748,6 +3812,9 @@ Object.assign(STR.en, {
   cm_rain_note:"Lightness is not monotonic, so it shows edges the data does not have, and the order cannot be read with colour-blindness.",
   cm_walls:"y+ exists on walls only; a non-wall surface returns nothing for it.",
   v_here:"installed", v_absent:"not on this machine",
+  yp_or:"or",
+  yp_bad:(m,r)=>`The y+ target does not suit ${m}, which wants y+ ${r}. This value sits in the buffer layer (5 < y+ < 30), where neither the viscous sublayer nor the log law is resolved: the wall shear comes out wrong and the pressure drop with it.`,
+  yp_warn:(m,r)=>`The y+ target is outside the range ${m} wants (${r}). Check the wall quantities.`,
   rep_title:"Analysis summary",
   rep_busy:"building - each figure is a redraw…",
   rep_done:(t)=>`built at ${t}`,
@@ -5223,6 +5290,8 @@ async function buildReport(){
     H.push("<table>" + row(T("rep_yplus_target"), P.ypl.toFixed(1), "n") +
            row(T("rep_yplus_now"), f.yplCur > 0 ? f.yplCur.toFixed(1) : "—", "n") +
            row(T("rep_first"), fmt2(f.y1model) + " " + P.unit, "n") + "</table>");
+    const ypn = yPlusNote(P.ypl);
+    if(ypn) H.push('<p class="muted"><b>' + ypn + "</b></p>");
 
     // ---------------- setup ------------------------------------------------
     H.push("<h2>" + esc(T("rep_h_setup")) + "</h2>");

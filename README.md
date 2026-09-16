@@ -121,6 +121,17 @@ jet are the only two that fail, so they are the only two marked. They are
 offered because they are asked for. Levels run to 200, and `Auto` picks a
 diverging map for pressure and a sequential one for everything else.
 
+**The y+ target is checked against the turbulence model.** They live in
+different tabs — the target is a meshing parameter, the model a solver setting
+— so nothing compared them, and the shipped default paired k-ω SST with a
+target of 30. That puts the first cell in the buffer layer, where neither the
+viscous sublayer nor the log law is resolved: the wall shear comes out wrong
+and the pressure drop with it. The default is 1 now, and the pair is checked in
+the Geometry tab and again in the report: k-ω and Spalart–Allmaras want y+ of
+order 1, k-ε with standard wall functions wants 30–300, and k-ε with enhanced
+or scalable treatment takes either end. 5 < y+ < 30 is called out wherever the
+model has no blending for it.
+
 **Wall y+** is among the variables, marked as a wall quantity: ask for it on a
 plane or an inlet and the tab says so rather than drawing an empty surface.
 
