@@ -430,6 +430,10 @@ class App(object):
             return self.job.status()
 
     def new_job(self, geometry, params, settings):
+        #  NOTE: a parallel study builds its other workers' Jobs directly
+        #  rather than through here, because there is only one `self.job` and
+        #  only one live view to attach to it.  This stays the single-case
+        #  door: the Run tab, and a study's worker 0.
         """A Job, registered as the current one, NOT started.
 
         The study runner builds its cases through this so that a campaign is
@@ -456,7 +460,8 @@ class App(object):
         s = ST.Study.load(str(body.get("name") or ""))
         only = body.get("only") or None
         runner = ST.Runner(self, s, only=only, redo=bool(body.get("redo")),
-                           force=bool(body.get("force")))
+                           force=bool(body.get("force")),
+                           workers=int(body.get("workers") or 1))
         #  built first, adopted only once it is going to run.  Assigning it
         #  before this check left a Runner with an empty queue that had never
         #  started and so would never finish, and study_busy() then refused

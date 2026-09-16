@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<title>2단계 · rod-inline 격자 민감도</title>
+<style>
+body{margin:0;background:#eef1f5;padding:26px 16px;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans KR",sans-serif}
+.paper{max-width:900px;margin:0 auto;background:#fff;padding:38px 44px;
+  border-radius:10px;box-shadow:0 2px 18px rgba(20,28,40,.10);color:#181f2a;
+  font-size:13.5px;line-height:1.62}
+.paper h1{font-size:23px;margin:0 0 4px}
+.paper h2{font-size:16px;margin:30px 0 10px;padding-bottom:5px;
+  border-bottom:1px solid #dde3ea}
+.paper h3{font-size:13.5px;margin:20px 0 7px;color:#33415a}
+.paper .sub{color:#5a6678;font-size:12px;margin-bottom:18px}
+.paper table{border-collapse:collapse;width:100%;margin:9px 0;font-size:12.5px}
+.paper th,.paper td{border:1px solid #e2e7ee;padding:5px 9px;text-align:left;
+  vertical-align:top}
+.paper th{background:#f6f8fb;font-weight:640;width:24%;color:#33415a}
+.paper table.grid th{width:auto;white-space:nowrap}
+.paper table.grid td{white-space:nowrap}
+.paper td.n{font-variant-numeric:tabular-nums}
+.paper tr>th:first-child:empty{width:auto}
+.paper .tiles{display:flex;gap:10px;margin:16px 0 4px;flex-wrap:wrap}
+.paper .tile{flex:1 1 130px;background:#f6f8fb;border:1px solid #e2e7ee;
+  border-radius:7px;padding:10px 13px}
+.paper .tile .k{font-size:11px;color:#5a6678}
+.paper .tile .v{font-size:19px;font-weight:660;font-variant-numeric:tabular-nums}
+.paper .muted{color:#5a6678;font-size:12px;margin:5px 0}
+.paper .flag{background:#fdeaea;color:#9b1c1c;border-radius:4px;padding:1px 7px;
+  font-size:11px;font-weight:640;margin-left:7px}
+.paper code{background:#f2f5f9;border-radius:3px;padding:1px 5px;font-size:12px}
+.paper .foot{margin-top:30px;padding-top:12px;border-top:1px solid #dde3ea;
+  color:#7a8595;font-size:11.5px}
+.paper .tile .u{font-size:12px;color:#5a6678;margin-left:3px}
+.paper .warn{background:#fff8e6;border-left:3px solid #d97706;padding:7px 11px;
+  margin:9px 0;font-size:12.5px;color:#7a4a06}
+.paper .bad{background:#fdeaea;border-left:3px solid #9b1c1c;padding:7px 11px;
+  margin:9px 0;font-size:12.5px;color:#9b1c1c;font-weight:600}
+.paper ul{margin:8px 0 8px 18px;padding:0;font-size:12.5px;color:#33415a}
+.paper li{margin:3px 0}
+.paper svg.plot{display:block;max-width:660px;margin:14px 0 6px;
+  background:#fff;border:1px solid #eef1f6;border-radius:6px}
+@media print{body{background:#fff;padding:0}
+  .paper{box-shadow:none;max-width:none;padding:0}
+  .paper svg.plot{break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="paper">
+<h1>2단계 · rod-inline 격자 민감도</h1>
+<div class="sub"><code>rod-inline-mesh</code> · rod-inline · 2026-09-16 14:41</div>
+<p class="bad">MOCK 백엔드로 실행된 케이스가 8개 있습니다. 이 값들은 결과가 아니며 아래 표·그림·적합에서 모두 제외되었습니다.</p>
+<h2>이 연구의 설정</h2>
+<ul>
+<li>물 20 C, k-omega SST, y+ = 1, 정상상태.</li>
+<li>rod 외 모든 벽은 대칭면 - 상관식이 기술하는 무한 다발과 같게 하기 위함.</li>
+<li>격자는 면내 방향으로 단계당 약 1.35배 세밀해지고, 반경 방향은 첫 셀을 y+ = 1에 고정한 채 성장비를 조여서 세밀해집니다.</li>
+<li>판정은 Celik 등(2008) / ASME V&amp;V 20 의 GCI 절차로 합니다.</li>
+<li>case 파일을 함께 씁니다 - 사다리가 이상하게 나올 때 그 격자를 열어 유동장을 봐야 하기 때문입니다. 결과 기록만으로는 유동장을 되살릴 수 없습니다.</li>
+</ul>
+<p>아직 사용할 수 있는 결과가 없습니다.</p>
+</div>
+</body></html>

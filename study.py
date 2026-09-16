@@ -171,6 +171,9 @@ class Study(object):
 
     def __init__(self, d):
         self.d = d
+        #  several workers append to one result file, and record() is a
+        #  read-modify-write of the whole thing
+        self._lock = threading.Lock()
         for key in ("name", "kind", "geometry", "base", "cases"):
             if key not in d:
                 raise ValueError("a study needs %r" % key)
@@ -276,15 +279,21 @@ class Study(object):
         Immediately, because a campaign that only wrote its results at the end
         would lose a night's runs to one crash on the last case.
         """
-        rows = [r for r in self.results() if r.get("id") != row["id"]]
-        rows.append(row)
-        order = {c["id"]: i for i, c in enumerate(self.cases)}
-        rows.sort(key=lambda r: order.get(r.get("id"), 1e9))
-        os.makedirs(self.dir, exist_ok=True)
-        with open(self.results_path, "w", encoding="utf-8") as fh:
-            json.dump({"study": self.name, "rows": rows}, fh,
-                      ensure_ascii=False, indent=1)
-            fh.write("\n")
+        with self._lock:
+            rows = [r for r in self.results() if r.get("id") != row["id"]]
+            rows.append(row)
+            order = {c["id"]: i for i, c in enumerate(self.cases)}
+            rows.sort(key=lambda r: order.get(r.get("id"), 1e9))
+            os.makedirs(self.dir, exist_ok=True)
+            tmp = self.results_path + ".part"
+            with open(tmp, "w", encoding="utf-8") as fh:
+                json.dump({"study": self.name, "rows": rows}, fh,
+                          ensure_ascii=False, indent=1)
+                fh.write("\n")
+            #  written aside and moved into place: a worker crashing mid-write
+            #  would otherwise leave a truncated file where the campaign's
+            #  whole record used to be
+            os.replace(tmp, self.results_path)
 
     def clear_results(self):
         if os.path.isfile(self.results_path):
@@ -718,10 +727,28 @@ class Runner(object):
     the button.
     """
 
-    def __init__(self, app, study, only=None, redo=False, force=False):
+    #  a launch failure that says any of these is the licence server, not the
+    #  case: the ramp stops adding workers rather than failing every remaining
+    #  case one at a time
+    LICENCE_WORDS = ("licen", "flexlm", "ansyslmd", "lmgrd", "-15", "1055")
+
+    def __init__(self, app, study, only=None, redo=False, force=False,
+                 workers=1):
         self.app = app
         self.study = study
         self.redo = bool(redo)
+        #  How many Fluent sessions to keep going at once.  One case cannot
+        #  fill a workstation - the solve is a fraction of each case and the
+        #  meshes are small enough that four ranks is already generous - so
+        #  the way to use the machine is more CASES, not more cores per case.
+        #  What limits it is solver TASKS in the licence, which this cannot
+        #  know, so it finds out: workers are started one at a time and each
+        #  has to prove a session will launch before the next is added.
+        self.workers = max(1, min(int(workers or 1), 16))
+        self.capped = None              # why the ramp stopped, if it did
+        self.ready = threading.Event()
+        self.qlock = threading.Lock()
+        self.live = {}                  # worker -> the case it is on
         #  A campaign is a bet that the case SET-UP is right, repeated N times.
         #  This one cost 55 minutes to discover that every case stalled at a
         #  residual of 7.5e-2, because nothing looked at the first result
@@ -739,6 +766,7 @@ class Runner(object):
                         if (wanted is None or c["id"] in wanted)
                         and c["id"] in done]
         self.index = 0
+        self.cursor = 0
         self.current = None
         self.stopping = False
         self.finished = False
@@ -760,6 +788,8 @@ class Runner(object):
             "skipped": list(self.skipped),
             "stopping": self.stopping, "finished": self.finished,
             "error": self.error, "stopped_reason": self.stopped_reason,
+            "workers": self.workers, "capped": self.capped,
+            "live": dict(self.live),
             "elapsed": round(time.time() - self.started, 1),
             "log": self.log_lines[-60:],
             "rows": self.study.results(),
@@ -779,49 +809,116 @@ class Runner(object):
             job.stop()
 
     def _run(self):
+        """One case alone, then as many at once as the licence will bear.
+
+        The order is not an accident.  The first case is the smoke test: if the
+        set-up does not produce a usable solution, running seven more of it in
+        parallel only wastes the machine faster.  Only once it has passed does
+        the ramp start, and it starts one worker at a time because nothing here
+        can know how many solver tasks the licence has - so each new worker has
+        to prove a session will launch before the next is added.
+        """
         try:
             if self.skipped:
                 self.log("%d case(s) already done, skipping them: %s"
                          % (len(self.skipped), ", ".join(self.skipped)))
-            for cid in self.queue:
-                if self.stopping:
-                    self.log("stopped before " + cid)
+            if not self.queue:
+                return
+            self.log("%d case(s) to run, up to %d at once"
+                     % (len(self.queue), self.workers))
+
+            #  --- case one, alone ---
+            first = self._next()
+            row = self._run_case(first, worker=0)
+            if not self.stopping:
+                why = None if self.force else self._first_case_verdict(row)
+                if why:
+                    self.stopped_reason = why
+                    self.log("STOPPING after the first case: " + why)
+                    self.log("  nothing is wrong with the study definition "
+                             "- the SET-UP does not produce a usable solution, "
+                             "and more of the same would not change that. Fix "
+                             "it, or re-run with force.")
+                    return
+
+            #  --- and now the rest, ramped ---
+            threads = []
+            for w in range(self.workers):
+                if self.stopping or self._empty():
                     break
-                self.current = cid
-                self.index += 1
-                self.log("[%d/%d] %s" % (self.index, len(self.queue), cid))
-                try:
-                    row = self._one(cid)
-                except Exception as exc:                        # noqa: BLE001
-                    row = {"id": cid, "ok": False,
-                           "error": "%s: %s" % (type(exc).__name__, exc)}
-                    self.log("  %s FAILED: %s" % (cid, row["error"]))
-                self.study.record(row)
-                if row.get("ok"):
-                    self.log("  %s: dp_bundle %.4g Pa, Eu_row %.4f, %d cells%s"
-                             % (cid, row["dp_bundle"] or float("nan"),
-                                row["eu_row"] or float("nan"), row["cells"],
-                                "   (MOCK)" if row.get("mock") else ""))
-                #  the smoke test: one case is enough to tell whether the
-                #  set-up produces a converged solution at all
-                if self.index == 1 and not self.force and not self.stopping:
-                    why = self._first_case_verdict(row)
-                    if why:
-                        self.stopped_reason = why
-                        self.log("STOPPING after the first case: " + why)
-                        self.log("  nothing is wrong with the study definition "
-                                 "- the SET-UP does not produce a usable "
-                                 "solution, and 7 more of the same would not "
-                                 "change that. Fix it, or re-run with force.")
-                        break
-            self.current = None
+                t = threading.Thread(target=self._worker, args=(w,),
+                                     name="study-w%d" % w, daemon=True)
+                t.start()
+                threads.append(t)
+                if w + 1 >= self.workers:
+                    break
+                #  wait for this one to get a session up before adding another
+                if not self.ready.wait(timeout=900):
+                    self.capped = "worker %d never got a session up" % w
+                    break
+                self.ready.clear()
+                if self.capped:
+                    break
+            if self.capped:
+                self.log("running %d at a time: %s" % (len(threads), self.capped))
+            for t in threads:
+                t.join()
         except Exception as exc:                                # noqa: BLE001
             self.error = "%s: %s" % (type(exc).__name__, exc)
             self.log("the runner itself failed: " + self.error)
         finally:
+            self.current = None
+            self.live = {}
             self.finished = True
             self.log("done - %d of %d case(s) attempted"
                      % (self.index, len(self.queue)))
+
+    # -- the queue, shared -------------------------------------------------
+    def _next(self):
+        with self.qlock:
+            if self.cursor >= len(self.queue):
+                return None
+            cid = self.queue[self.cursor]
+            self.cursor += 1
+            self.index = self.cursor
+            self.current = cid
+            return cid
+
+    def _empty(self):
+        with self.qlock:
+            return self.cursor >= len(self.queue)
+
+    def _worker(self, w):
+        while not self.stopping:
+            cid = self._next()
+            if cid is None:
+                break
+            self._run_case(cid, worker=w)
+        self.live.pop(w, None)
+
+    def _run_case(self, cid, worker):
+        """One case, recorded whatever happens to it."""
+        self.live[worker] = cid
+        self.log("[%d/%d] %s%s" % (self.index, len(self.queue), cid,
+                                   "  (w%d)" % worker if self.workers > 1 else ""))
+        try:
+            row = self._one(cid, worker=worker)
+        except Exception as exc:                                # noqa: BLE001
+            row = {"id": cid, "ok": False,
+                   "error": "%s: %s" % (type(exc).__name__, exc)}
+            self.log("  %s FAILED: %s" % (cid, row["error"]))
+        self.study.record(row)
+        if row.get("ok"):
+            self.log("  %s: dp_bundle %.4g Pa, Eu_row %.4f, %d cells%s"
+                     % (cid, row["dp_bundle"] or float("nan"),
+                        row["eu_row"] or float("nan"), row["cells"] or 0,
+                        "   (MOCK)" if row.get("mock") else ""))
+        self.live.pop(worker, None)
+        #  a finished case is also proof that a session could be had, and the
+        #  ramp must not sit on `ready` waiting for a signal from a case that
+        #  has already come and gone
+        self.ready.set()
+        return row
 
     @staticmethod
     def _first_case_verdict(row):
@@ -844,23 +941,47 @@ class Runner(object):
                     "final stretch" % (100 * row["dp_drift"]))
         return None
 
-    def _one(self, cid):
+    def _licence_trouble(self, msg):
+        m = (msg or "").lower()
+        return any(w in m for w in self.LICENCE_WORDS)
+
+    def _one(self, cid, worker=0):
         """Run one case and measure it."""
         import app as APP
-        import fluent_case as FC
         s = self.study
         c = s.case(cid)
         params = s.params_for(cid)
         settings = s.settings_for(cid)
         t0 = time.time()
 
-        job = self.app.new_job(s.d["geometry"], params, settings)
+        #  Worker 0's case is handed to the app as the current job, so the Run
+        #  tab's residuals, monitor and log follow it.  The others are not:
+        #  there is one live view and it cannot show four cases at once, and
+        #  quietly flipping it between them would be worse than not having it.
+        if worker == 0:
+            job = self.app.new_job(s.d["geometry"], params, settings)
+        else:
+            job = APP.Job("%s-w%d" % (cid, worker), s.d["geometry"], params,
+                          settings, self.app.backend, self.app.out_dir)
         job.log("study %s, case %s" % (s.name, cid))
         job.start()
+        signalled = False
         while job.finished_at is None:
             time.sleep(0.4)
+            #  a session is up: the next worker may start
+            if not signalled and job.stage not in ("queued", "meshing",
+                                                   "launching"):
+                signalled = True
+                self.ready.set()
             if self.stopping:
                 job.stop()
+        if not signalled:
+            #  it never got past launching.  If the licence said no, stop
+            #  adding workers rather than failing every remaining case on it.
+            if job.error and self._licence_trouble(job.error):
+                self.capped = ("the licence would not give worker %d a session "
+                               "(%s)" % (worker, job.error.split(":")[-1].strip()[:80]))
+            self.ready.set()
         row = {"id": cid, "ok": False, "label": c.get("label"),
                "ladder": c.get("ladder", "main"), "meta": c.get("meta"),
                "seconds": round(time.time() - t0, 1),
@@ -869,8 +990,10 @@ class Runner(object):
                "mock": bool(job.driver and job.driver.mock),
                "mesh_path": (os.path.basename(job.mesh_path)
                              if job.mesh_path else None),
-               "error": job.error}
+               "error": job.error, "worker": worker}
         if job.error:
+            if worker != 0:
+                job.close()
             return row
 
         case = job.case
@@ -970,12 +1093,13 @@ class Runner(object):
             if len(vals) >= 2 and vals[-1]:
                 row["dp_drift"] = (max(vals) - min(vals)) / abs(vals[-1])
         row["ok"] = True
-        #  deliberately NOT closed here.  The next case's new_job() closes the
-        #  previous session before it launches its own, so a licence is still
-        #  held by one case at a time - but the LAST case's session is left
-        #  alive, and that is the one somebody wants to look at in the Results
-        #  tab when the campaign stops.  Closing it here also meant every
-        #  session was closed twice, once by this line and once by new_job.
+        #  Worker 0's session is deliberately NOT closed: the next case's
+        #  new_job() closes it before launching its own, so one licence is
+        #  held at a time and the LAST case stays open for the Results tab.
+        #  Every other worker owns its session outright and nothing else will
+        #  ever close it, so it closes its own.
+        if worker != 0:
+            job.close()
         return row
 
 

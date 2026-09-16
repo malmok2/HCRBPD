@@ -1010,6 +1010,13 @@
       <div class="runbar">
         <select id="parPick" class="minisel" style="min-width:230px"></select>
         <button class="btn primary" id="parRun" style="width:auto;padding:9px 20px">실행</button>
+        <select id="parWorkers" class="minisel" title="">
+          <option value="1" selected>1개씩</option>
+          <option value="2">2개 동시</option>
+          <option value="4">4개 동시</option>
+          <option value="6">6개 동시</option>
+          <option value="8">8개 동시</option>
+        </select>
         <button class="btn" id="parStop" style="width:auto;padding:9px 16px">중지</button>
         <button class="btn" id="parReport" style="width:auto;padding:9px 16px">보고서</button>
         <button class="btn" id="parSave" style="width:auto;padding:9px 16px">HTML로 저장</button>
@@ -3729,6 +3736,11 @@ Object.assign(STR.ko, {
   par_written:p=>`보고서를 만들었습니다${p ? " · " + p : ""}`,
   par_first:"먼저 보고서를 만드십시오.",
   par_open:"열기", par_opening:c=>`${c} 기록을 여는 중…`,
+  par_live:"동시 진행", par_capped:"라이선스 상한",
+  par_w_one:"케이스를 하나씩 순서대로 돌립니다. 해석 탭에서 실시간으로 보입니다.",
+  par_w_many:"여러 케이스를 동시에 돌립니다. 워커는 하나씩 늘어나며 라이선스가 " +
+    "거절하는 지점에서 멈추고, 가진 만큼으로 끝까지 돌립니다. 해석 탭의 실시간 " +
+    "보기는 첫 번째 워커만 따라갑니다.",
   res_replay:c=>`${c} 는 기록입니다. 유동장은 저장되어 있지 않으므로 여기서 ` +
     `볼 수 없습니다. 컨투어가 필요하면 그 케이스를 case 파일과 함께 다시 돌리십시오.`,
   par_opened:c=>`${c} 기록을 해석 탭에 띄웠습니다.`,
@@ -3901,6 +3913,11 @@ Object.assign(STR.en, {
   par_written:p=>`report built${p ? " · " + p : ""}`,
   par_first:"build the report first.",
   par_open:"open", par_opening:c=>`opening the record for ${c}…`,
+  par_live:"running now", par_capped:"licence cap",
+  par_w_one:"one case at a time, in order. The Run tab follows it live.",
+  par_w_many:"several cases at once. Workers are added one at a time and the " +
+    "ramp stops where the licence refuses, then finishes the queue with what " +
+    "it has. The Run tab's live view follows the first worker only.",
   res_replay:c=>`${c} is a record. The solution fields were not saved, so ` +
     `there is nothing to contour here. Re-run that case with the case file ` +
     `written if you need them.`,
@@ -5920,6 +5937,17 @@ function parProgress(){
     `<div class="pill">${esc(T("par_state"))}<b>${esc(
         r.finished ? T("par_fin") : (r.stopping ? T("par_stopping") : T("par_going")))}</b></div>` +
     `<div class="parbar"><i style="width:${(100*frac).toFixed(1)}%"></i></div>`;
+  const live = Object.keys(r.live || {});
+  if(live.length > 1){
+    el.insertAdjacentHTML("beforeend",
+      `<div class="pill">${esc(T("par_live"))}<b>` +
+      live.map(w => esc(r.live[w])).join("<br>") + "</b></div>");
+  }
+  if(r.capped){
+    el.insertAdjacentHTML("beforeend",
+      `<div class="pill">${esc(T("par_capped"))}<b>${esc(String(r.workers))} → ` +
+      `${esc(String(Math.max(1, live.length)))}</b></div>`);
+  }
   $("parLog").textContent = (r.log || []).join("\n");
   if(r.stopped_reason){
     const b = $("parBanner");
@@ -5963,6 +5991,14 @@ function parTick(){
 }
 
 $("parPick").addEventListener("change", async ()=>{ await parLoad(); parTick(); });
+//  a parallel campaign has one live view and several cases, so it says which
+//  one the Run tab will follow rather than flipping between them
+function parWorkerNote(){
+  const n = +$("parWorkers").value || 1;
+  $("parWorkers").title = n > 1 ? T("par_w_many") : T("par_w_one");
+  parNote(n > 1 ? T("par_w_many") : "", n > 1 ? "busy" : "");
+}
+$("parWorkers").addEventListener("change", parWorkerNote);
 
 $("parRun").addEventListener("click", async ()=>{
   const name = parName();
@@ -5972,7 +6008,8 @@ $("parRun").addEventListener("click", async ()=>{
   if(!confirm(T("par_confirm")(name, n - done))) return;
   try{
     parNote(T("par_started"), "busy");
-    const j = await api("/api/study_run", {name});
+    const j = await api("/api/study_run",
+                       {name, workers: +$("parWorkers").value || 1});
     PAR.run = j.run;
     showPane("par");
     parTick();
