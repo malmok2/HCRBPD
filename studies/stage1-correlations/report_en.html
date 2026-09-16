@@ -66,42 +66,42 @@ body{margin:0;background:#eef1f5;padding:26px 16px;
 <h3>Jakob (1938) </h3>
 <table>
 <tr><th>source</th><td>M. Jakob, Trans. ASME 60 (1938) 384. In the form given by J. P. Holman, Heat Transfer, McGraw-Hill - the in-line and staggered friction factors, with dp = 2 f N rho u_max^2.</td></tr>
-<tr><th>range</th><td class="n">Re 2000–4e+04 · X_T 1.25–3 · X_L 1.25–3 · rows >= 10</td></tr>
+<tr><th>range</th><td>Re 2000–4e+04 · X_T 1.25–3 · X_L 1.25–3 · rows >= 10</td></tr>
 <tr><th>on that range</th><td>Holman quotes the correlation for 2000 < Re_max < 40 000. The pitch range is the range over which the source data were taken and is the weaker of the two limits.</td></tr>
 <tr><th>note</th><td>Closed form, and the one the Geometry tab has always shown. Held against Zukauskas' charts over a square-pitch grid in the stage-1 report - not asserted here, computed there. The short version: inside Jakob's own quoted Re range and for X >= 1.5 the two agree to about 20 % either way; at X = 1.25, or outside 2e3 < Re < 4e4, they part company by as much as a factor of 2.2. The tight-pitch corner is where a CFD point is worth the most.</td></tr>
 </table>
 <h3>Zukauskas (1972) </h3>
 <table>
 <tr><th>source</th><td>A. Zukauskas, Advances in Heat Transfer 8 (1972) 93-160; charts as reprinted in Bergman, Lavine, Incropera & DeWitt, Introduction to Heat Transfer, 6th ed., figs. 7.14 / 7.15. Read here through the digitisation published in the MIT-licensed `ht` library, copied into zukauskas_charts.py.</td></tr>
-<tr><th>range</th><td class="n">Re 100–1e+06 · X_T 1.25–2.5 · X_L 1.25–2.5 · rows >= 10</td></tr>
+<tr><th>range</th><td>Re 100–1e+06 · X_T 1.25–2.5 · X_L 1.25–2.5 · rows >= 10</td></tr>
 <tr><th>on that range</th><td>The four fits carry their own domains, read off their knots at import; friction() clamps to them and says so. The pitch ratios are drawn only for 1.25 to 2.5.</td></tr>
 <tr><th>note</th><td>A chart, not a formula: the chain is chart -> digitiser -> spline. Where the chart says chi is exactly 1 (square pitch) the fit returns 1.00 to 1.08, and that 8 % is the honest floor on what a reading off it is worth. Reproduces both of `ht`'s own documented examples to the digit, which is what says the tables came across intact.</td></tr>
 </table>
 <h3>Gaddis & Gnielinski (1985) / VDI <span class="flag">source needed</span></h3>
 <table>
 <tr><th>source</th><td>E. S. Gaddis and V. Gnielinski, 'Pressure drop in cross flow across tube bundles', International Chemical Engineering 25 (1) (1985) 1-15; also the VDI Heat Atlas, section L1.4.</td></tr>
-<tr><th>range</th><td class="n">Re 1–3e+05 · X_T 1.02–3 · X_L 0.6–3 · rows >= 5</td></tr>
+<tr><th>range</th><td>Re 1–3e+05 · X_T 1.02–3 · X_L 0.6–3 · rows >= 5</td></tr>
 <tr><th>on that range</th><td>Quoted range; not verified here.</td></tr>
 <tr><th>note</th><td>The best-regarded closed form for this problem, and the one worth having next: a laminar and a turbulent term superposed, each a function of the pitch ratios, valid from creeping flow to Re 3e5, in-line and staggered. The equations are long and the coefficients are not reproduced in anything reachable from here, so they are NOT written down from memory. Supply the source and this becomes an encoded entry.</td></tr>
 </table>
 <h3>Grimison (1937) <span class="flag">source needed</span></h3>
 <table>
 <tr><th>source</th><td>E. D. Grimison, Trans. ASME 59 (1937) 583.</td></tr>
-<tr><th>range</th><td class="n">Re 2000–4e+04 · X_T 1.25–3 · X_L 1.25–3 · rows >= 10</td></tr>
+<tr><th>range</th><td>Re 2000–4e+04 · X_T 1.25–3 · X_L 1.25–3 · rows >= 10</td></tr>
 <tr><th>on that range</th><td>Quoted range; not verified here.</td></tr>
 <tr><th>note</th><td>The other classical chart set, and the data Jakob's form was fitted to. Tabulated, not closed form.</td></tr>
 </table>
 <h3>Idelchik, Handbook of Hydraulic Resistance <span class="flag">source needed</span></h3>
 <table>
 <tr><th>source</th><td>I. E. Idelchik, Handbook of Hydraulic Resistance, 3rd ed., section 8, diagrams for banks of tubes in cross flow.</td></tr>
-<tr><th>range</th><td class="n">Re 3–1e+05 · X_T 1.1–4 · X_L 1.1–4 · rows >= 1</td></tr>
+<tr><th>range</th><td>Re 3–1e+05 · X_T 1.1–4 · X_L 1.1–4 · rows >= 1</td></tr>
 <tr><th>on that range</th><td>Quoted range; not verified here.</td></tr>
 <tr><th>note</th><td>Diagram-based, covers the low-Re end better than the others and handles short banks explicitly.</td></tr>
 </table>
 <h3>ESDU 79034 <span class="flag">source needed</span></h3>
 <table>
 <tr><th>source</th><td>ESDU 79034, 'Crossflow pressure loss over banks of plain tubes in square and equilateral triangular arrays'.</td></tr>
-<tr><th>range</th><td class="n">Re 10–1e+06 · X_T 1.2–4 · X_L 1.2–4 · rows >= 4</td></tr>
+<tr><th>range</th><td>Re 10–1e+06 · X_T 1.2–4 · X_L 1.2–4 · rows >= 4</td></tr>
 <tr><th>on that range</th><td>Quoted range; not verified here.</td></tr>
 <tr><th>note</th><td>The engineering-practice standard, behind a licence. Listed so that it is visibly absent rather than invisibly missing.</td></tr>
 </table>

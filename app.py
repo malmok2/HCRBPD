@@ -450,10 +450,15 @@ class App(object):
             raise ValueError("a study is already running; stop it first")
         s = ST.Study.load(str(body.get("name") or ""))
         only = body.get("only") or None
-        self.runner = ST.Runner(self, s, only=only, redo=bool(body.get("redo")))
-        if not self.runner.queue:
+        runner = ST.Runner(self, s, only=only, redo=bool(body.get("redo")))
+        #  built first, adopted only once it is going to run.  Assigning it
+        #  before this check left a Runner with an empty queue that had never
+        #  started and so would never finish, and study_busy() then refused
+        #  every later run - the app was wedged by a request that FAILED.
+        if not runner.queue:
             raise ValueError("every case of %s is already done - pass redo to "
                              "run them again" % s.name)
+        self.runner = runner
         self.runner.start()
         return self.runner.status()
 

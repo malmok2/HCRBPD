@@ -66,42 +66,42 @@ body{margin:0;background:#eef1f5;padding:26px 16px;
 <h3>Jakob (1938) </h3>
 <table>
 <tr><th>출처</th><td>M. Jakob, Trans. ASME 60 (1938) 384. In the form given by J. P. Holman, Heat Transfer, McGraw-Hill - the in-line and staggered friction factors, with dp = 2 f N rho u_max^2.</td></tr>
-<tr><th>적용 범위</th><td class="n">Re 2000–4e+04 · X_T 1.25–3 · X_L 1.25–3 · 행수 ≥ 10</td></tr>
+<tr><th>적용 범위</th><td>Re 2000–4e+04 · X_T 1.25–3 · X_L 1.25–3 · 행수 ≥ 10</td></tr>
 <tr><th>범위 주석</th><td>Holman이 인용한 적용 범위는 2000 < Re_max < 40 000 입니다. 피치 범위는 원 데이터가 취해진 범위이며, 두 제한 중 더 느슨한 쪽입니다.</td></tr>
 <tr><th>비고</th><td>닫힌 형태이고, 형상 탭이 계속 보여 온 바로 그 상관식입니다. Zukauskas 차트와의 대조는 여기서 주장하지 않고 1단계 보고서에서 계산합니다. 요약하면: Jakob 자신이 제시한 Re 범위 안에서 X ≥ 1.5 이면 두 상관식은 서로 ±20 % 안에 듭니다. 반면 X = 1.25 이거나 Re가 2e3–4e4 밖이면 최대 2.2배까지 갈라집니다. 그 촘촘한 피치 구석이 CFD 한 점의 가치가 가장 큰 곳입니다.</td></tr>
 </table>
 <h3>Zukauskas (1972) </h3>
 <table>
 <tr><th>출처</th><td>A. Zukauskas, Advances in Heat Transfer 8 (1972) 93-160; charts as reprinted in Bergman, Lavine, Incropera & DeWitt, Introduction to Heat Transfer, 6th ed., figs. 7.14 / 7.15. Read here through the digitisation published in the MIT-licensed `ht` library, copied into zukauskas_charts.py.</td></tr>
-<tr><th>적용 범위</th><td class="n">Re 100–1e+06 · X_T 1.25–2.5 · X_L 1.25–2.5 · 행수 ≥ 10</td></tr>
+<tr><th>적용 범위</th><td>Re 100–1e+06 · X_T 1.25–2.5 · X_L 1.25–2.5 · 행수 ≥ 10</td></tr>
 <tr><th>범위 주석</th><td>네 개의 피팅이 각자의 정의역을 knot에서 직접 읽어 가지고 있습니다. friction()이 그 범위로 잘라내고 잘라냈다는 사실을 함께 돌려줍니다. 피치비는 1.25–2.5 에서만 그려져 있습니다.</td></tr>
 <tr><th>비고</th><td>수식이 아니라 차트입니다: 차트 → 디지타이즈 → 스플라인 순서로 들어왔습니다. 차트상 chi가 정확히 1이어야 하는 정사각 피치에서 이 피팅은 1.00–1.08을 내놓으며, 그 8 %가 차트 읽기의 정직한 하한 오차입니다. `ht`가 문서에 실어 둔 두 예제를 자릿수까지 재현하므로, 표가 손상 없이 옮겨졌다는 것은 확인되었습니다.</td></tr>
 </table>
 <h3>Gaddis & Gnielinski (1985) / VDI <span class="flag">출처 필요</span></h3>
 <table>
 <tr><th>출처</th><td>E. S. Gaddis and V. Gnielinski, 'Pressure drop in cross flow across tube bundles', International Chemical Engineering 25 (1) (1985) 1-15; also the VDI Heat Atlas, section L1.4.</td></tr>
-<tr><th>적용 범위</th><td class="n">Re 1–3e+05 · X_T 1.02–3 · X_L 0.6–3 · 행수 ≥ 5</td></tr>
+<tr><th>적용 범위</th><td>Re 1–3e+05 · X_T 1.02–3 · X_L 0.6–3 · 행수 ≥ 5</td></tr>
 <tr><th>범위 주석</th><td>인용된 범위이며, 여기서 검증한 것은 아닙니다.</td></tr>
 <tr><th>비고</th><td>이 문제에 대해 가장 신뢰받는 닫힌 형태이고, 다음으로 확보할 가치가 가장 큽니다. 층류항과 난류항을 중첩하며 각각 피치비의 함수이고, 기어가는 유동부터 Re 3e5까지, 정렬·엇갈림 모두에 유효합니다. 식이 길고 계수를 여기서 확인할 수 있는 경로가 없으므로 기억에 의존해 적지 않았습니다. 원문을 주시면 바로 encoded 항목이 됩니다.</td></tr>
 </table>
 <h3>Grimison (1937) <span class="flag">출처 필요</span></h3>
 <table>
 <tr><th>출처</th><td>E. D. Grimison, Trans. ASME 59 (1937) 583.</td></tr>
-<tr><th>적용 범위</th><td class="n">Re 2000–4e+04 · X_T 1.25–3 · X_L 1.25–3 · 행수 ≥ 10</td></tr>
+<tr><th>적용 범위</th><td>Re 2000–4e+04 · X_T 1.25–3 · X_L 1.25–3 · 행수 ≥ 10</td></tr>
 <tr><th>범위 주석</th><td>인용된 범위이며, 여기서 검증한 것은 아닙니다.</td></tr>
 <tr><th>비고</th><td>또 하나의 고전적 차트이며, Jakob의 식이 맞춰진 바로 그 데이터입니다. 표 형태이고 닫힌 형태가 아닙니다.</td></tr>
 </table>
 <h3>Idelchik, Handbook of Hydraulic Resistance <span class="flag">출처 필요</span></h3>
 <table>
 <tr><th>출처</th><td>I. E. Idelchik, Handbook of Hydraulic Resistance, 3rd ed., section 8, diagrams for banks of tubes in cross flow.</td></tr>
-<tr><th>적용 범위</th><td class="n">Re 3–1e+05 · X_T 1.1–4 · X_L 1.1–4 · 행수 ≥ 1</td></tr>
+<tr><th>적용 범위</th><td>Re 3–1e+05 · X_T 1.1–4 · X_L 1.1–4 · 행수 ≥ 1</td></tr>
 <tr><th>범위 주석</th><td>인용된 범위이며, 여기서 검증한 것은 아닙니다.</td></tr>
 <tr><th>비고</th><td>선도(diagram) 기반이고, 저 Re 영역을 다른 상관식들보다 잘 다루며 짧은 다발을 명시적으로 취급합니다.</td></tr>
 </table>
 <h3>ESDU 79034 <span class="flag">출처 필요</span></h3>
 <table>
 <tr><th>출처</th><td>ESDU 79034, 'Crossflow pressure loss over banks of plain tubes in square and equilateral triangular arrays'.</td></tr>
-<tr><th>적용 범위</th><td class="n">Re 10–1e+06 · X_T 1.2–4 · X_L 1.2–4 · 행수 ≥ 4</td></tr>
+<tr><th>적용 범위</th><td>Re 10–1e+06 · X_T 1.2–4 · X_L 1.2–4 · 행수 ≥ 4</td></tr>
 <tr><th>범위 주석</th><td>인용된 범위이며, 여기서 검증한 것은 아닙니다.</td></tr>
 <tr><th>비고</th><td>실무 표준이지만 라이선스가 필요합니다. 없다는 사실이 보이도록 목록에 넣어 둡니다.</td></tr>
 </table>

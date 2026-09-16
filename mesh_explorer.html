@@ -311,6 +311,13 @@
     padding:12px 15px; margin-bottom:13px; font-size:12.5px; line-height:1.6;
     background:var(--glass); box-shadow:var(--sh-1), inset 3px 0 0 var(--accent);
   }
+  /*  `.warn` is ALSO the floating geometry tooltip above - position:absolute,
+      display:none, max-width 340px - so a banner that turns warn inherited all
+      three and flew up to sit on the header.  It had been doing that on the
+      Settings tab for every mock or no-Fluent session.  The banner states put
+      the three back rather than the tooltip being renamed, because two
+      elements still use it as a tooltip and this is the smaller change.    */
+  .banner.warn, .banner.bad{position:static; display:flex; max-width:none}
   .banner.warn{box-shadow:var(--sh-1), inset 3px 0 0 var(--caution)}
   .banner.bad{box-shadow:var(--sh-1), inset 3px 0 0 var(--bad)}
   .banner b{color:var(--text)}
@@ -417,6 +424,40 @@
     font-size:11px; color:#5d6672;
   }
   .paper code{font-family:var(--mono); font-size:11.5px; word-break:break-all}
+  /*  study reports come from study.py as HTML fragments and are dropped into
+      this same .paper, so every class they use has to exist here as well as
+      in correlations.standalone's stylesheet - one renderer, two sheets, and
+      they are kept in step by eye rather than by machine, which is the one
+      thing about this arrangement worth watching.                          */
+  .paper table.grid th{width:auto; white-space:nowrap}
+  .paper table.grid td{white-space:nowrap}
+  .paper ul{margin:8px 0 8px 18px; padding:0; font-size:12.5px; color:#2b3440}
+  .paper li{margin:3px 0}
+  .paper .warn{
+    position:static; display:block; max-width:none;
+    background:#fff8e6; border-left:3px solid #d97706; padding:7px 11px;
+    margin:9px 0; font-size:12.5px; color:#7a4a06; border-radius:0 6px 6px 0}
+  .paper .bad{
+    background:#fdeaea; border-left:3px solid #9b1c1c; padding:7px 11px;
+    margin:9px 0; font-size:12.5px; color:#9b1c1c; font-weight:600;
+    border-radius:0 6px 6px 0}
+  .paper svg.plot{
+    display:block; max-width:660px; margin:14px 0 6px; background:#fff;
+    border:1px solid #eef1f6; border-radius:8px}
+  /*  the campaign panel  */
+  .parprog{display:flex; gap:9px; flex-wrap:wrap; margin-bottom:11px}
+  .parprog .pill{
+    background:var(--glass2); border-radius:9px; padding:7px 12px;
+    font-size:11.5px; color:var(--muted); line-height:1.45}
+  .parprog .pill b{display:block; font-size:16px; font-weight:660; color:var(--text);
+                   font-variant-numeric:tabular-nums}
+  .parbar{height:6px; border-radius:4px; background:var(--glass2); overflow:hidden;
+          flex:1 1 100%; margin-top:2px}
+  .parbar i{display:block; height:100%; background:var(--accent); border-radius:4px}
+  table.files td.st{white-space:nowrap; font-size:11px; font-weight:640}
+  td.st.ok{color:var(--ok)} td.st.bad{color:var(--bad)}
+  td.st.mock{color:var(--caution)} td.st.wait{color:var(--muted)}
+  td.st.now{color:var(--accent)}
   @media print{
     body{background:#fff}
     header, #tabs, .runbar, aside{display:none !important}
@@ -490,6 +531,7 @@
       <button data-pane="run">해석</button>
       <button data-pane="res">결과</button>
       <button data-pane="rep">보고서</button>
+      <button data-pane="par">파라메트릭</button>
     </nav>
     <button class="btn lang" id="langBtn" type="button">EN</button>
     <span id="codeStamp" title=""></span>
@@ -956,6 +998,35 @@
         <span class="savenote" id="repNote"></span>
       </div>
       <div id="repPaper" class="paper"><div id="repBody"></div></div>
+    </div>
+  </div>
+
+  <!-- ========== 파라메트릭 : the campaign, stage by stage ============= -->
+  <div class="tabpane" data-pane="par" hidden>
+    <div class="pane">
+      <div class="runbar">
+        <select id="parPick" class="minisel" style="min-width:230px"></select>
+        <button class="btn primary" id="parRun" style="width:auto;padding:9px 20px">실행</button>
+        <button class="btn" id="parStop" style="width:auto;padding:9px 16px">중지</button>
+        <button class="btn" id="parReport" style="width:auto;padding:9px 16px">보고서</button>
+        <button class="btn" id="parSave" style="width:auto;padding:9px 16px">HTML로 저장</button>
+        <button class="btn" id="parCorr" style="width:auto;padding:9px 16px">1단계 · 상관식</button>
+        <button class="btn" id="parClear" style="width:auto;padding:9px 16px">결과 지우기</button>
+        <span class="savenote" id="parNote"></span>
+      </div>
+      <div class="banner" id="parBanner"></div>
+      <div class="cards" style="grid-template-columns:repeat(auto-fill,minmax(400px,1fr))">
+        <div class="card">
+          <h3>진행</h3>
+          <div id="parProg" class="parprog"></div>
+          <div class="logbox" id="parLog" style="max-height:200px"></div>
+        </div>
+        <div class="card">
+          <h3>케이스 <span id="parCount" style="text-transform:none;font-weight:500"></span></h3>
+          <table class="files" id="parCases"><tbody></tbody></table>
+        </div>
+      </div>
+      <div id="parPaper" class="paper" hidden><div id="parBody"></div></div>
     </div>
   </div>
 </div>
@@ -2244,12 +2315,8 @@ function lossModel(){
       S_D = sqrt(S_L^2 + (S_T/2)^2): the diagonal governs when 2(S_D - d) is
       less than (S_T - d).  Using the transverse gap alone under-states u_max
       wherever that happens, and u_max enters both Re and dp ~ u_max^2.     */
-  const gapT = P.ST - dT;
-  const SD = Math.hypot(P.SL, P.ST/2);
-  const gapD = 2*(SD - dT);
-  const diagonal = isStg() && gapD > 0 && gapD < gapT;
-  const gap = diagonal ? gapD : gapT;
-  const umax = U*(gap > 0 ? P.ST/gap : 1);
+  const gv = gapVelocity();          // one place, shared with flow() and y+
+  const diagonal = gv.diagonal, SD = gv.SD/k, umax = gv.umax;
   const ReMax = umax*P.D*k/nu;
   /* Jakob's friction factor, in Holman's form
        dp = 2 f N G_max^2 / rho = 2 f N rho umax^2,   Eu per row = 4 f
@@ -2792,10 +2859,28 @@ function fmt2(v){ return v>=1?v.toFixed(2):v.toPrecision(2); }
    The gap velocity uses the transverse footprint, which is D for a straight
    rod and still D for an inclined tube - the ellipse stretches along the flow,
    not across it - so this is the same number the rod explorer produced.    */
-function flow(){
-  const k=toM(), D=P.D*k, ST=P.ST*k;
+/*  The gap velocity, decided in ONE place.
+
+    This used to test only the transverse gap while lossModel() also tested
+    the diagonal one, so on a staggered bank with a tight diagonal passage the
+    two disagreed: the correlation panel used the higher u_max and the y+
+    first-layer height used the lower one, which made the near-wall cell too
+    THICK in exactly the cases where the flow is fastest.  Same test as
+    correlations.flow_state in Python, and the three now agree by construction
+    rather than by coincidence.                                             */
+function gapVelocity(){
+  const k=toM(), ST=P.ST*k, SL=P.SL*k;
   const dT=(G?2*G.bE:P.D)*k;
-  const umax = P.vel*(ST>dT ? ST/(ST-dT) : 1);      // gap (maximum) velocity
+  const gapT = ST - dT;
+  const SD = Math.hypot(SL, ST/2);
+  const gapD = 2*(SD - dT);
+  const diagonal = isStg() && gapD > 0 && gapD < gapT;
+  const gap = diagonal ? gapD : gapT;
+  return {gap, diagonal, SD, gapT, gapD, umax: P.vel*(gap > 0 ? ST/gap : 1)};
+}
+function flow(){
+  const k=toM(), D=P.D*k;
+  const umax = gapVelocity().umax;
   const nu = P.nu*1e-6;
   const Re = umax*D/nu;
   const Cf = 0.079*Math.pow(Math.max(Re,1),-0.25);  // Blasius, Fanning
@@ -3615,7 +3700,31 @@ resize(); rebuild(); setLang(LANG); frame();
    draws it, the driver applies it.                                          */
 
 Object.assign(STR.ko, {
-  tabs:{geom:"형상", set:"세팅", run:"해석", res:"결과", rep:"보고서"},
+  tabs:{geom:"형상", set:"세팅", run:"해석", res:"결과", rep:"보고서", par:"파라메트릭"},
+  /* --- 파라메트릭 : the campaign ------------------------------------- */
+  parRun:"실행", parStop:"중지", parReport:"보고서", parSave:"HTML로 저장",
+  parCorr:"1단계 · 상관식", parClear:"결과 지우기",
+  par_h_prog:"진행", par_h_cases:"케이스",
+  par_none:"정의된 연구가 없습니다 — python3 study.py --make",
+  par_ready:"<b>파라메트릭 캠페인.</b> 정의는 <code>studies/&lt;이름&gt;/study.json</code>, " +
+            "결과는 그 옆 <code>results.json</code>에 케이스마다 즉시 기록됩니다. " +
+            "중간에 멈춰도 다음에 이어서 실행합니다.",
+  par_mockwarn:"<b>MOCK 백엔드입니다.</b> 여기서 나오는 값은 배관 확인용이며 " +
+               "<b>결과가 아닙니다</b>. 표·그림·상관식 적합에서 모두 제외되고 " +
+               "MOCK으로 표시됩니다. 실제 값은 Fluent 라이선스가 있는 장비에서 " +
+               "돌려야 합니다.",
+  par_idle:"실행 중인 연구가 없습니다.",
+  par_case:"케이스", par_current:"현재", par_elapsed:"경과", par_state:"상태",
+  par_fin:"완료", par_stopping:"중지 중", par_going:"진행 중",
+  par_waiting:"대기", par_running:"진행 중", par_done:"완료", par_failed:"실패",
+  par_cells:"셀",
+  par_confirm:(n,k)=>`${n} 를 실행합니다. 남은 케이스 ${k}개. 계속할까요?`,
+  par_started:"시작했습니다 — 해석 탭에서 현재 케이스를 볼 수 있습니다.",
+  par_clear_ask:n=>`${n} 의 결과를 모두 지웁니다. 되돌릴 수 없습니다. 계속할까요?`,
+  par_cleared:"결과를 지웠습니다.",
+  par_building:"보고서를 만드는 중…",
+  par_written:p=>`보고서를 만들었습니다${p ? " · " + p : ""}`,
+  par_first:"먼저 보고서를 만드십시오.",
   srv_off:"<b>서버가 없습니다.</b> 이 페이지를 파일로 직접 열면 형상 탭만 동작합니다. " +
           "Fluent를 돌리려면 저장소에서 <code>python3 app.py</code> 를 실행하고 " +
           "그 주소로 다시 여십시오.",
@@ -3748,7 +3857,33 @@ Object.assign(STR.ko, {
   m_volerr:"체적 오차", m_skew:"최대 왜곡각", m_ar:"최대 AR"
 });
 Object.assign(STR.en, {
-  tabs:{geom:"Geometry", set:"Settings", run:"Run", res:"Results", rep:"Report"},
+  tabs:{geom:"Geometry", set:"Settings", run:"Run", res:"Results", rep:"Report",
+        par:"Campaign"},
+  /* --- the campaign --------------------------------------------------- */
+  parRun:"Run", parStop:"Stop", parReport:"Report", parSave:"Save as HTML",
+  parCorr:"Stage 1 · correlations", parClear:"Clear results",
+  par_h_prog:"Progress", par_h_cases:"Cases",
+  par_none:"no studies defined — python3 study.py --make",
+  par_ready:"<b>The parametric campaign.</b> The definition is " +
+            "<code>studies/&lt;name&gt;/study.json</code> and the results land " +
+            "in <code>results.json</code> beside it, case by case as they " +
+            "finish. Stopping part way is fine; it picks up where it left off.",
+  par_mockwarn:"<b>MOCK backend.</b> What comes out of here is evidence that " +
+               "the plumbing works and is <b>not a result</b>. Mock rows are " +
+               "marked MOCK and excluded from every table, plot and fit. Real " +
+               "numbers need a machine with a Fluent licence.",
+  par_idle:"nothing is running.",
+  par_case:"case", par_current:"current", par_elapsed:"elapsed", par_state:"state",
+  par_fin:"finished", par_stopping:"stopping", par_going:"running",
+  par_waiting:"queued", par_running:"running", par_done:"done", par_failed:"failed",
+  par_cells:"cells",
+  par_confirm:(n,k)=>`Run ${n}? ${k} case(s) still to do.`,
+  par_started:"started — the Run tab follows the current case.",
+  par_clear_ask:n=>`Delete every result of ${n}? This cannot be undone.`,
+  par_cleared:"results cleared.",
+  par_building:"building the report…",
+  par_written:p=>`report built${p ? " · " + p : ""}`,
+  par_first:"build the report first.",
   srv_off:"<b>No server.</b> Opened as a plain file, only the Geometry tab works. " +
           "To drive Fluent, run <code>python3 app.py</code> in the repository and " +
           "open the address it prints.",
@@ -3912,6 +4047,7 @@ function showPane(name){
   if(name==="geom"){ resize(); needsDraw=true; }
   if(name==="run"){ sizeResid(); sizeDp(); drawResid(); drawDp(); refreshFiles(); }
   if(name==="res"){ sizeRes(); drawRes(); refreshFiles(); }
+  if(name==="par"){ parRefresh(); }
 }
 document.querySelectorAll("#tabs button").forEach(b=>
   b.addEventListener("click", ()=>showPane(b.dataset.pane)));
@@ -5575,6 +5711,228 @@ $("resDP").addEventListener("click", async ()=>{
   }catch(e){ el.textContent=e.message; }
 });
 
+/* ===================== 파라메트릭 : the campaign ==========================
+   Stage 1 is a report with no CFD in it.  Stages 2 and 3 are a matrix of
+   cases run one after another, and the tab's job is to make that watchable
+   and resumable rather than to add a second way of setting a case up: a
+   study case goes through the same Job as the Run tab's, so the residuals,
+   the pressure-drop monitor and the Results tab all follow whichever case is
+   going.  Nothing here computes a result - every number below is read back
+   from study.py, which is also what writes the report.                     */
+const PAR = {list:[], run:null, timer:0, rows:[], study:null, showing:null};
+
+function parNote(msg, cls){
+  const el = $("parNote");
+  el.textContent = msg || "";
+  el.className = "savenote" + (cls ? " " + cls : "");
+}
+function parName(){ return $("parPick").value || null; }
+//  an empty .paper is a large white rectangle saying nothing, so it stays out
+//  of the layout until a report is in it
+function parShow(html){
+  $("parBody").innerHTML = html || "";
+  $("parPaper").hidden = !(html || "").trim();
+  if(html) $("parPaper").scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+async function parRefresh(){
+  try{
+    const j = await api("/api/studies");
+    PAR.list = j.studies || [];
+    PAR.run = j.running || null;
+    const sel = $("parPick"), was = sel.value;
+    sel.innerHTML = PAR.list.map(s =>
+      `<option value="${esc(s.name)}">${esc(s.title || s.name)} — ${s.done}/${s.cases}</option>`
+    ).join("");
+    if(!PAR.list.length){
+      sel.innerHTML = `<option value="">${esc(T("par_none"))}</option>`;
+    }else if(was && PAR.list.some(s => s.name === was)){
+      sel.value = was;
+    }
+    parBanner();
+    await parLoad();
+    parTick();
+  }catch(e){ parNote(e.message, "bad"); }
+}
+
+function parBanner(){
+  const el = $("parBanner");
+  const mock = SRV && (SRV.effective_backend === "mock");
+  el.className = mock ? "banner warn" : "banner";
+  //  .banner is a flex row, so every <b> and <code> in the text would become
+  //  a flex ITEM of its own and the sentence would lay itself out in columns.
+  //  One wrapper, one item, one paragraph.
+  el.innerHTML = "<div>" + (mock ? T("par_mockwarn") : T("par_ready")) + "</div>";
+}
+
+async function parLoad(){
+  const name = parName();
+  PAR.study = null; PAR.rows = [];
+  if(!name){ parCases(); return; }
+  try{
+    const j = await api("/api/study", {name});
+    PAR.study = j.study; PAR.rows = j.rows || [];
+  }catch(e){ parNote(e.message, "bad"); }
+  parCases();
+}
+
+/*  Every case of the chosen study with what came back for it.  A case that
+    ran on the mock backend is marked MOCK here and is excluded from the
+    report's tables, plots and fit - the badge is the visible half of that. */
+function parCases(){
+  const body = $("parCases").querySelector("tbody");
+  const s = PAR.study;
+  if(!s){ body.innerHTML = ""; $("parCount").textContent = ""; return; }
+  const by = {};
+  for(const r of PAR.rows) by[r.id] = r;
+  const cur = (PAR.run && !PAR.run.finished) ? PAR.run.current : null;
+  const html = s.cases.map(c => {
+    const r = by[c.id];
+    let st = "wait", txt = T("par_waiting"), extra = "";
+    if(c.id === cur){ st = "now"; txt = T("par_running"); }
+    else if(r && r.ok && r.mock){ st = "mock"; txt = "MOCK"; }
+    else if(r && r.ok){
+      st = "ok"; txt = T("par_done");
+      extra = (r.eu_row != null ? "Eu " + (+r.eu_row).toFixed(4) : "") +
+              (r.cells ? " · " + r.cells.toLocaleString() + " " + T("par_cells") : "");
+    }else if(r){ st = "bad"; txt = T("par_failed"); extra = esc(r.error || ""); }
+    return `<tr><td class="nm">${esc(c.id)}</td>` +
+           `<td class="st ${st}">${esc(txt)}</td>` +
+           `<td class="sz">${extra}</td></tr>`;
+  }).join("");
+  body.innerHTML = html;
+  const done = PAR.rows.filter(r => r.ok && !r.mock).length;
+  $("parCount").textContent = `${done}/${s.cases.length}`;
+}
+
+function parProgress(){
+  const el = $("parProg"), r = PAR.run;
+  if(!r){ el.innerHTML = `<div class="pill">${esc(T("par_idle"))}</div>`; return; }
+  const frac = r.total ? r.index / r.total : 0;
+  el.innerHTML =
+    `<div class="pill">${esc(T("par_case"))}<b>${r.index} / ${r.total}</b></div>` +
+    `<div class="pill">${esc(T("par_current"))}<b>${esc(r.current || "—")}</b></div>` +
+    `<div class="pill">${esc(T("par_elapsed"))}<b>${fmtDur(r.elapsed)}</b></div>` +
+    `<div class="pill">${esc(T("par_state"))}<b>${esc(
+        r.finished ? T("par_fin") : (r.stopping ? T("par_stopping") : T("par_going")))}</b></div>` +
+    `<div class="parbar"><i style="width:${(100*frac).toFixed(1)}%"></i></div>`;
+  $("parLog").textContent = (r.log || []).join("\n");
+  $("parLog").scrollTop = 1e6;
+}
+function fmtDur(s){
+  s = Math.max(0, Math.round(+s || 0));
+  const h = Math.floor(s/3600), m = Math.floor(s%3600/60);
+  return h ? `${h}h ${m}m` : (m ? `${m}m ${s%60}s` : `${s}s`);
+}
+
+/*  Poll only while something is running.  A finished campaign is a static
+    page and polling it forever would keep a workstation awake for nothing. */
+function parTick(){
+  clearTimeout(PAR.timer);
+  parProgress();
+  const live = PAR.run && !PAR.run.finished;
+  $("parRun").disabled = !!live || !parName();
+  $("parStop").disabled = !live;
+  $("parClear").disabled = !!live || !parName();
+  if(!live) return;
+  PAR.timer = setTimeout(async ()=>{
+    try{
+      const j = await api("/api/study_status");
+      const was = PAR.run ? PAR.run.index : -1;
+      const wasLive = PAR.run && !PAR.run.finished;
+      PAR.run = j.run;
+      //  the LAST case is recorded after the runner's index stops changing,
+      //  so a tick that only watches the index leaves the final row showing
+      //  "queued" forever.  The transition to finished gets its own reload.
+      if(!PAR.run || PAR.run.index !== was || (wasLive && PAR.run.finished))
+        await parLoad();
+      else parCases();
+    }catch(e){ /* the server went away; the next tick will say so */ }
+    parTick();
+  }, 1500);
+}
+
+$("parPick").addEventListener("change", async ()=>{ await parLoad(); parTick(); });
+
+$("parRun").addEventListener("click", async ()=>{
+  const name = parName();
+  if(!name) return;
+  const n = PAR.study ? PAR.study.cases.length : 0;
+  const done = PAR.rows.filter(r => r.ok).length;
+  if(!confirm(T("par_confirm")(name, n - done))) return;
+  try{
+    parNote(T("par_started"), "busy");
+    const j = await api("/api/study_run", {name});
+    PAR.run = j.run;
+    showPane("par");
+    parTick();
+  }catch(e){ parNote(e.message, "bad"); }
+});
+
+$("parStop").addEventListener("click", async ()=>{
+  try{
+    const j = await api("/api/study_stop");
+    PAR.run = j.run;
+    parNote(T("par_stopping"), "busy");
+    parTick();
+  }catch(e){ parNote(e.message, "bad"); }
+});
+
+$("parClear").addEventListener("click", async ()=>{
+  const name = parName();
+  if(!name || !confirm(T("par_clear_ask")(name))) return;
+  try{
+    await api("/api/study_clear", {name});
+    parNote(T("par_cleared"), "ok");
+    await parRefresh();
+  }catch(e){ parNote(e.message, "bad"); }
+});
+
+/*  The report body comes from study.py, not from here.  The Report tab's own
+    rule applies twice over: a report restates, it never recomputes - and a
+    report that recomputed in the browser could disagree with the file the
+    same run wrote to studies/.                                             */
+async function parReport(){
+  const name = parName();
+  if(!name) return;
+  $("parReport").disabled = true;
+  parNote(T("par_building"), "busy");
+  try{
+    const j = await api("/api/study_report", {name, lang:LANG, write:true});
+    parShow(j.body);
+    PAR.showing = {kind:"study", name};
+    parNote(T("par_written")(j.path || ""), "ok");
+  }catch(e){ parNote(e.message, "bad"); }
+  finally{ $("parReport").disabled = false; }
+}
+$("parReport").addEventListener("click", parReport);
+
+$("parCorr").addEventListener("click", async ()=>{
+  $("parCorr").disabled = true;
+  parNote(T("par_building"), "busy");
+  try{
+    const j = await api("/api/correlations_report", {lang:LANG, write:true});
+    parShow(j.body);
+    PAR.showing = {kind:"corr"};
+    parNote(T("par_written")(j.path || ""), "ok");
+  }catch(e){ parNote(e.message, "bad"); }
+  finally{ $("parCorr").disabled = false; }
+});
+
+$("parSave").addEventListener("click", ()=>{
+  const body = $("parBody").innerHTML;
+  if(!body.trim()){ parNote(T("par_first"), "bad"); return; }
+  const nm = PAR.showing && PAR.showing.kind === "study"
+    ? PAR.showing.name : "stage1-correlations";
+  const doc = "<!doctype html>\n<html lang=\"" + (LANG === "ko" ? "ko" : "en") +
+    "\"><head><meta charset=\"utf-8\">\n<title>" + esc(nm) +
+    "</title>\n<style>\nbody{margin:0;background:#eef1f5;padding:26px 16px;" +
+    "font-family:" + uiFont() + "}\n" + reportCSS() + "\n</style>\n</head>\n<body>\n" +
+    '<div class="paper">' + body + "</div>\n</body></html>\n";
+  save(new Blob([doc], {type:"text/html;charset=utf-8"}), nm + "_report.html");
+  parNote(T("rep_saved")((doc.length/1e6).toFixed(2)), "ok");
+});
+
 /* --------------------- language, and bringing it up --------------------- */
 window.__appLang = function(){
   document.querySelectorAll("#tabs button").forEach(b=>
@@ -5586,6 +5944,12 @@ window.__appLang = function(){
   $("runStart").textContent=T("runStart");
   $("runStop").textContent=T("runStop");
   $("runMeshOnly").textContent=T("runMeshOnly");
+  for(const id of ["parRun","parStop","parReport","parSave","parCorr","parClear"])
+    $(id).textContent = T(id);
+  $("parProg").closest(".card").querySelector("h3").textContent = T("par_h_prog");
+  const pc=$("parCases").closest(".card").querySelector("h3");
+  pc.firstChild.nodeValue = T("par_h_cases") + " ";
+  if(PANE==="par") parRefresh();
   $("resRefresh").textContent=T("res_refresh");
   $("resCompute").textContent=T("res_compute");
   $("resDP").textContent=T("res_dp");

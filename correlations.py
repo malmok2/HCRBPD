@@ -555,7 +555,8 @@ def report_body(lang="ko"):
             _fmt(v["Re"][0]), _fmt(v["Re"][1]), _fmt(v["XT"][0]), _fmt(v["XT"][1]),
             _fmt(v["XL"][0]), _fmt(v["XL"][1]),
             t("행수 ≥", "rows >="), _fmt(v["n_rows"][0]))
-        p('<tr><th>%s</th><td class="n">%s</td></tr>' % (t("적용 범위", "range"), rng))
+        #  a sentence, not a number: `n` right-aligns it in the page's sheet
+        p('<tr><th>%s</th><td>%s</td></tr>' % (t("적용 범위", "range"), rng))
         p('<tr><th>%s</th><td>%s</td></tr>' % (
             t("범위 주석", "on that range"), local(c, "valid_note")))
         p('<tr><th>%s</th><td>%s</td></tr>' % (t("비고", "note"),
@@ -693,17 +694,45 @@ def as_json():
 # =============================================================================
 #  COMMAND LINE
 # =============================================================================
+def _extract_js(name, text):
+    """One top-level `function name(...)` out of the page, by brace matching."""
+    key = "function %s(" % name
+    i = text.index(key)
+    j = text.index("{", i)
+    depth, k = 0, j
+    while k < len(text):
+        c = text[k]
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                return text[i:k + 1]
+        k += 1
+    raise ValueError("unterminated %s" % name)
+
+
 def _check_against_js():
-    """Jakob here against Jakob in the browser.
+    """Jakob here against Jakob in the browser - the browser's ACTUAL code.
 
     The Geometry tab computes the same correlation in JavaScript and must go
-    on doing so - it works with no server at all, which is half the point of
+    on doing so: it works with no server at all, which is half the point of
     the page.  Two implementations of one formula is exactly the arrangement
-    that drifts, so they are held against each other here the way the mesh and
-    its Python twin are.
+    that drifts, so they are held against each other the way the mesh and its
+    Python twin are.
+
+    The two functions are LIFTED OUT OF mesh_explorer.html and run, rather
+    than transcribed into this file.  A transcription would be a third copy
+    and would pass happily while the page said something else - which is the
+    failure this check exists to catch.
     """
     import subprocess
     import tempfile
+    page = os.path.join(HERE, "mesh_explorer.html")
+    with open(page, encoding="utf-8") as fh:
+        text = fh.read()
+    lifted = "\n".join(_extract_js(n, text) for n in ("gapVelocity", "lossModel"))
+
     cases = []
     for staggered in (False, True):
         for XT in (1.25, 1.5, 2.0, 2.5):
@@ -711,44 +740,43 @@ def _check_against_js():
                 for u in (0.1, 0.5, 2.0):
                     cases.append({"staggered": staggered, "XT": XT, "XL": XL,
                                   "u": u})
-    js = """
+    harness = """
 'use strict';
 const cases = %s;
-const D = 0.010, rho = 998.2, nu = 1.004e-6, N = 10;
+//  the page's own globals, reduced to what these two functions read
+let P = {}, G = {};
+const toM = () => 1e-3;                       // the study works in mm
+const isStg = () => !!P._stg;
+const smooth01 = t => t;                      // lossAt only; unused here
+%s
 const out = cases.map(c => {
-  const ST = D*c.XT, SL = D*c.XL, dT = D;
-  const XT = ST/dT, XL = SL/D;
-  const gapT = ST - dT;
-  const SD = Math.hypot(SL, ST/2);
-  const gapD = 2*(SD - dT);
-  const diagonal = c.staggered && gapD > 0 && gapD < gapT;
-  const gap = diagonal ? gapD : gapT;
-  const umax = c.u*(gap > 0 ? ST/gap : 1);
-  const ReMax = umax*D/nu;
-  const f = c.staggered
-    ? (0.25 + 0.118/Math.pow(Math.max(XT-1,1e-3), 1.08))
-      * Math.pow(Math.max(ReMax,1), -0.16)
-    : (0.044 + 0.08*XL/Math.pow(Math.max(XT-1,1e-3), 0.43+1.13/XL))
-      * Math.pow(Math.max(ReMax,1), -0.15);
-  return {umax, ReMax, eu: 4*f, dp: 2*f*N*rho*umax*umax};
+  P = {D:10, ST:10*c.XT, SL:10*c.XL, nRows:10, vel:c.u, rho:998.2,
+       nu:1.004, lIn:60, lOut:120, H:2, nCols:4, _stg:c.staggered};
+  G = {bE:P.D/2, aE:P.D/2, W:P.nCols*P.ST, X0:P.lIn, X1:P.lIn+P.nRows*P.SL};
+  const L = lossModel();
+  return {umax:L.umax, ReMax:L.ReMax, eu:L.Eu, dp:L.dpBundle,
+          diagonal:!!L.diagonal};
 });
 console.log(JSON.stringify(out));
-""" % json.dumps(cases)
-    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as fh:
-        fh.write(js)
+""" % (json.dumps(cases), lifted)
+    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False,
+                                     encoding="utf-8") as fh:
+        fh.write(harness)
         path = fh.name
     try:
         raw = subprocess.check_output(["node", path]).decode("utf-8")
     finally:
         os.unlink(path)
     theirs = json.loads(raw)
-    worst = 0.0
-    worst_at = None
+    worst, worst_at = 0.0, None
     for c, jsv in zip(cases, theirs):
         st = flow_state(D=0.010, ST=0.010 * c["XT"], SL=0.010 * c["XL"],
                         n_rows=10, u_in=c["u"], rho=998.2, nu=1.004e-6,
                         staggered=c["staggered"])
         rec = evaluate("jakob", st)
+        if bool(st["diagonal"]) != bool(jsv["diagonal"]):
+            print("  the two disagree about which gap governs at %r" % (c,))
+            return 1
         for what, a, b in (("u_max", st["umax"], jsv["umax"]),
                            ("Re", st["Re"], jsv["ReMax"]),
                            ("Eu_row", rec["eu_row"], jsv["eu"]),
@@ -756,7 +784,9 @@ console.log(JSON.stringify(out));
             e = abs(a - b) / max(abs(b), 1e-30)
             if e > worst:
                 worst, worst_at = e, (what, c, a, b)
-    print("Jakob, python vs the browser: %d cases x 4 quantities" % len(cases))
+    print("Jakob, python vs the page's own gapVelocity + lossModel:")
+    print("  %d cases x 4 quantities, and which gap governs on every one"
+          % len(cases))
     print("  worst relative difference %.3e%s"
           % (worst, "" if worst < 1e-12 else "   at %r" % (worst_at,)))
     ok = worst < 1e-12
