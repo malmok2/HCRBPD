@@ -198,6 +198,30 @@ These are invariants that took real debugging to find. Preserve them.
   waste a solver run.
 - **Every claim in the report needs a check that could have failed.** See
   `references/verification.md`.
+- **Run ONE case and look at it before running a campaign.** A campaign is a
+  bet that the case set-up is right, repeated N times. This one spent 55
+  minutes and eight cases discovering that every solution had stalled at a
+  residual of 7.5e-2 - a fact the first case knew in three minutes. The runner
+  now stops after case one unless it converged, measured a pressure drop, and
+  settled; `force` overrides it. A study definition being correct says nothing
+  about whether the physics set-up produces a usable solution.
+- **A grid-convergence index on unconverged solutions is a number that looks
+  exactly like an answer.** GCI measures the difference between CONVERGED
+  solutions on different meshes. Given half-solved ones it still returns an
+  observed order, an extrapolation and a percentage, all meaningless. Any case
+  that missed its own residual criterion is now kept in the table - so it is
+  visible - and kept out of every extrapolation, with the reason said in red
+  above them.
+- **Report a run against the criterion that RUN used, not the one the panel is
+  showing.** The Report tab read `residual_criterion` out of the settings
+  panel, which is the browser's own state; a study case running at 1e-5 was
+  reported against the panel's default 1e-4. Anything a report says about a
+  job has to come from that job.
+- **The worst residual is not a diagnosis; which equation it is in, is.**
+  Continuity says the pressure-velocity coupling never closed - which on a
+  bluff-body bank usually means the flow is unsteady and a steady solver has
+  nothing to converge to. Turbulence quantities stalling means something else
+  entirely. Record the equation, not just the maximum.
 - **A published correlation's functional form encodes its author's DATASET,
   not only their physics.** Shen et al. (2024) write the pitch dependence as
   `(X_T X_L)^-0.69` — the two ratios only ever as a product. Every case in

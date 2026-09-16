@@ -228,6 +228,11 @@ class Job(object):
             "snapshot": bool(self.driver is not None
                              and getattr(self.driver, "snapshot", False)),
             "variables": (self.driver.variables() if self._can_report() else None),
+            #  the criterion THIS job ran against.  The Report tab used to read
+            #  it out of the Settings panel, which is the browser's own state:
+            #  a study case running at 1e-5 was reported against the panel's
+            #  default 1e-4 and called converged when it was not.
+            "criterion": float(self.settings["run"]["residual_criterion"]),
             "out_dir": self.out_dir,
         }
 
@@ -450,7 +455,8 @@ class App(object):
             raise ValueError("a study is already running; stop it first")
         s = ST.Study.load(str(body.get("name") or ""))
         only = body.get("only") or None
-        runner = ST.Runner(self, s, only=only, redo=bool(body.get("redo")))
+        runner = ST.Runner(self, s, only=only, redo=bool(body.get("redo")),
+                           force=bool(body.get("force")))
         #  built first, adopted only once it is going to run.  Assigning it
         #  before this check left a Runner with an empty queue that had never
         #  started and so would never finish, and study_busy() then refused

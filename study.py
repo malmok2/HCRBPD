@@ -373,6 +373,13 @@ def mesh_analysis(study, tol=0.01, key="dp_bundle"):
     """
     rows = [r for r in study.usable() if r.get(key) is not None and r.get("h")]
     out = {"ladders": [], "tol": tol, "key": key}
+    #  A grid-convergence index measures the difference between CONVERGED
+    #  solutions on different meshes.  Fed a case whose residuals stalled, it
+    #  measures the difference between two half-solved ones and returns a
+    #  number that looks exactly like an answer.  A case that did not meet its
+    #  own residual criterion is therefore kept in the table - so it is
+    #  visible - and kept out of every extrapolation.
+    out["unconverged"] = [r["id"] for r in rows if r.get("converged") is False]
     ladders = {}
     for r in rows:
         ladders.setdefault(r.get("ladder", "main"), []).append(r)
@@ -386,7 +393,17 @@ def mesh_analysis(study, tol=0.01, key="dp_bundle"):
     for name in [x for x in order if x in ladders] + \
                 [x for x in sorted(ladders) if x not in order]:
         rs = sorted(ladders[name], key=lambda r: r["h"])       # fine first
-        lad = {"ladder": name, "levels": rs, "triplets": [], "chosen": None}
+        good = [r for r in rs if r.get("converged") is not False]
+        lad = {"ladder": name, "levels": rs, "converged": [r["id"] for r in good],
+               "triplets": [], "chosen": None}
+        if len(good) < 3:
+            lad["blocked"] = ("fewer than three converged meshes: no grid "
+                              "convergence index can be formed")
+            lad["blocked_ko"] = ("수렴한 격자가 세 개 미만입니다. 격자 수렴 "
+                                 "지수를 만들 수 없습니다.")
+            out["ladders"].append(lad)
+            continue
+        rs = good
         for i in range(len(rs) - 2):
             trio = rs[i:i + 3]
             try:
@@ -677,10 +694,17 @@ class Runner(object):
     the button.
     """
 
-    def __init__(self, app, study, only=None, redo=False):
+    def __init__(self, app, study, only=None, redo=False, force=False):
         self.app = app
         self.study = study
         self.redo = bool(redo)
+        #  A campaign is a bet that the case SET-UP is right, repeated N times.
+        #  This one cost 55 minutes to discover that every case stalled at a
+        #  residual of 7.5e-2, because nothing looked at the first result
+        #  before starting the second.  Unless overridden, the first case has
+        #  to converge before the rest are allowed to run.
+        self.force = bool(force)
+        self.stopped_reason = None
         done = {r["id"] for r in study.results() if r.get("ok")} \
             if not redo else set()
         wanted = set(only) if only else None
@@ -711,7 +735,7 @@ class Runner(object):
             "current": self.current, "queue": list(self.queue),
             "skipped": list(self.skipped),
             "stopping": self.stopping, "finished": self.finished,
-            "error": self.error,
+            "error": self.error, "stopped_reason": self.stopped_reason,
             "elapsed": round(time.time() - self.started, 1),
             "log": self.log_lines[-60:],
             "rows": self.study.results(),
@@ -754,6 +778,18 @@ class Runner(object):
                              % (cid, row["dp_bundle"] or float("nan"),
                                 row["eu_row"] or float("nan"), row["cells"],
                                 "   (MOCK)" if row.get("mock") else ""))
+                #  the smoke test: one case is enough to tell whether the
+                #  set-up produces a converged solution at all
+                if self.index == 1 and not self.force and not self.stopping:
+                    why = self._first_case_verdict(row)
+                    if why:
+                        self.stopped_reason = why
+                        self.log("STOPPING after the first case: " + why)
+                        self.log("  nothing is wrong with the study definition "
+                                 "- the SET-UP does not produce a usable "
+                                 "solution, and 7 more of the same would not "
+                                 "change that. Fix it, or re-run with force.")
+                        break
             self.current = None
         except Exception as exc:                                # noqa: BLE001
             self.error = "%s: %s" % (type(exc).__name__, exc)
@@ -762,6 +798,27 @@ class Runner(object):
             self.finished = True
             self.log("done - %d of %d case(s) attempted"
                      % (self.index, len(self.queue)))
+
+    @staticmethod
+    def _first_case_verdict(row):
+        """Why the campaign should not continue past case one, or None."""
+        if not row.get("ok"):
+            return "it failed: %s" % (row.get("error") or "?")
+        if row.get("mock"):
+            return None                     # the mock is for testing the plumbing
+        if row.get("converged") is False:
+            return ("it did not converge - final residual %.2e%s against a "
+                    "criterion of %.0e"
+                    % (row.get("residual_worst") or 0.0,
+                       " in " + row["residual_worst_eq"]
+                       if row.get("residual_worst_eq") else "",
+                       row.get("criterion") or 0.0))
+        if row.get("dp_bundle") is None:
+            return "the bundle pressure drop could not be measured"
+        if (row.get("dp_drift") or 0.0) > 0.05:
+            return ("the pressure drop was still moving by %.1f %% over the "
+                    "final stretch" % (100 * row["dp_drift"]))
+        return None
 
     def _one(self, cid):
         """Run one case and measure it."""
@@ -859,10 +916,19 @@ class Runner(object):
         res = list(getattr(job.driver, "residuals", []) or [])
         if res:
             last = res[-1]
-            worst = max([last[x] or 0.0 for x in last if x != "iter"] or [0.0])
+            #  which equation stalled is the whole diagnosis: continuity says
+            #  the pressure-velocity coupling never closed, turbulence says the
+            #  model is struggling, and the two are fixed differently.  Keeping
+            #  only the maximum threw that away.
+            eqs = [(k, v) for k, v in last.items() if k != "iter" and v is not None]
+            worst_eq, worst = (max(eqs, key=lambda kv: kv[1]) if eqs
+                               else (None, 0.0))
             row["iterations"] = len(res)
             row["residual_worst"] = worst
-            row["converged"] = worst < float(settings["run"]["residual_criterion"])
+            row["residual_worst_eq"] = worst_eq
+            row["residuals_last"] = {k: v for k, v in eqs}
+            row["criterion"] = float(settings["run"]["residual_criterion"])
+            row["converged"] = worst < row["criterion"]
         mon = list(getattr(job.driver, "monitors", []) or [])
         if len(mon) >= 2:
             #  how much the answer was still moving over the last fifth of the
@@ -1061,11 +1127,24 @@ def _warnings(study, rows, ko):
                     else "%d case(s) have not been run yet." % len(missing)))
     unconv = [r for r in rows if r.get("converged") is False]
     if unconv:
-        out.append(("warn", "잔차 기준에 도달하지 못한 케이스 %d개: %s"
-                    % (len(unconv), ", ".join(r["id"] for r in unconv[:8]))
+        eqs = sorted({r.get("residual_worst_eq") for r in unconv
+                      if r.get("residual_worst_eq")})
+        worst = max(r.get("residual_worst") or 0.0 for r in unconv)
+        out.append(("bad",
+                    "잔차 기준에 도달하지 못한 케이스 %d개 (%s). 가장 큰 잔차 "
+                    "%.2e, 주로 %s 방정식. 수렴하지 않은 해로는 격자 수렴 지수를 "
+                    "만들 수 없으므로 아래 외삽과 판정에서 제외했습니다 — 표에는 "
+                    "보이도록 남겨 두었습니다."
+                    % (len(unconv), ", ".join(r["id"] for r in unconv[:8]),
+                       worst, ", ".join(eqs) or "?")
                     if ko else
-                    "%d case(s) did not reach the residual criterion: %s"
-                    % (len(unconv), ", ".join(r["id"] for r in unconv[:8]))))
+                    "%d case(s) did not reach the residual criterion (%s). "
+                    "Worst residual %.2e, mostly in %s. A grid convergence "
+                    "index cannot be built on unconverged solutions, so they "
+                    "are excluded from every extrapolation below - and left in "
+                    "the table so that they are visible."
+                    % (len(unconv), ", ".join(r["id"] for r in unconv[:8]),
+                       worst, ", ".join(eqs) or "?")))
     drift = [r for r in rows if (r.get("dp_drift") or 0) > 0.01]
     if drift:
         out.append(("warn", "마지막 구간에서 Δp가 1 %% 이상 움직인 케이스 %d개 - "
@@ -1114,24 +1193,35 @@ def mesh_report_body(study, lang="ko", tol=0.01):
         h.append("<p class=\"muted\">%s X = %s, Re<sub>max</sub> = %s</p>"
                  % (t("조건:", "condition:"), _n(meta.get("X")),
                     _n(meta.get("Re_target"), "%.0e")))
+        if lad.get("blocked"):
+            h.append('<p class="bad">%s</p>'
+                     % _esc(lad["blocked_ko"] if ko else lad["blocked"]))
         h.append('<table class="grid"><tr><th>%s</th><th>%s</th><th>h [m]</th>'
                  '<th>Δp<sub>bundle</sub> [Pa]</th><th>Eu<sub>row</sub></th>'
-                 '<th>%s</th><th>%s</th><th>%s</th></tr>'
+                 '<th>%s</th><th>%s</th><th>%s</th><th>%s</th></tr>'
                  % (t("레벨", "level"), t("셀 수", "cells"),
                     t("외삽값 대비", "vs extrapolated"),
+                    t("최종 잔차", "final residual"),
                     t("수렴", "converged"), t("시간", "time")))
         for r in sorted(levels, key=lambda r: -r["h"]):
             dev = r.get("dev_from_ext")
+            bad = r.get("converged") is False
+            resid = ("—" if r.get("residual_worst") is None else
+                     "%.2e%s" % (r["residual_worst"],
+                                 " " + r["residual_worst_eq"]
+                                 if r.get("residual_worst_eq") else ""))
             h.append('<tr><td>%s%s</td><td class="n">%s</td><td class="n">%s</td>'
                      '<td class="n">%s</td><td class="n">%s</td>'
                      '<td class="n">%s</td><td class="n">%s</td>'
-                     '<td class="n">%s s</td></tr>'
+                     '<td class="n"%s>%s</td><td class="n">%s s</td></tr>'
                      % (_esc(r["id"]),
                         ' <b>&larr;</b>' if r["id"] == lad.get("chosen") else "",
                         "{:,}".format(r["cells"]), _n(r.get("h"), "%.3e"),
                         _n(r.get("dp_bundle")), _n(r.get("eu_row"), "%.4f"),
                         "—" if dev is None else "%.2f %%" % (100 * dev),
-                        t("예", "yes") if r.get("converged") else t("아니오", "no"),
+                        resid,
+                        ' style="color:#9b1c1c;font-weight:640"' if bad else "",
+                        t("아니오", "no") if bad else t("예", "yes"),
                         _n(r.get("seconds"), "%.0f")))
         h.append("</table>")
 

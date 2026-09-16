@@ -3725,6 +3725,12 @@ Object.assign(STR.ko, {
   par_building:"보고서를 만드는 중…",
   par_written:p=>`보고서를 만들었습니다${p ? " · " + p : ""}`,
   par_first:"먼저 보고서를 만드십시오.",
+  par_halted:"첫 케이스에서 중단했습니다 —",
+  par_halted_why:"연구 정의가 잘못된 것이 아니라 해석 설정이 쓸 수 있는 해를 " +
+    "내지 못하는 것입니다. 같은 것을 여러 번 더 돌려도 달라지지 않습니다. " +
+    "설정을 고친 뒤 다시 실행하십시오.",
+  rep_notconv:(v,eq)=>`이 해석은 잔차 기준에 도달하지 못했습니다 (최종 ${v}, ${eq}). ` +
+    `아래의 압력강하와 유동장은 수렴하지 않은 해에서 읽은 값이므로 결과로 쓸 수 없습니다.`,
   srv_off:"<b>서버가 없습니다.</b> 이 페이지를 파일로 직접 열면 형상 탭만 동작합니다. " +
           "Fluent를 돌리려면 저장소에서 <code>python3 app.py</code> 를 실행하고 " +
           "그 주소로 다시 여십시오.",
@@ -3884,6 +3890,13 @@ Object.assign(STR.en, {
   par_building:"building the report…",
   par_written:p=>`report built${p ? " · " + p : ""}`,
   par_first:"build the report first.",
+  par_halted:"stopped after the first case -",
+  par_halted_why:"nothing is wrong with the study definition; the SET-UP does " +
+    "not produce a usable solution, and more of the same would not change " +
+    "that. Fix it and run again.",
+  rep_notconv:(v,eq)=>`This run did not reach its residual criterion (final ${v}, ` +
+    `${eq}). The pressure drop and the fields below are read off an unconverged ` +
+    `solution and are not a result.`,
   srv_off:"<b>No server.</b> Opened as a plain file, only the Geometry tab works. " +
           "To drive Fluent, run <code>python3 app.py</code> in the repository and " +
           "open the address it prints.",
@@ -5439,13 +5452,24 @@ async function buildReport(){
     H.push("<h2>" + esc(T("rep_h_conv")) + "</h2>");
     if(res.length){
       const last = res[res.length-1];
-      const worst = Math.max.apply(null, Object.keys(last).filter(x=>x!=="iter")
-                                     .map(x=>last[x]||0));
+      //  which equation is worst is the diagnosis; the bare maximum is not.
+      //  Continuity says the pressure-velocity coupling never closed.
+      let worst = 0, worstEq = "";
+      for(const k of Object.keys(last)){
+        if(k === "iter" || last[k] == null) continue;
+        if(last[k] > worst){ worst = last[k]; worstEq = k; }
+      }
+      //  the criterion THIS job ran against, not the one the panel is showing
+      const crit = (JOB && JOB.criterion) || +SET.run.residual_criterion;
+      const met = worst < crit;
       H.push("<table>" + row(T("rep_iters"), res.length, "n") +
-             row(T("rep_worst"), worst.toExponential(2), "n") +
-             row(T("lab_crit"), (+SET.run.residual_criterion).toExponential(0), "n") +
-             row(T("rep_met"), worst < +SET.run.residual_criterion ? T("yes") : T("no"), "n") +
+             row(T("rep_worst"),
+                 worst.toExponential(2) + (worstEq ? " · " + esc(worstEq) : ""), "n") +
+             row(T("lab_crit"), crit.toExponential(0), "n") +
+             row(T("rep_met"), met ? T("yes") : T("no"), "n") +
              "</table>");
+      if(!met) H.push('<p class="bad">' + T("rep_notconv")(
+                 worst.toExponential(2), worstEq || "?") + "</p>");
     }
     H.push(fig(figRes, esc(T("rep_fig_res"))));
     H.push(fig(figDp, esc(T("rep_fig_dp"))));
@@ -5817,6 +5841,12 @@ function parProgress(){
         r.finished ? T("par_fin") : (r.stopping ? T("par_stopping") : T("par_going")))}</b></div>` +
     `<div class="parbar"><i style="width:${(100*frac).toFixed(1)}%"></i></div>`;
   $("parLog").textContent = (r.log || []).join("\n");
+  if(r.stopped_reason){
+    const b = $("parBanner");
+    b.className = "banner bad";
+    b.innerHTML = "<div><b>" + esc(T("par_halted")) + "</b> " +
+                  esc(r.stopped_reason) + " " + esc(T("par_halted_why")) + "</div>";
+  }
   $("parLog").scrollTop = 1e6;
 }
 function fmtDur(s){
