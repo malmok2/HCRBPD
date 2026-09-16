@@ -112,7 +112,10 @@ plane or an inlet and the tab says so rather than drawing an empty surface.
 six axis views — where the axis a button names is the one pointing at the
 viewer; each was solved from the projection rather than guessed, and the triad
 confirms it live. `Fit` resets zoom and pan without touching the angle, a free
-drag leaves the preset behind, and auto-rotate spins on the fast draw. `Save as
+drag leaves the preset behind, and auto-rotate spins on the fast draw. The residual plot and
+the Δp plot save the same way, from the same code, with the case name and the
+final number in a clean strip above them rather than laid over an axis label —
+a plot for a report, not a screenshot of one. `Save as
 PNG` renders at 1× to 6× of the on-screen size — real resolution, because the
 backing store and the transform go up together, so the line widths and type
 scale with it — on white or transparent, with the case name, variable, range,

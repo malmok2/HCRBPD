@@ -359,6 +359,15 @@
   }
   .reslist .kill:hover{color:var(--bad); background:var(--glass2)}
   /*  where the files are  */
+  /*  the save row under a plot: small, and out of the way until wanted  */
+  .savebar{gap:7px; margin-top:9px; align-items:center}
+  .savebar .btn{width:auto; padding:6px 14px; font-size:12px}
+  .savenote{font-size:11px; color:var(--muted)}
+  select.minisel{
+    font:inherit; font-size:12px; padding:5px 8px; border:none; border-radius:8px;
+    background:var(--glass2); color:var(--text);
+    box-shadow:inset 0 1px 2px rgba(24,31,42,.10);
+  }
   .pathbar{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:9px}
   .pathbar code{
     flex:1; min-width:210px; font-family:var(--mono); font-size:11.5px;
@@ -695,11 +704,41 @@
           <h3>잔차 <span id="residScale" style="text-transform:none;font-weight:500"></span></h3>
           <div class="plotwrap"><canvas id="residPlot"></canvas></div>
           <div class="note" id="residNote"></div>
+          <div class="row savebar">
+            <select id="residPngScale" class="minisel">
+              <option value="1">1×</option>
+              <option value="2" selected>2×</option>
+              <option value="4">4×</option>
+              <option value="6">6×</option>
+            </select>
+            <select id="residPngBg" class="minisel">
+              <option value="white">흰 배경</option>
+              <option value="transparent">투명 배경</option>
+            </select>
+            <button class="btn" id="residPng">PNG로 저장</button>
+            <span class="savenote" id="residPngNote"></span>
+          </div>
+
         </div>
         <div class="card" style="grid-column:1/-1">
           <h3>압력강하 Δp <span id="dpNow" style="text-transform:none;font-weight:500"></span></h3>
           <div class="plotwrap"><canvas id="dpPlot"></canvas></div>
           <div class="note" id="dpNote"></div>
+          <div class="row savebar">
+            <select id="dpPngScale" class="minisel">
+              <option value="1">1×</option>
+              <option value="2" selected>2×</option>
+              <option value="4">4×</option>
+              <option value="6">6×</option>
+            </select>
+            <select id="dpPngBg" class="minisel">
+              <option value="white">흰 배경</option>
+              <option value="transparent">투명 배경</option>
+            </select>
+            <button class="btn" id="dpPng">PNG로 저장</button>
+            <span class="savenote" id="dpPngNote"></span>
+          </div>
+
         </div>
         <div class="card">
           <h3>메시</h3>
@@ -3493,6 +3532,7 @@ Object.assign(STR.ko, {
   png_done:(px,mb)=>`저장했습니다 · ${px} px · ${mb} MB`,
   png_bg:{white:"흰 배경", transparent:"투명 배경"},
   png_scale:(n)=>n===1?"1× (화면 크기)":`${n}×`,
+  png_empty:"아직 그릴 것이 없습니다.",
   res_save:"선택한 면 저장 (모든 변수)",
   res_saving:"저장 중… 변수마다 한 번씩 읽어옵니다.",
   res_saved:(f,mb)=>`${f} 저장 · ${mb} MB · Fluent 없이 다시 열 수 있습니다`,
@@ -3584,6 +3624,7 @@ Object.assign(STR.en, {
   png_done:(px,mb)=>`saved · ${px} px · ${mb} MB`,
   png_bg:{white:"white background", transparent:"transparent background"},
   png_scale:(n)=>n===1?"1× (as on screen)":`${n}×`,
+  png_empty:"there is nothing drawn to save yet.",
   res_save:"Save the chosen surfaces (all variables)",
   res_saving:"saving - one read per variable…",
   res_saved:(f,mb)=>`${f} saved · ${mb} MB · reopens with no Fluent`,
@@ -4660,60 +4701,123 @@ $("resSpin").addEventListener("change", ()=>{
     picture with more pixels in it - real resolution, not an upscale.  The
     line widths and type scale with it, which is what a figure for a paper
     wants.                                                                  */
-async function savePng(){
-  const scale = Math.max(1, Math.min(8, +$("resPngScale").value || 2));
-  const bg = $("resPngBg").value;
-  const stamp = $("resPngStamp").checked;
-  const w0 = xw, h0 = xh, bw = resC.width, bh = resC.height;
-  const wasFast = RES.fast;
-  $("resPng").disabled = true;
-  $("resPngNote").textContent = T("png_busy");
+/*  One saver, three canvases.
+
+    Everything on every one of them draws from a LOGICAL width and height
+    through the canvas transform, so raising the backing store and the
+    transform together renders the same picture with more pixels in it - real
+    resolution, with the line widths and type scaled to match, rather than an
+    upscale of what was on screen.  The logical size is left alone, which is
+    why the draw functions need no argument and no mode.                     */
+async function savePlot(o){
+  const scale = Math.max(1, Math.min(8, +$(o.id + "PngScale").value || 2));
+  const bg = $(o.id + "PngBg").value;
+  const cv = o.canvas, ctx = o.ctx;
+  const bw = cv.width, bh = cv.height;
+  const btn = $(o.id + "Png"), note = $(o.noteId);
+  btn.disabled = true;
+  if(note) note.textContent = T("png_busy");
   try{
-    RES.fast = false;                      // always save at full quality
-    resC.width = Math.round(w0 * scale);
-    resC.height = Math.round(h0 * scale);
-    xctx.setTransform(scale, 0, 0, scale, 0, 0);
-    if(bg === "white"){ xctx.fillStyle = "#ffffff"; xctx.fillRect(0, 0, w0, h0); }
-    drawResInto(stamp);
-    const blob = await new Promise(r => resC.toBlob(r, "image/png"));
-    const px = resC.width + "×" + resC.height;
-    save(blob, pngName() + ".png");
-    $("resPngNote").textContent = T("png_done")(px, (blob.size/1e6).toFixed(1));
-  }catch(e){ $("resPngNote").textContent = e.message; }
-  finally{
-    resC.width = bw; resC.height = bh;
-    xctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    RES.fast = wasFast;
-    $("resPng").disabled = false;
-    drawRes();
+    if(o.empty && o.empty()) throw new Error(T("png_empty"));
+    const [w0, h0] = o.size();
+    if(!(w0 > 0 && h0 > 0)) throw new Error(T("png_empty"));
+    const bits = o.stamp ? o.stamp() : [];
+    //  A plot fills its canvas to the axis labels, so a stamp laid on top of
+    //  one covers a tick.  Those get a clean strip added above instead; the
+    //  3-D view has room in its corner and keeps the overlay.
+    const strip = (o.stampMode === "strip" && bits.length) ? 14 * bits.length + 16 : 0;
+    o.before && o.before();
+    cv.width = Math.round(w0 * scale);
+    cv.height = Math.round((h0 + strip) * scale);
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    if(bg === "white"){ ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, w0, h0 + strip); }
+    if(strip){
+      stampOn(ctx, bits, w0, strip);
+      ctx.translate(0, strip);                 // the plot draws below the strip
+    }
+    o.draw();
+    if(!strip) stampOn(ctx, bits, w0, h0);
+    const blob = await new Promise(r => cv.toBlob(r, "image/png"));
+    save(blob, o.name() + ".png");
+    if(note) note.textContent =
+      T("png_done")(cv.width + "×" + cv.height, (blob.size/1e6).toFixed(1));
+  }catch(e){
+    if(note) note.textContent = e.message;
+  }finally{
+    cv.width = bw; cv.height = bh;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    o.after && o.after();
+    btn.disabled = false;
+    o.draw();
   }
 }
-function drawResInto(stamp){
-  drawRes();
-  if(!stamp) return;
-  //  what the picture is of, on the picture - a figure that outlives the
-  //  session it came from
-  const vd = SRV.variables[RES.variable] || {};
-  const bits = [caseName(), L(vd) + " [" + (vd.unit||"") + "]",
-                fmtSci(RES.lo) + " ~ " + fmtSci(RES.hi),
-                chosenSurfaces().join(", ")];
-  if(RES.mock) bits.push("MOCK");
-  xctx.save();
-  xctx.font = "11px " + uiFont();
-  xctx.textAlign = "left"; xctx.textBaseline = "top";
+/*  What the picture is of, ON the picture - a figure outlives the session it
+    came from, and the MOCK banner is a DOM element that never reaches a
+    canvas, so a saved mock picture has to carry the word itself.           */
+function stampOn(ctx, bits, w, h){
+  if(!bits || !bits.length) return;
+  ctx.save();
+  ctx.font = "11px " + uiFont();
+  ctx.textAlign = "left"; ctx.textBaseline = "top";
   let y = 14;
   for(const line of bits){
-    xctx.fillStyle = (line === "MOCK") ? "rgba(168,63,43,.85)" : "rgba(24,31,42,.62)";
-    xctx.fillText(line, 14, y); y += 14;
+    ctx.fillStyle = (line === "MOCK") ? "rgba(168,63,43,.85)" : "rgba(24,31,42,.62)";
+    ctx.fillText(line, 14, y); y += 14;
   }
-  xctx.restore();
+  ctx.restore();
+}
+function jobStamp(what){
+  const bits = [caseName(), what];
+  if(JOB && JOB.mock) bits.push("MOCK");
+  return bits;
 }
 function pngName(){
   const v = RES.variable.replace(/[^a-z0-9-]/gi, "");
   const sf = chosenSurfaces().join("-").replace(/[^a-z0-9_-]/gi, "") || "view";
   return (caseName() + "_" + sf + "_" + v).slice(0, 150);
 }
-$("resPng").addEventListener("click", savePng);
+$("resPng").addEventListener("click", ()=>savePlot({
+  id: "res", canvas: resC, ctx: xctx, noteId: "resPngNote",
+  size: ()=>[xw, xh],
+  empty: ()=>!RES.data.length,
+  draw: drawRes,
+  before: ()=>{ RES.wasFast = RES.fast; RES.fast = false; },   // save at full quality
+  after:  ()=>{ RES.fast = RES.wasFast; },
+  stamp: ()=>{
+    if(!$("resPngStamp").checked) return [];
+    const vd = SRV.variables[RES.variable] || {};
+    const bits = [caseName(), L(vd) + " [" + (vd.unit||"") + "]",
+                  fmtSci(RES.lo) + " ~ " + fmtSci(RES.hi),
+                  chosenSurfaces().join(", ")];
+    if(RES.mock) bits.push("MOCK");
+    return bits;
+  },
+  name: pngName,
+}));
+$("residPng").addEventListener("click", ()=>savePlot({
+  id: "resid", canvas: residC, ctx: rctx, noteId: "residPngNote", stampMode: "strip",
+  size: ()=>{ if(!rw) sizeResid(); return [rw, rh]; },
+  empty: ()=>!((JOB && JOB.residuals) || []).length,
+  draw: drawResid,
+  stamp: ()=>{
+    const rows = (JOB && JOB.residuals) || [];
+    return rows.length ? jobStamp(T("h_resid") + " · " + T("resid_n")(rows.length,
+      Math.max.apply(null, Object.keys(rows[rows.length-1])
+        .filter(k=>k!=="iter").map(k=>rows[rows.length-1][k]||0)).toExponential(2))) : [];
+  },
+  name: ()=>caseName() + "_residuals",
+}));
+$("dpPng").addEventListener("click", ()=>savePlot({
+  id: "dp", canvas: dpC, ctx: dctx, noteId: "dpPngNote", stampMode: "strip",
+  size: ()=>{ if(!dw) sizeDp(); return [dw, dh]; },
+  empty: ()=>!dpRows().length,
+  draw: drawDp,
+  stamp: ()=>{
+    const rows = dpRows();
+    return rows.length ? jobStamp("Δp = " + fmtSci(rows[rows.length-1].dp) + " Pa") : [];
+  },
+  name: ()=>caseName() + "_pressure-drop",
+}));
 
 /*  A silhouette of the CAD behind the field.  A cut through a bundle is hard
     to place without the bundle around it, and the boundary patches alone do
@@ -4947,14 +5051,17 @@ window.__appLang = function(){
       el.parentElement.lastChild.nodeValue=T(key);
   }
   $("resFit").textContent=T("rv_fit");
-  $("resPng").textContent=T("png_save");
   for(const [id,key] of [["resSpin","rv_spin"],["resPngStamp","png_stamp"]]){
     const el=$(id);
     if(el && el.parentElement.lastChild.nodeType===3)
       el.parentElement.lastChild.nodeValue=T(key);
   }
-  for(const o of $("resPngBg").options) o.textContent=T("png_bg")[o.value];
-  for(const o of $("resPngScale").options) o.textContent=T("png_scale")(+o.value);
+  for(const who of ["res","resid","dp"]){
+    const b=$(who+"Png"); if(b) b.textContent=T("png_save");
+    const bg=$(who+"PngBg"), sc=$(who+"PngScale");
+    if(bg) for(const o of bg.options) o.textContent=T("png_bg")[o.value];
+    if(sc) for(const o of sc.options) o.textContent=T("png_scale")(+o.value);
+  }
   for(const g of [["resViews","h_rview"]]){
     const h=$(g[0]).closest(".grp").querySelector("h2"); if(h) h.textContent=T(g[1]);
   }
