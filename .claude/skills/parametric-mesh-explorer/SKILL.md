@@ -198,6 +198,36 @@ These are invariants that took real debugging to find. Preserve them.
   waste a solver run.
 - **Every claim in the report needs a check that could have failed.** See
   `references/verification.md`.
+- **A published correlation's functional form encodes its author's DATASET,
+  not only their physics.** Shen et al. (2024) write the pitch dependence as
+  `(X_T X_L)^-0.69` — the two ratios only ever as a product. Every case in
+  that paper had `S_T = S_L`, so no data of theirs could have split the
+  exponents; the product is what their design could see, not a claim that the
+  two pitches act the same way. Given separate exponents the fit error falls
+  by a factor of three or four and `p` comes out far larger than `q`. Before
+  adopting a form, ask what the source's matrix could and could not
+  distinguish — and lay out your own so it can distinguish more.
+- **Start from a published shape and refit it; do not propose a new one.**
+  Refitting the coefficients of a form somebody else published is a small,
+  checkable claim that also makes the straight-rod fit and the coil fit the
+  same correlation at two values of one angle, rather than two correlations
+  that have to be reconciled. Test the fitter by making it recover the
+  original paper's own coefficients from the original paper's own formula —
+  that is the check that it fits rather than merely converges.
+- **Constrain a fitted coefficient that has a physical sign.** The laminar
+  term of a friction-factor form cannot be negative. Left free, the solve used
+  a negative one to fake a steeper Re dependence than the form could otherwise
+  produce and returned `A = -472` where the source has `+209.8`, with a
+  plausible-looking residual. With two unknowns the constrained optimum is one
+  of three closed-form candidates, so it costs nothing to do exactly.
+- **"Agrees with the correlation" is only a test if the correlations agree
+  with each other.** Two of them looked like a 20 % band; the third widened it
+  to a factor of 1.4 to 2.2, with no condition where all three were close. So
+  the comparison has to be against the BAND the applicable correlations span,
+  with any correlation asked outside its own stated limits marked and left
+  out — and against the SLOPES, which survive a constant offset that a ratio
+  does not. Measure the width of your baseline before quoting a distance from
+  it.
 - **A correlation coefficient written from memory is worse than an absent
   one.** An absent one is a gap somebody will fill; a remembered one runs,
   produces plausible numbers, and nothing ever flags it. `correlations.py`

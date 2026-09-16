@@ -259,9 +259,9 @@ tenth. `python3 study.py --make` builds the four straight-rod studies,
 **Stage 1 is done and needs no solver.** `correlations.py` holds every
 correlation with its source, the range it is allowed to be asked, and a
 status: the equations are here, or only the reference to them is. Four of the
-six are `needs-source` **on purpose** — a coefficient written down from memory
-is worse than an absent one, because it runs, it looks plausible, and nothing
-ever flags it. Two are encoded:
+eight are `needs-source` **on purpose** — a coefficient written down from
+memory is worse than an absent one, because it runs, it looks plausible, and
+nothing ever flags it. Four are encoded:
 
 * **Jakob (1938)**, Holman's form, the one the Geometry tab has always shown.
   `--check` lifts `gapVelocity` and `lossModel` out of `mesh_explorer.html`
@@ -276,18 +276,42 @@ ever flags it. Two are encoded:
   Python rather than adding scipy for four fixed tables, and matches scipy to
   1e-14; both of `ht`'s own documented examples reproduce to the digit.
 
+* **Gunter & Shaw (1945)**, on the volumetric hydraulic diameter — the only
+  one here that does not separate in-line from staggered. Transcribed from two
+  independent secondary sources that agree, and checked three ways: its `D_v`
+  reproduces the 0.1334 m the KAERI CHX paper states for its bundle to 6e-6 m,
+  its two branches meet at the stated transition of `Re_v = 200` to 1.1 %, and
+  its magnitude lands between Žukauskas' two branches.
+* **Shen et al. (2024)**, the helical-bundle correlation from *Annals of
+  Nuclear Energy* 201 110442. Its friction factor is defined as
+  `2Δp/(ρu_max²z)`, which is this library's Euler number per row **exactly** —
+  the paper and this project already speak one currency. Its pitch exponent
+  reproduces the paper's own quoted numbers, which is the transcription
+  confirmed.
+
 Everything is converted to **one currency**, the Euler number per row, because
 the friction factors are not comparable: Jakob's appears as
 `dp = 2 f N rho u_max²` and Žukauskas' as `dp = N chi f (rho u_max²/2)`.
 `u_max` is decided once — including the staggered diagonal-gap test — instead
 of inside each correlation, and the browser and the Python now share that rule.
 
-The stage-1 report **computes** the spread between the two rather than
-asserting it, and the spread is not small: inside Jakob's quoted Re range and
-for `X ≥ 1.5` they agree to about 20 % either way; at `X = 1.25`, or outside
-`2e3 < Re < 4e4`, they part by a factor of 2.2. That is the width of the
-baseline, and it says where a CFD point is worth the most. The stage-3 matrix
-crosses both regions deliberately.
+The stage-1 report **computes** the spread between them rather than asserting
+it, and the result is the most important thing stage 1 has to say: **there is
+no condition at which the published correlations are tight enough to call one
+of them the answer.** The three that apply to a straight bundle differ from
+one another by 1.0× to 2.2× over the grid, typically about 1.45×. Two of them
+look close; adding a third widens it.
+
+That sets a ceiling on what stage 3 can conclude. Landing inside 20 % of one
+correlation does not make a CFD result right and missing one by 40 % does not
+make it wrong, so the sweep reports whether the CFD falls **inside the band
+the in-range correlations span** — with any correlation asked outside its own
+limits daggered and left out of the band — and whether it has the same
+**slopes**, in Re and in pitch.
+
+It also says why the project exists, in numbers: on the real CHX helical
+bundle the CFD gave 288.2 Pa, and Žukauskas was 61.9 % out, Gunter & Shaw
+45.2 % out.
 
 **Stages 2 and 3 are defined and wired, and need a licence to produce a
 number.** Three decisions in them are worth arguing with before you press Run:
@@ -319,6 +343,32 @@ Every number of that paper's own worked example reproduces — p 1.534, φ_ext
 6.1685, GCI 2.17 %. It names the **coarsest** mesh inside tolerance: the point
 of a mesh study is the cheapest adequate mesh, not the finest one that fits in
 the night.
+
+**Stage 4 starts from a published shape, not an invented one.** `FIT_FORM` is
+the skeleton of Shen et al.'s eq. (12) — a laminar plus a turbulent term in
+Re, a pitch factor, and a helix factor that is exactly 1 when the bundle is
+straight — refitted on our data rather than proposed from scratch, which is a
+far smaller claim and makes the straight-rod fit and the coil fit the *same*
+correlation at two values of one angle.
+
+With one generalisation. Shen's pitch factor is `(X_T X_L)^-0.69`: the two
+ratios only ever appear as a product. That is not a physical claim but a
+consequence of their dataset — every case in that paper had `S_T = S_L`, so no
+data of theirs could split the exponents. It is the same collinearity the
+stage-3 matrix was laid out to avoid. Given separate exponents and
+Jakob-shaped data, the fit error drops from 38 % to 9 % in-line and 18 % to
+7 % staggered, with `p` much larger than `q` — the transverse pitch governs
+and the longitudinal one barely enters, which is what `u_max` being set by the
+transverse gap predicts. The sweep report fits both and prints the comparison,
+so the question is settled on the data rather than argued.
+
+The fitter is a nested Nelder–Mead over the exponents with a closed-form
+non-negative least squares for `A` and `B` inside it, written out rather than
+depended on. `A` and `B` are held non-negative because a negative laminar
+coefficient has no meaning and, left free, the solve used one to fake a
+steeper Re dependence than the form can otherwise produce. It recovers Shen's
+own coefficients from Shen's own formula to 1e-15, which is the test that it
+fits rather than merely converges.
 
 **A mock run is not a result, and the tab is built so it cannot become one.**
 Every mock row is badged MOCK, the progress counter does not count it, and the
