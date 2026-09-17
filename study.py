@@ -859,7 +859,7 @@ class Runner(object):
     LICENCE_WORDS = ("licen", "flexlm", "ansyslmd", "lmgrd", "-15", "1055")
 
     def __init__(self, app, study, only=None, redo=False, force=False,
-                 workers=1):
+                 workers=1, cores=None):
         self.app = app
         self.study = study
         self.redo = bool(redo)
@@ -871,6 +871,14 @@ class Runner(object):
         #  know, so it finds out: workers are started one at a time and each
         #  has to prove a session will launch before the next is added.
         self.workers = max(1, min(int(workers or 1), 16))
+        #  and the other half of that sentence, which used to be unreachable.
+        #  A campaign took whatever the settings schema defaulted to - four
+        #  ranks - for every case, and no panel could change it, so the advice
+        #  above could not be followed even by someone who agreed with it.
+        #  Four ranks on a 13 504-cell mesh is 3 376 cells a rank; below
+        #  roughly 50 000 the partition boundaries cost more than the cells
+        #  inside them save, and this whole study is under that at four.
+        self.cores = int(cores) if cores else None
         self.capped = None              # why the ramp stopped, if it did
         self.ready = threading.Event()
         self.qlock = threading.Lock()
@@ -906,6 +914,29 @@ class Runner(object):
         self.log_lines.append("%7.1fs  %s" % (time.time() - self.started, msg))
         del self.log_lines[:-500]
 
+    def _cores(self):
+        """Ranks per case: what this run asked for, or the schema's default."""
+        if self.cores:
+            return self.cores
+        try:
+            return int(self.study.settings_for(self.queue[0])["launch"]
+                       ["processors"])
+        except Exception:                               # noqa: BLE001
+            return 1
+
+    def cells_per_core(self):
+        """{case id: cells per rank} for the cases that have been meshed.
+
+        Estimated from whatever has already run; a case that has not been
+        meshed yet has no cell count to divide, so it is simply absent.
+        """
+        n = self._cores()
+        out = {}
+        for r in self.study.results():
+            if r.get("cells") and r["id"] in self.queue:
+                out[r["id"]] = int(r["cells"] / max(n, 1))
+        return out
+
     def status(self):
         return {
             "study": self.study.name, "kind": self.study.kind,
@@ -914,7 +945,8 @@ class Runner(object):
             "skipped": list(self.skipped),
             "stopping": self.stopping, "finished": self.finished,
             "error": self.error, "stopped_reason": self.stopped_reason,
-            "workers": self.workers, "capped": self.capped,
+            "workers": self.workers, "cores": self.cores,
+            "capped": self.capped,
             "live": dict(self.live),
             "elapsed": round(time.time() - self.started, 1),
             "log": self.log_lines[-60:],
@@ -950,8 +982,22 @@ class Runner(object):
                          % (len(self.skipped), ", ".join(self.skipped)))
             if not self.queue:
                 return
-            self.log("%d case(s) to run, up to %d at once"
-                     % (len(self.queue), self.workers))
+            self.log("%d case(s) to run, up to %d at once, %d core(s) each "
+                     "(%d cores in total)"
+                     % (len(self.queue), self.workers, self._cores(),
+                        self.workers * self._cores()))
+            #  the arithmetic that decides whether more ranks per case helps.
+            #  Said once, at the top, from the meshes this study actually
+            #  defines - not as a rule of thumb the reader has to apply.
+            per = self.cells_per_core()
+            if per:
+                lo, hi = min(per.values()), max(per.values())
+                if hi < CELLS_PER_CORE:
+                    self.log("  %d-%d cells per core: below about %d the "
+                             "partition boundaries cost more than the cells "
+                             "inside them save, so fewer cores per case and "
+                             "more cases at once is the faster arrangement"
+                             % (lo, hi, CELLS_PER_CORE))
 
             #  --- case one, alone ---
             first = self._next()
@@ -1102,6 +1148,9 @@ class Runner(object):
         c = s.case(cid)
         params = s.params_for(cid)
         settings = s.settings_for(cid)
+        if self.cores:
+            settings["launch"] = dict(settings.get("launch") or {},
+                                      processors=self.cores)
         t0 = time.time()
 
         #  Worker 0's case is handed to the app as the current job, so the Run
@@ -1290,6 +1339,14 @@ class Runner(object):
 #  the tab and the command line.  It is about eighty lines; a plotting
 #  dependency for that would be a poor trade in a project that ships a stdlib
 #  server on purpose.
+#  Roughly where a partitioned solve stops paying for itself.  Below this
+#  many cells on a rank the halo exchange each iteration costs more than the
+#  interior cells it saves, so adding ranks to one case makes it slower while
+#  running another case alongside it makes the machine faster.  A round number
+#  from practice, not a measurement of this machine - which is why it is used
+#  to say something to the reader rather than to decide anything on its own.
+CELLS_PER_CORE = 50000
+
 PALETTE = ["#2563eb", "#dc2626", "#059669", "#d97706", "#7c3aed", "#0891b2"]
 
 

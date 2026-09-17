@@ -438,6 +438,21 @@ which ones went wrong. Clicking a panel replays that case. Nothing here is
 computed that the report does not already compute; it is the same record,
 arranged for the eye.
 
+**More cases at once, not more cores per case.** One case cannot fill a
+workstation: below roughly 50 000 cells on a rank the halo exchange each
+iteration costs more than the interior cells it saves, so adding ranks to one
+case makes it slower while running another case alongside it makes the machine
+faster. Every mesh in the stage-2 study is under that threshold at four ranks
+— the coarsest is 3 376 cells a rank — and the campaign used to take four from
+the settings schema for every case with no control anywhere to change it, while
+the worker picker defaulted to one at a time. Both halves are now choices in
+the campaign bar, the product is shown beside them rather than left to be
+worked out, and the run log states the cells per rank this study's own meshes
+give and says plainly when fewer ranks and more cases would be the faster
+arrangement. What limits the number of cases is solver **tasks** in the
+licence, which the app cannot know, so it still finds out: workers are added
+one at a time and each has to prove a session will launch before the next.
+
 **A transient run is judged on the answer, not on the residual criterion.**
 Continuity inside a time step floors out at whatever the pressure–velocity
 coupling can hold there; "it did not reach 1e-5" is then a statement about the

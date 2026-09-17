@@ -461,7 +461,8 @@ class App(object):
         only = body.get("only") or None
         runner = ST.Runner(self, s, only=only, redo=bool(body.get("redo")),
                            force=bool(body.get("force")),
-                           workers=int(body.get("workers") or 1))
+                           workers=int(body.get("workers") or 1),
+                           cores=int(body.get("cores") or 0) or None)
         #  built first, adopted only once it is going to run.  Assigning it
         #  before this check left a Runner with an empty queue that had never
         #  started and so would never finish, and study_busy() then refused

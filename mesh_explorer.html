@@ -1042,6 +1042,12 @@
           <option value="6">6개 동시</option>
           <option value="8">8개 동시</option>
         </select>
+        <select id="parCores" class="minisel" title="">
+          <option value="1">케이스당 1코어</option>
+          <option value="2" selected>케이스당 2코어</option>
+          <option value="4">케이스당 4코어</option>
+          <option value="8">케이스당 8코어</option>
+        </select>
         <button class="btn" id="parStop" style="width:auto;padding:9px 16px">중지</button>
         <button class="btn" id="parOver" style="width:auto;padding:9px 16px">한눈에 보기</button>
         <button class="btn" id="parReport" style="width:auto;padding:9px 16px">보고서</button>
@@ -3768,6 +3774,8 @@ Object.assign(STR.ko, {
   par_open:"열기", par_opening:c=>`${c} 기록을 여는 중…`,
   par_live:"동시 진행", par_capped:"라이선스 상한",
   par_w_one:"케이스를 하나씩 순서대로 돌립니다. 해석 탭에서 실시간으로 보입니다.",
+  par_cores:(w,c)=>`동시 ${w}개 × 케이스당 ${c}코어 = 코어 ${w*c}개. 격자가 작으면 ` +
+    `케이스당 코어를 줄이고 동시 개수를 늘리는 쪽이 빠릅니다 (코어당 5만 셀이 기준).`,
   par_w_many:"여러 케이스를 동시에 돌립니다. 워커는 하나씩 늘어나며 라이선스가 " +
     "거절하는 지점에서 멈추고, 가진 만큼으로 끝까지 돌립니다. 해석 탭의 실시간 " +
     "보기는 첫 번째 워커만 따라갑니다.",
@@ -3949,6 +3957,9 @@ Object.assign(STR.en, {
   par_open:"open", par_opening:c=>`opening the record for ${c}…`,
   par_live:"running now", par_capped:"licence cap",
   par_w_one:"one case at a time, in order. The Run tab follows it live.",
+  par_cores:(w,c)=>`${w} at once x ${c} core(s) each = ${w*c} cores. With small ` +
+    `meshes, fewer cores per case and more cases at once is faster ` +
+    `(about 50 000 cells per core is where it turns over).`,
   par_w_many:"several cases at once. Workers are added one at a time and the " +
     "ramp stops where the licence refuses, then finishes the queue with what " +
     "it has. The Run tab's live view follows the first worker only.",
@@ -6014,6 +6025,10 @@ function parTick(){
   $("parRun").disabled = !!live || !parName();
   $("parStop").disabled = !live;
   $("parClear").disabled = !!live || !parName();
+  //  changing either of these mid-run would show a arrangement that is not
+  //  the one running
+  $("parWorkers").disabled = !!live;
+  $("parCores").disabled = !!live;
   if(!live) return;
   PAR.timer = setTimeout(async ()=>{
     try{
@@ -6037,10 +6052,20 @@ $("parPick").addEventListener("change", async ()=>{ await parLoad(); parTick(); 
 //  one the Run tab will follow rather than flipping between them
 function parWorkerNote(){
   const n = +$("parWorkers").value || 1;
+  const c = +$("parCores").value || 1;
   $("parWorkers").title = n > 1 ? T("par_w_many") : T("par_w_one");
-  parNote(n > 1 ? T("par_w_many") : "", n > 1 ? "busy" : "");
+  $("parCores").title = T("par_cores")(n, c);
+  //  the arithmetic in front of the person choosing, not buried in a tooltip:
+  //  the campaign used to take four ranks a case from the settings schema
+  //  with no control over it, which is how eight cases ran one at a time on
+  //  meshes far too small to fill four ranks each.
+  //  both things, not one instead of the other: the arithmetic says what to
+  //  choose, the ramp note says what will happen when the licence disagrees
+  parNote(T("par_cores")(n, c) + (n > 1 ? " " + T("par_w_many") : ""),
+          n * c > 32 ? "bad" : "");
 }
 $("parWorkers").addEventListener("change", parWorkerNote);
+$("parCores").addEventListener("change", parWorkerNote);
 
 $("parRun").addEventListener("click", async ()=>{
   const name = parName();
@@ -6051,7 +6076,8 @@ $("parRun").addEventListener("click", async ()=>{
   try{
     parNote(T("par_started"), "busy");
     const j = await api("/api/study_run",
-                       {name, workers: +$("parWorkers").value || 1});
+                       {name, workers: +$("parWorkers").value || 1,
+                        cores: +$("parCores").value || 1});
     PAR.run = j.run;
     showPane("par");
     parTick();
