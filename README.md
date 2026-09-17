@@ -438,6 +438,22 @@ which ones went wrong. Clicking a panel replays that case. Nothing here is
 computed that the report does not already compute; it is the same record,
 arranged for the eye.
 
+**The shipped settings tree is a claim about a release, not about an
+installation.** `audit_choices()` was green on all five trees for
+`setup.general.solver.time = 'transient'` — the 2026 R1 tree lists `transient`
+among its allowed values — and a real 2026 R1 refused it 61 seconds into a run,
+naming four values, none of them `transient`. So the value is negotiated with
+the session in front of us: the driver asks `allowed_values()`, falls back to
+trying candidates in order, logs which one won, and records it on the result
+row. The order is **second-order implicit first**, and not because it is newer:
+the time step is sized from the shedding period as T/25 to resolve an
+oscillation whose amplitude is the measurement, and first-order implicit damps
+exactly that. Preferring it everywhere also means the 2025 R1 in the lab and
+the 2026 R1 on the student machine advance time the same way, so their answers
+can be compared. A study whose cases did not all use one scheme says so in red;
+one that fell back to first-order says so in amber. The journal carries the
+same negotiation, since it runs without the app.
+
 **Monitoring is not free, and on a transient run it is the whole argument.**
 Every surface integral is a round trip to the solver, and on this link a round
 trip costs about 0.2 s whatever it asks for — measured, not guessed, by

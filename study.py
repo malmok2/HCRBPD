@@ -1150,6 +1150,11 @@ class Runner(object):
         drv = job.driver
         transient = bool(getattr(drv, "transient", lambda: False)())
         row["transient"] = transient
+        #  which spelling of the time mode this Fluent took.  Different
+        #  installations of the same release allow different ones, and
+        #  1st-order implicit damps the very oscillation being measured, so
+        #  the scheme belongs beside the number it produced.
+        row["time_scheme"] = getattr(drv, "time_scheme", None)
         names = list(drv.bundle_surfaces or [])
         made = []
         try:
@@ -1483,6 +1488,29 @@ def _warnings(study, rows, ko):
                     "%d case(s) had Dp still moving by more than 1 %% over the "
                     "final stretch - residuals settling is not the answer "
                     "settling." % len(drift)))
+    #  Which spelling of the time mode a given Fluent accepted is not
+    #  bookkeeping.  First-order implicit damps the shedding oscillation that
+    #  the time step was sized to resolve and that the time average is taken
+    #  over, so a run that fell back to it measured something else - and two
+    #  cases on different schemes are not comparable with each other at all.
+    schemes = sorted({r.get("time_scheme") for r in rows
+                      if r.get("transient") and r.get("time_scheme")})
+    if len(schemes) > 1:
+        out.append(("bad", "케이스마다 시간 이산화가 다릅니다 (%s). 같은 연구 안의 "
+                           "케이스끼리 비교할 수 없습니다."
+                    % ", ".join(schemes) if ko else
+                    "the cases did not all advance time the same way (%s); "
+                    "cases in one study on different schemes are not "
+                    "comparable with each other." % ", ".join(schemes)))
+    elif schemes and schemes[0] == "unsteady-1st-order":
+        out.append(("warn", "시간 이산화가 1차 음해법입니다. 시간 간격은 와류 이탈 "
+                            "주기를 분해하도록 잡혀 있는데 1차는 그 진동을 감쇠시키므로 "
+                            "Δp 진폭이 실제보다 작게 나옵니다."
+                    if ko else
+                    "time was advanced with first-order implicit. The time "
+                    "step is sized to resolve the shedding period and "
+                    "first-order damps that oscillation, so the Δp swing is "
+                    "smaller here than it should be."))
     return out
 
 

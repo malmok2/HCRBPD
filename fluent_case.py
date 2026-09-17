@@ -678,21 +678,45 @@ def api_values(group_id, field_id):
 #  spelling like "unsteady" - which is not an allowed value, "transient" is -
 #  is caught here rather than 70 seconds into a run.
 LITERAL_ENUMS = [
-    ("solver_time", "steady"),          # solver_time() returns one of these
-    ("solver_time", "transient"),
     ("init_type", "standard"),
     ("init_type", "hybrid"),
 ]
 
+#  What setup.general.solver.time is actually SET to, in the order they are
+#  tried.
+#
+#  The shipped settings tree for 2026 R1 lists 'transient' as allowed.  A real
+#  2026 R1 refuses it and names four values, none of them 'transient'.  So the
+#  static tree is a claim about the release, not about the installation, and
+#  the value has to be negotiated with the session in front of us - which is
+#  why this is a list and not a string.
+#
+#  Second-order implicit first, and not because it is newer.  The time step
+#  here is sized from the shedding period, T/25, to resolve an oscillation
+#  whose amplitude is the measurement; first-order implicit is heavily damped
+#  and would flatten exactly that.  Preferring it everywhere also means the
+#  2025 R1 in the lab and the 2026 R1 on the student machine advance time with
+#  the same scheme, so their answers can be put side by side.
+TIME_SCHEMES = {
+    "steady": ["steady"],
+    "transient": ["unsteady-2nd-order", "unsteady-2nd-order-bounded",
+                  "transient", "unsteady-1st-order"],
+}
+
 
 def solver_time(settings):
-    """The value setup.general.solver.time takes for this case.
+    """The time MODE of this case: "steady" or "transient".
 
-    "unsteady" is NOT one of them - the list is steady / transient /
-    unsteady-1st-order / unsteady-2nd-order / unsteady-2nd-order-bounded.
-    Driver, journal and audit all read it from here so they cannot drift.
+    Not necessarily the string Fluent is given - see TIME_SCHEMES - but the
+    thing every caller actually wants to know.  Driver, journal and audit all
+    read it from here so they cannot drift.
     """
     return "steady" if settings["general"]["steady"] else "transient"
+
+
+def time_schemes(settings):
+    """The values to try for setup.general.solver.time, best first."""
+    return TIME_SCHEMES[solver_time(settings)]
 
 
 def setting_value(settings, field_id):
@@ -773,6 +797,12 @@ def audit_choices(versions=("242", "251", "252", "261", "271")):
                 wanted.append(("%s.%s" % (g["id"], f["id"]), f["paths"][0], v))
     for key, v in LITERAL_ENUMS:
         wanted.append(("driver." + key, key, v))
+    #  A preference list is checked differently: the driver tries them in
+    #  order, so the release has to allow ONE of them, not all four.  Demanding
+    #  all four would fail every release, which is a test that cannot go green
+    #  and therefore is not a test.
+    anyof = [("driver.solver_time[%s]" % mode, "solver_time", tuple(vals))
+             for mode, vals in sorted(TIME_SCHEMES.items())]
 
     report, checked, unchecked = {}, set(), set()
     for ver in versions:
@@ -783,6 +813,21 @@ def audit_choices(versions=("242", "251", "252", "261", "271")):
             report[ver] = [("<module>", str(exc))]
             continue
         bad = []
+        for label, key, vals in anyof:
+            cls = None
+            for alt in PATHS[key].split("|"):
+                cls, _ = _resolve(mod.root, alt)
+                if cls is not None:
+                    break
+            allowed = getattr(cls, "_allowed_values", None) if cls else None
+            if not allowed:
+                unchecked.add((label, "|".join(vals)))
+                continue
+            checked.add((label, "|".join(vals)))
+            if not any(v in allowed for v in vals):
+                bad.append((label, "none of %s is allowed; allowed: %s"
+                            % (", ".join(repr(v) for v in vals),
+                               ", ".join(allowed))))
         for label, key, val in wanted:
             cls = None
             for alt in PATHS[key].split("|"):
@@ -874,6 +919,11 @@ class BaseDriver(object):
         #  the ANSWER is, which is not the same thing and is the one a
         #  pressure-drop study is actually after.
         self.monitors = []
+        #  which spelling of the time mode this session accepted.  It is part
+        #  of the result - a run advanced with 1st-order implicit is not the
+        #  same measurement as one advanced with 2nd - so it is recorded rather
+        #  than inferred from the release number afterwards.
+        self.time_scheme = None
         self.stopping = False
 
     # lifecycle ----------------------------------------------------------
@@ -1108,6 +1158,39 @@ class FluentDriver(BaseDriver):
             self.log("  (%s via the fallback path %s)" % (key, used))
         return used
 
+    def _set_time_scheme(self, s):
+        """Set setup.general.solver.time to the best value THIS Fluent takes.
+
+        The shipped 2026 R1 tree says 'transient' is allowed; a real 2026 R1
+        refuses it and names four other values.  So the tree is asked first if
+        it will say - allowed_values() comes from the live session - and if it
+        will not, the candidates are simply tried in order.  Either way the
+        value that won is logged, because which scheme advanced time is part
+        of the result and not an implementation detail.
+        """
+        want = time_schemes(s)
+        allowed = None
+        try:
+            allowed = list(self._obj("solver_time").allowed_values())
+        except Exception:                              # noqa: BLE001
+            pass
+        order = ([v for v in want if v in allowed] or want) if allowed else want
+        last = None
+        for v in order:
+            try:
+                self._set("solver_time", v)
+                if len(want) > 1:
+                    self.log("  time: %r%s" % (v, "" if v == want[0] else
+                                               " (%r was refused)" % want[0]))
+                return v
+            except Exception as exc:                   # noqa: BLE001
+                last = exc
+        raise DriverError(
+            "this Fluent would not take any of %s for %s%s"
+            % (", ".join(repr(v) for v in want), PATHS["solver_time"],
+               ("; it allows %s" % ", ".join(allowed)) if allowed
+               else " (last error: %s)" % last))
+
     def _soft(self, what, fn):
         """Run a settings write that may legitimately be refused.
 
@@ -1141,7 +1224,7 @@ class FluentDriver(BaseDriver):
         self.check_enums()
 
         g = s["general"]
-        self._set("solver_time", solver_time(s))
+        self.time_scheme = self._set_time_scheme(s)
         if self.transient():
             r = s["run"]
             self._set("time_step", float(r["time_step"]))
@@ -1919,6 +2002,10 @@ class MockDriver(BaseDriver):
         self.log("MOCK: %d cells, %d boundary faces"
                  % (len(self.mesh.hexes), len(self.mesh.boundary)))
         self.make_bundle_planes()
+        #  the mock has no session to negotiate with, so it declares what the
+        #  driver's FIRST choice would be - enough for the record to carry a
+        #  scheme and for the plumbing to be exercised
+        self.time_scheme = time_schemes(self.s)[0]
 
     def initialize(self):
         self.log("MOCK: initialised")
@@ -1983,7 +2070,8 @@ class MockDriver(BaseDriver):
         if self.s["turbulence"]["viscous"] != "laminar":
             eqs += ["k", "omega"]
         dt = float(self.s["run"]["time_step"])
-        self.log("MOCK: advancing %d time steps of %.4g s" % (steps, dt))
+        self.log("MOCK: advancing %d time steps of %.4g s (%s)"
+                 % (steps, dt, self.time_scheme))
         for k in range(1, steps + 1):
             if self.stopping:
                 self.log("MOCK: interrupted at time step %d" % k)
@@ -2728,7 +2816,24 @@ def journal(geometry, params, settings, mesh_path, version=None):
     w("S = solver.settings")
     w("")
     w("S.%s(file_name=%r)" % (P_("read_mesh"), mesh_path))
-    w("S.%s = %r" % (P_("solver_time"), solver_time(s)))
+    #  the same negotiation the driver does, written out: which spellings of
+    #  the time mode a given Fluent accepts is a property of the installation,
+    #  not of the release, so a script that hard-codes one of them works on the
+    #  machine it was written on and fails on the next
+    schemes = time_schemes(s)
+    if len(schemes) == 1:
+        w("S.%s = %r" % (P_("solver_time"), schemes[0]))
+    else:
+        w("for _v in %r:" % (schemes,))
+        w("    try:")
+        w("        S.%s = _v" % P_("solver_time"))
+        w("        print('time scheme:', _v)")
+        w("        break")
+        w("    except Exception:")
+        w("        continue")
+        w("else:")
+        w("    raise SystemExit(%r)"
+          % ("this Fluent takes none of " + ", ".join(schemes)))
     w("S.%s = %g" % (P_("op_pressure"), float(g["operating_pressure"])))
     w("S.%s = %r" % (P_("energy"), bool(g["energy"])))
     w("S.%s = %r" % (P_("viscous_model"), t["viscous"]))
