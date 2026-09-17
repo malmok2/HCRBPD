@@ -898,26 +898,45 @@ class BaseDriver(object):
     #  and not only the one the domain happens to span
     bundle_surfaces = None
 
-    def sample_dp(self, it):
-        """One (iteration, Δp) point, or None if it could not be read."""
-        try:
-            p_in = self.report("area-weighted-avg", ["inlet"], "pressure")
-            p_out = self.report("area-weighted-avg", ["outlet"], "pressure")
-        except Exception as exc:                        # noqa: BLE001
-            return exc
-        row = {"iter": int(it), "dp": p_in - p_out,
-               "p_in": p_in, "p_out": p_out}
+    def sample_dp(self, it, bundle_only=False):
+        """One (iteration, Δp) point, or None if it could not be read.
+
+        Every surface integral here is a round trip to the solver, and on this
+        link a round trip costs about 0.2 s whatever it asks for.  That is
+        nothing next to an iteration of a large mesh and everything next to a
+        time step of a small one, so `bundle_only` exists: a transient run
+        samples once per TIME STEP - five hundred times a case - and does not
+        need the inlet-outlet pair, which spans the inlet and outlet boxes as
+        well and is not what the study reports.  Two calls instead of four.
+        """
+        row = {"iter": int(it)}
+        pair = self.bundle_surfaces if bundle_only else None
+        if not pair:
+            try:
+                p_in = self.report("area-weighted-avg", ["inlet"], "pressure")
+                p_out = self.report("area-weighted-avg", ["outlet"], "pressure")
+            except Exception as exc:                    # noqa: BLE001
+                return exc
+            row.update(dp=p_in - p_out, p_in=p_in, p_out=p_out)
         if self.bundle_surfaces:
             #  the bundle drop is what the study reports and what a transient
-            #  run time-averages; inlet-outlet spans the boxes as well and is
-            #  kept because it is what the Run tab's plot has always shown
+            #  run time-averages; inlet-outlet is kept alongside it because it
+            #  is what the Run tab's plot has always shown
             try:
                 a, b = self.bundle_surfaces
                 row["dp_bundle"] = (
                     self.report("area-weighted-avg", [a], "pressure")
                     - self.report("area-weighted-avg", [b], "pressure"))
-            except Exception:                           # noqa: BLE001
-                pass
+            except Exception as exc:                    # noqa: BLE001
+                if pair:
+                    return exc
+        if "dp" not in row:
+            #  the plot draws "dp"; with the inlet pair skipped the bundle
+            #  drop IS the trace, and saying so here keeps every reader of a
+            #  monitor row - plot, average, report - working unchanged
+            if row.get("dp_bundle") is None:
+                return ValueError("no pressure drop could be sampled")
+            row["dp"] = row["dp_bundle"]
         self.monitors.append(row)
         return row
 
@@ -1453,11 +1472,22 @@ class FluentDriver(BaseDriver):
             #  inner iteration: an inner iteration is not a state of the flow,
             #  and averaging over them would weight the steps that happened to
             #  need more of them.
+            #
+            #  Every time step, and deliberately not on a cadence: the trace is
+            #  a shedding oscillation resolved at 25 steps per period, and
+            #  sampling it every other step is how you alias the frequency the
+            #  run exists to capture.  The RESIDUAL history is the opposite -
+            #  it is read for its shape, the browser polls the plot about once
+            #  a second, and reading it five hundred times costs a hundred
+            #  seconds a case for a picture nobody could see change.  That is
+            #  the same per-callback cost that once put 173 s of every 210 s
+            #  case in a monitor; it goes on a cadence here.
             state["t"] = state.get("t", 0) + 1
-            self.collect_residuals(quiet=True)
+            if state["t"] % res_every == 0:
+                self.collect_residuals(quiet=True)
             if state["failed"] >= 3:
                 return
-            got = self.sample_dp(state["t"])
+            got = self.sample_dp(state["t"], bundle_only=True)
             if isinstance(got, Exception):
                 state["failed"] += 1
                 if state["failed"] == 1:
@@ -1481,7 +1511,12 @@ class FluentDriver(BaseDriver):
             #  what "transient" meant here before this existed.
             steps = int(self.s["run"]["time_steps"])
             per = int(self.s["run"]["max_iter_per_step"])
-            self.log("advancing %d time steps" % steps)
+            #  the two cadences, said out loud: on this link a round trip
+            #  costs about 0.2 s, so 500 steps x 2 calls is a couple of
+            #  minutes of monitoring per case and 500 x 5 was ten
+            self.log("advancing %d time steps  (Δp sampled every step from "
+                     "the bundle planes, residuals every %d)"
+                     % (steps, res_every))
             try:
                 self._obj("dual_iterate")(time_step_count=steps,
                                           max_iter_per_step=per)
@@ -1963,7 +1998,7 @@ class MockDriver(BaseDriver):
             #  through the real sampler, so the bundle planes and the
             #  averaging key are exercised rather than bypassed, then
             #  modulated into a settled oscillation about a mean
-            row = self.sample_dp(k)
+            row = self.sample_dp(k, bundle_only=True)
             if isinstance(row, dict):
                 ph = 2.0 * math.pi * k / 24.0
                 osc = 1.0 + 0.4 * math.exp(-3.0 * k / max(steps, 1)) \

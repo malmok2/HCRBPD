@@ -3812,6 +3812,7 @@ Object.assign(STR.ko, {
   dp_none_done:"이 실행에는 Δp 이력이 없습니다. 기록 간격이 0이거나, case 파일에서 불러온 결과입니다.",
   dp_last:(v)=>`Δp = ${v} Pa`,
   dp_n:(n,pi,po)=>`샘플 ${n}개 · 입구 ${pi} Pa · 출구 ${po} Pa`,
+  dp_n_bundle:n=>`샘플 ${n}개 · 다발 전후 평면 기준 (Δp_bundle)`,
   dp_drift:(r)=>` · 마지막 구간 변동폭 ${r} %`,
   dp_mock:" · MOCK — 가짜 값",
   h_dpplot:"압력강하 Δp", h_resload:"저장된 결과 불러오기",
@@ -3994,6 +3995,7 @@ Object.assign(STR.en, {
   dp_none_done:"This run has no pressure-drop history - the interval was 0, or it came from a case file.",
   dp_last:(v)=>`Δp = ${v} Pa`,
   dp_n:(n,pi,po)=>`${n} sample(s) · inlet ${pi} Pa · outlet ${po} Pa`,
+  dp_n_bundle:n=>`${n} sample(s) · across the bundle planes (Δp_bundle)`,
   dp_drift:(r)=>` · moved ${r} % over the last stretch`,
   dp_mock:" · MOCK — invented",
   h_dpplot:"Pressure drop Δp", h_resload:"Open a saved result",
@@ -4531,8 +4533,15 @@ function drawDp(){
     const rel = Math.abs(last.dp)>1e-12 ? 100*(th-tl)/Math.abs(last.dp) : 0;
     drift = T("dp_drift")(rel.toPrecision(2));
   }
-  $("dpNote").textContent = T("dp_n")(rows.length, fmtSci(last.p_in), fmtSci(last.p_out)) + drift
-    + (JOB && JOB.mock ? T("dp_mock") : "");
+  /*  A transient run samples only the bundle planes - the inlet/outlet pair
+      is two more round trips per time step for a number the study does not
+      report - so those two figures are simply not there on such a run, and
+      the note says what the trace IS instead of printing NaN Pa twice.    */
+  $("dpNote").textContent =
+    (last.p_in === undefined || last.p_in === null
+       ? T("dp_n_bundle")(rows.length)
+       : T("dp_n")(rows.length, fmtSci(last.p_in), fmtSci(last.p_out)))
+    + drift + (JOB && JOB.mock ? T("dp_mock") : "");
 }
 
 /* ---- residual plot : log y, iteration x -------------------------------- */

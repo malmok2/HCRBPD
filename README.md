@@ -438,6 +438,20 @@ which ones went wrong. Clicking a panel replays that case. Nothing here is
 computed that the report does not already compute; it is the same record,
 arranged for the eye.
 
+**Monitoring is not free, and on a transient run it is the whole argument.**
+Every surface integral is a round trip to the solver, and on this link a round
+trip costs about 0.2 s whatever it asks for — measured, not guessed, by
+decomposing two runs of different mesh size at the same iteration count. A
+transient case takes 500 time steps, so what happens inside the per-step
+callback is multiplied by 500. The Δp trace is sampled **every step and
+deliberately not on a cadence**: it is a shedding oscillation resolved at 25
+steps per period, and sampling every other step aliases the frequency the run
+exists to capture. But it reads the two bundle planes only — the inlet/outlet
+pair spans the inlet and outlet boxes and is not what the study reports — and
+the residual history, which is read for its shape and polled by the browser
+about once a second, goes on a cadence. Five round trips per step became two:
+about two minutes of monitoring per case instead of ten.
+
 Do not go looking for the residual history in the `.cas.h5`. Reopening one
 needs Fluent and a licence, and what Fluent puts in it is the converged
 **field**, not the road the solver took to get there — the app tries anyway
