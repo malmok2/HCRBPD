@@ -438,6 +438,17 @@ which ones went wrong. Clicking a panel replays that case. Nothing here is
 computed that the report does not already compute; it is the same record,
 arranged for the eye.
 
+**A grid-convergence index rests on ONE refinement ratio**, and the stage-2
+ladder did not have one. Measured from the definitions: azimuthal ×1.46 a
+level, streamwise ×1.45, radial ×1.20, **wall-normal ×1.00** — the first cell
+height is pinned by y+ = 1 and so never moved. The reported `h`, built from
+cells per unit area, follows whichever direction did move, while a wall-pressure
+quantity like Δp is set partly by the direction that did not, so the
+extrapolation reads a mixture and the number itself says nothing about that.
+Each ladder now carries its per-direction factors, and a ladder that is not
+refining uniformly says so in red **above** the GCI table, with the table of
+factors, because it decides whether the numbers below it mean anything.
+
 **A transient run has two clocks, and only one of them sets the time step.**
 The step comes from the shedding period, D/(St·u_max), twenty-five steps to the
 cycle. The run *length* was taken from the same clock — twenty periods, five of

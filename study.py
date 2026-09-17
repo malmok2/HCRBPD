@@ -474,6 +474,68 @@ def _thin(rows, keep):
     return out
 
 
+#  Directions a mesh ladder can refine in, and where to read each one off a
+#  case's parameters.  The wall-normal one is the first cell height, which is
+#  a LENGTH and so refines when it gets smaller - hence the flag.
+REFINEMENT_DIRS = [
+    ("azimuthal", "nAz", False),
+    ("radial", "nRad", False),
+    ("streamwise", "nxIn", False),
+    ("wall-normal", "firstLayer", True),
+]
+
+
+def refinement_factors(study, ids):
+    """Per-direction refinement factor from each level to the next.
+
+    Returns {direction: [factor, ...]} over the ids given, coarsest first.
+    """
+    out = {}
+    levels = []
+    for cid in ids:
+        try:
+            levels.append(study.params_for(cid))
+        except Exception:                                   # noqa: BLE001
+            return out
+    for name, key, inverse in REFINEMENT_DIRS:
+        fs = []
+        for a, b in zip(levels, levels[1:]):
+            x, y = a.get(key), b.get(key)
+            if not x or not y:
+                fs = []
+                break
+            fs.append(float(x) / float(y) if inverse else float(y) / float(x))
+        if fs:
+            out[name] = fs
+    return out
+
+
+def anisotropy(study, ids, tol=0.15):
+    """Directions whose refinement factor differs from the fastest one.
+
+    The grid-convergence index rests on ONE refinement ratio: the error is
+    assumed to go as h^p for a single h, which is only meaningful if every
+    direction was refined by the same factor.  Refine the bulk and leave the
+    wall spacing alone and the reported h - built from cells per unit area -
+    follows the direction that moved, while the error is set partly by the one
+    that did not.  The extrapolation is then reading a mixture, and nothing in
+    the number says so.
+
+    Returns [(direction, mean factor)] for the directions that lag, plus the
+    leader, or [] when the ladder is uniform enough.
+    """
+    fac = refinement_factors(study, ids)
+    if len(fac) < 2:
+        return []
+    mean = {k: sum(v) / len(v) for k, v in fac.items()}
+    lead = max(mean.values())
+    if lead <= 1.0:
+        return []
+    lag = [(k, m) for k, m in sorted(mean.items(), key=lambda kv: kv[1])
+           if (lead - m) / lead > tol]
+    return [(k, m) for k, m in lag] + [("__lead__", lead)] if lag else []
+
+
 def gci(h, phi, safety=1.25):
     """Roache's grid-convergence index, by the procedure in
 
@@ -574,6 +636,11 @@ def mesh_analysis(study, tol=0.01, key="dp_bundle"):
                 if r.get("transient") or r.get("converged") is not False]
         lad = {"ladder": name, "levels": rs, "converged": [r["id"] for r in good],
                "triplets": [], "chosen": None}
+        #  coarsest first for the refinement factors: a ladder is built by
+        #  refining, and the factors only read as ">1 means finer" that way
+        order = sorted(rs, key=lambda r: -r["h"])
+        lad["refinement"] = refinement_factors(study, [r["id"] for r in order])
+        lad["anisotropy"] = anisotropy(study, [r["id"] for r in order])
         if len(good) < 3:
             lad["blocked"] = ("fewer than three converged meshes: no grid "
                               "convergence index can be formed")
@@ -1845,6 +1912,45 @@ def mesh_report_body(study, lang="ko", tol=0.01):
         if lad.get("blocked"):
             h.append('<p class="bad">%s</p>'
                      % _esc(lad["blocked_ko"] if ko else lad["blocked"]))
+        #  Said ABOVE the table, because it decides whether the table below it
+        #  means anything.  A grid-convergence index rests on one refinement
+        #  ratio; a ladder that refines the bulk and leaves the wall spacing
+        #  alone has several, the reported h follows whichever moved, and the
+        #  extrapolation reads a mixture without saying so.
+        aniso = lad.get("anisotropy") or []
+        if aniso:
+            lead = dict(aniso).get("__lead__")
+            lag = [(k, v) for k, v in aniso if k != "__lead__"]
+            names_ko = {"azimuthal": "원주", "radial": "반경",
+                        "streamwise": "유동", "wall-normal": "벽면 수직"}
+            h.append('<p class="bad">%s</p>' % _esc(
+                "이 사다리는 방향마다 다른 비율로 세밀해집니다: 가장 빠른 방향이 "
+                "단계당 %.2f배인데 %s. 격자 수렴 지수는 단일 세밀화 비를 전제로 "
+                "하므로 (오차 ~ h^p, h 하나), 아래 외삽값은 여러 비가 섞인 값을 "
+                "읽고 있습니다. 특히 벽면 수직 방향이 1.00배면 벽 근처 격자는 "
+                "전혀 세밀해지지 않은 것입니다."
+                % (lead, ", ".join("%s %.2f배" % (names_ko.get(k, k), v)
+                                   for k, v in lag))
+                if ko else
+                "this ladder refines by a different factor in each direction: "
+                "the fastest is %.2f per level while %s. A grid-convergence "
+                "index assumes ONE refinement ratio (error ~ h^p for a single "
+                "h), so the extrapolation below is reading a mixture. A "
+                "wall-normal factor of 1.00 in particular means the near-wall "
+                "mesh was not refined at all."
+                % (lead, ", ".join("%s is %.2f" % (k, v) for k, v in lag))))
+            h.append('<table class="grid"><tr><th>%s</th>%s</tr>'
+                     % (t("방향", "direction"),
+                        "".join("<th>%d→%d</th>" % (i + 1, i + 2)
+                                for i in range(max(
+                                    (len(v) for v in
+                                     (lad.get("refinement") or {}).values()),
+                                    default=0)))))
+            for k, v in (lad.get("refinement") or {}).items():
+                h.append("<tr><th>%s</th>%s</tr>"
+                         % (_esc(names_ko.get(k, k) if ko else k),
+                            "".join('<td class="n">%.2f</td>' % x for x in v)))
+            h.append("</table>")
         h.append('<table class="grid"><tr><th>%s</th><th>%s</th><th>h [m]</th>'
                  '<th>Δp<sub>bundle</sub> [Pa]</th><th>Eu<sub>row</sub></th>'
                  '<th>%s</th><th>%s</th><th>%s</th><th>%s</th></tr>'
