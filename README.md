@@ -438,6 +438,33 @@ which ones went wrong. Clicking a panel replays that case. Nothing here is
 computed that the report does not already compute; it is the same record,
 arranged for the eye.
 
+**A transient run has two clocks, and only one of them sets the time step.**
+The step comes from the shedding period, D/(St·u_max), twenty-five steps to the
+cycle. The run *length* was taken from the same clock — twenty periods, five of
+them nominally to flush the start-up — and a shedding period is the wrong clock
+for flushing: it is set by one rod and the gap velocity, while the time the
+bundle takes to establish is set by its whole length and the bulk velocity, and
+the ratio moves with pitch and Reynolds number. Over the 76 cases this campaign
+defines, five shedding periods came to between **0.25 and 1.00 sweeps of the
+case's own bundle** — every one of them began averaging before the flow had
+crossed the bundle once, by differing amounts across a matrix whose purpose is
+comparison. The run is now long enough for both: sweep the bundle twice, then
+average over fifteen shedding periods, never fewer steps than the shedding
+floor. The averaging window stays on the shedding clock, and should — fifteen
+periods is a statistical window over a periodic signal. It costs 1.25× to 2.75×
+in steps, 1.8× on average.
+
+**A definition and the results beside it are one object.** Every case in a study
+is meant to have been run the same way; that is the only reason they can be
+compared. `--make` and the tab's rebuild both used to overwrite a `study.json`
+that already had results, leaving a folder whose definition describes a run that
+did not happen and whose remaining cases would be run differently from the ones
+already in it — not a stale file, a study that has quietly become two studies.
+Saving now refuses over existing results unless forced, `--make` names and skips
+those rather than failing, and each result row records the controls its case was
+actually advanced with, so a run that would *extend* a study whose definition has
+moved is refused and the refusal names every field that changed.
+
 **More cases at once, not more cores per case.** One case cannot fill a
 workstation: below roughly 50 000 cells on a rank the halo exchange each
 iteration costs more than the interior cells it saves, so adding ranks to one

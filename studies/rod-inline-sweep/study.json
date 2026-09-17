@@ -3,7 +3,7 @@
  "kind": "sweep",
  "geometry": "rod-inline",
  "title": "3단계 · rod-inline 압력강하 스윕",
- "created": "2026-09-16",
+ "created": "2026-09-17",
  "phi": "eu_row",
  "notes": [
   "물 20 C, k-omega SST, y+ = 1, 비정상 (URANS), rod 외 벽은 모두 대칭면.",
@@ -118,12 +118,15 @@
    },
    "transient": {
     "time_step": 0.009952,
-    "time_steps": 500,
+    "time_steps": 1001,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 4.019234622320177,
     "period_s": 0.24880358923230306,
-    "flow_time_s": 4.976071784646061
+    "flow_time_s": 9.961952,
+    "bundle_flowthrough_s": 3.110044865403788,
+    "flowthroughs": 3.2031537907433387,
+    "flowthroughs_averaged": 1.199982688839912
    },
    "settings": {
     "inlet": {
@@ -131,7 +134,7 @@
     },
     "run": {
      "time_step": 0.009952,
-     "time_steps": 500,
+     "time_steps": 1001,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -179,12 +182,15 @@
    },
    "transient": {
     "time_step": 0.00199,
-    "time_steps": 500,
+    "time_steps": 1001,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 20.09617311160088,
     "period_s": 0.04976071784646062,
-    "flow_time_s": 0.9952143569292125
+    "flow_time_s": 1.99199,
+    "bundle_flowthrough_s": 0.6220089730807578,
+    "flowthroughs": 3.202510070126227,
+    "flowthroughs_averaged": 1.1997415347625726
    },
    "settings": {
     "inlet": {
@@ -192,7 +198,7 @@
     },
     "run": {
      "time_step": 0.00199,
-     "time_steps": 500,
+     "time_steps": 1001,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -240,12 +246,15 @@
    },
    "transient": {
     "time_step": 0.0004976,
-    "time_steps": 500,
+    "time_steps": 1001,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 80.38469244640352,
     "period_s": 0.012440179461615155,
-    "flow_time_s": 0.2488035892323031
+    "flow_time_s": 0.4980976,
+    "bundle_flowthrough_s": 0.15550224327018944,
+    "flowthroughs": 3.203153790743338,
+    "flowthroughs_averaged": 1.1999826888399117
    },
    "settings": {
     "inlet": {
@@ -253,7 +262,7 @@
     },
     "run": {
      "time_step": 0.0004976,
-     "time_steps": 500,
+     "time_steps": 1001,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -301,12 +310,15 @@
    },
    "transient": {
     "time_step": 0.009952,
-    "time_steps": 500,
+    "time_steps": 1126,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 4.019234622320177,
     "period_s": 0.24880358923230306,
-    "flow_time_s": 4.976071784646061
+    "flow_time_s": 11.205952000000002,
+    "bundle_flowthrough_s": 3.7320538384845454,
+    "flowthroughs": 3.002623350297203,
+    "flowthroughs_averaged": 0.9999855740332602
    },
    "settings": {
     "inlet": {
@@ -314,7 +326,7 @@
     },
     "run": {
      "time_step": 0.009952,
-     "time_steps": 500,
+     "time_steps": 1126,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -362,12 +374,15 @@
    },
    "transient": {
     "time_step": 0.00199,
-    "time_steps": 500,
+    "time_steps": 1126,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 20.09617311160088,
     "period_s": 0.04976071784646062,
-    "flow_time_s": 0.9952143569292125
+    "flow_time_s": 2.24074,
+    "bundle_flowthrough_s": 0.7464107676969093,
+    "flowthroughs": 3.002019929205904,
+    "flowthroughs_averaged": 0.9997846123021438
    },
    "settings": {
     "inlet": {
@@ -375,7 +390,7 @@
     },
     "run": {
      "time_step": 0.00199,
-     "time_steps": 500,
+     "time_steps": 1126,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -423,12 +438,15 @@
    },
    "transient": {
     "time_step": 0.0004976,
-    "time_steps": 500,
+    "time_steps": 1126,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 80.38469244640352,
     "period_s": 0.012440179461615155,
-    "flow_time_s": 0.2488035892323031
+    "flow_time_s": 0.5602976,
+    "bundle_flowthrough_s": 0.18660269192422732,
+    "flowthroughs": 3.0026233502972013,
+    "flowthroughs_averaged": 0.9999855740332598
    },
    "settings": {
     "inlet": {
@@ -436,7 +454,7 @@
     },
     "run": {
      "time_step": 0.0004976,
-     "time_steps": 500,
+     "time_steps": 1126,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -484,12 +502,15 @@
    },
    "transient": {
     "time_step": 0.009952,
-    "time_steps": 500,
+    "time_steps": 1376,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 4.019234622320177,
     "period_s": 0.24880358923230306,
-    "flow_time_s": 4.976071784646061
+    "flow_time_s": 13.693952000000001,
+    "bundle_flowthrough_s": 4.976071784646061,
+    "flowthroughs": 2.751960299739532,
+    "flowthroughs_averaged": 0.749989180524945
    },
    "settings": {
     "inlet": {
@@ -497,7 +518,7 @@
     },
     "run": {
      "time_step": 0.009952,
-     "time_steps": 500,
+     "time_steps": 1376,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -545,12 +566,15 @@
    },
    "transient": {
     "time_step": 0.00199,
-    "time_steps": 500,
+    "time_steps": 1376,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 20.09617311160088,
     "period_s": 0.04976071784646062,
-    "flow_time_s": 0.9952143569292125
+    "flow_time_s": 2.7382400000000002,
+    "bundle_flowthrough_s": 0.9952143569292125,
+    "flowthroughs": 2.7514072530555,
+    "flowthroughs_averaged": 0.7498384592266077
    },
    "settings": {
     "inlet": {
@@ -558,7 +582,7 @@
     },
     "run": {
      "time_step": 0.00199,
-     "time_steps": 500,
+     "time_steps": 1376,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -606,12 +630,15 @@
    },
    "transient": {
     "time_step": 0.0004976,
-    "time_steps": 500,
+    "time_steps": 1376,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 80.38469244640352,
     "period_s": 0.012440179461615155,
-    "flow_time_s": 0.2488035892323031
+    "flow_time_s": 0.6846975999999999,
+    "bundle_flowthrough_s": 0.2488035892323031,
+    "flowthroughs": 2.7519602997395305,
+    "flowthroughs_averaged": 0.7499891805249448
    },
    "settings": {
     "inlet": {
@@ -619,7 +646,7 @@
     },
     "run": {
      "time_step": 0.0004976,
-     "time_steps": 500,
+     "time_steps": 1376,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -667,12 +694,15 @@
    },
    "transient": {
     "time_step": 0.009952,
-    "time_steps": 500,
+    "time_steps": 751,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 4.019234622320177,
     "period_s": 0.24880358923230306,
-    "flow_time_s": 4.976071784646061
+    "flow_time_s": 7.473952000000001,
+    "bundle_flowthrough_s": 1.8660269192422734,
+    "flowthroughs": 4.005275552527883,
+    "flowthroughs_averaged": 1.9999711480665197
    },
    "settings": {
     "inlet": {
@@ -680,7 +710,7 @@
     },
     "run": {
      "time_step": 0.009952,
-     "time_steps": 500,
+     "time_steps": 751,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -728,12 +758,15 @@
    },
    "transient": {
     "time_step": 0.00199,
-    "time_steps": 500,
+    "time_steps": 751,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 20.09617311160088,
     "period_s": 0.04976071784646062,
-    "flow_time_s": 0.9952143569292125
+    "flow_time_s": 1.49449,
+    "bundle_flowthrough_s": 0.37320538384845475,
+    "flowthroughs": 4.004470633807519,
+    "flowthroughs_averaged": 1.999569224604287
    },
    "settings": {
     "inlet": {
@@ -741,7 +774,7 @@
     },
     "run": {
      "time_step": 0.00199,
-     "time_steps": 500,
+     "time_steps": 751,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -789,12 +822,15 @@
    },
    "transient": {
     "time_step": 0.0004976,
-    "time_steps": 500,
+    "time_steps": 751,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 80.38469244640352,
     "period_s": 0.012440179461615155,
-    "flow_time_s": 0.2488035892323031
+    "flow_time_s": 0.37369759999999996,
+    "bundle_flowthrough_s": 0.09330134596211369,
+    "flowthroughs": 4.005275552527882,
+    "flowthroughs_averaged": 1.999971148066519
    },
    "settings": {
     "inlet": {
@@ -802,7 +838,7 @@
     },
     "run": {
      "time_step": 0.0004976,
-     "time_steps": 500,
+     "time_steps": 751,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -850,12 +886,15 @@
    },
    "transient": {
     "time_step": 0.009952,
-    "time_steps": 500,
+    "time_steps": 826,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 4.019234622320177,
     "period_s": 0.24880358923230306,
-    "flow_time_s": 4.976071784646061
+    "flow_time_s": 8.220352,
+    "bundle_flowthrough_s": 2.239232303090728,
+    "flowthroughs": 3.671058151784323,
+    "flowthroughs_averaged": 1.6666426233887663
    },
    "settings": {
     "inlet": {
@@ -863,7 +902,7 @@
     },
     "run": {
      "time_step": 0.009952,
-     "time_steps": 500,
+     "time_steps": 826,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -911,12 +950,15 @@
    },
    "transient": {
     "time_step": 0.00199,
-    "time_steps": 500,
+    "time_steps": 826,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 20.09617311160088,
     "period_s": 0.04976071784646062,
-    "flow_time_s": 0.9952143569292125
+    "flow_time_s": 1.64374,
+    "bundle_flowthrough_s": 0.4478464606181457,
+    "flowthroughs": 3.6703203989403135,
+    "flowthroughs_averaged": 1.6663076871702391
    },
    "settings": {
     "inlet": {
@@ -924,7 +966,7 @@
     },
     "run": {
      "time_step": 0.00199,
-     "time_steps": 500,
+     "time_steps": 826,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -972,12 +1014,15 @@
    },
    "transient": {
     "time_step": 0.0004976,
-    "time_steps": 500,
+    "time_steps": 826,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 80.38469244640352,
     "period_s": 0.012440179461615155,
-    "flow_time_s": 0.2488035892323031
+    "flow_time_s": 0.4110176,
+    "bundle_flowthrough_s": 0.11196161515453643,
+    "flowthroughs": 3.6710581517843215,
+    "flowthroughs_averaged": 1.666642623388766
    },
    "settings": {
     "inlet": {
@@ -985,7 +1030,7 @@
     },
     "run": {
      "time_step": 0.0004976,
-     "time_steps": 500,
+     "time_steps": 826,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -1033,12 +1078,15 @@
    },
    "transient": {
     "time_step": 0.009952,
-    "time_steps": 500,
+    "time_steps": 976,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 4.019234622320177,
     "period_s": 0.24880358923230306,
-    "flow_time_s": 4.976071784646061
+    "flow_time_s": 9.713152000000001,
+    "bundle_flowthrough_s": 2.9856430707876376,
+    "flowthroughs": 3.253286400854872,
+    "flowthroughs_averaged": 1.2499819675415746
    },
    "settings": {
     "inlet": {
@@ -1046,7 +1094,7 @@
     },
     "run": {
      "time_step": 0.009952,
-     "time_steps": 500,
+     "time_steps": 976,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -1094,12 +1142,15 @@
    },
    "transient": {
     "time_step": 0.00199,
-    "time_steps": 500,
+    "time_steps": 976,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 20.09617311160088,
     "period_s": 0.04976071784646062,
-    "flow_time_s": 0.9952143569292125
+    "flow_time_s": 1.94224,
+    "bundle_flowthrough_s": 0.5971286141575276,
+    "flowthroughs": 3.252632605356307,
+    "flowthroughs_averaged": 1.2497307653776795
    },
    "settings": {
     "inlet": {
@@ -1107,7 +1158,7 @@
     },
     "run": {
      "time_step": 0.00199,
-     "time_steps": 500,
+     "time_steps": 976,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -1155,12 +1206,15 @@
    },
    "transient": {
     "time_step": 0.0004976,
-    "time_steps": 500,
+    "time_steps": 976,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 80.38469244640352,
     "period_s": 0.012440179461615155,
-    "flow_time_s": 0.2488035892323031
+    "flow_time_s": 0.48565759999999997,
+    "bundle_flowthrough_s": 0.1492821535393819,
+    "flowthroughs": 3.2532864008548708,
+    "flowthroughs_averaged": 1.2499819675415744
    },
    "settings": {
     "inlet": {
@@ -1168,7 +1222,7 @@
     },
     "run": {
      "time_step": 0.0004976,
-     "time_steps": 500,
+     "time_steps": 976,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -1216,12 +1270,15 @@
    },
    "transient": {
     "time_step": 0.009952,
-    "time_steps": 500,
+    "time_steps": 626,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 4.019234622320177,
     "period_s": 0.24880358923230306,
-    "flow_time_s": 4.976071784646061
+    "flow_time_s": 6.229952000000001,
+    "bundle_flowthrough_s": 1.2440179461615155,
+    "flowthroughs": 5.007927754758565,
+    "flowthroughs_averaged": 2.9999567220997796
    },
    "settings": {
     "inlet": {
@@ -1229,7 +1286,7 @@
     },
     "run": {
      "time_step": 0.009952,
-     "time_steps": 500,
+     "time_steps": 626,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -1277,12 +1334,15 @@
    },
    "transient": {
     "time_step": 0.00199,
-    "time_steps": 500,
+    "time_steps": 626,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 20.09617311160088,
     "period_s": 0.04976071784646062,
-    "flow_time_s": 0.9952143569292125
+    "flow_time_s": 1.24574,
+    "bundle_flowthrough_s": 0.2488035892323031,
+    "flowthroughs": 5.0069213384091364,
+    "flowthroughs_averaged": 2.999353836906431
    },
    "settings": {
     "inlet": {
@@ -1290,7 +1350,7 @@
     },
     "run": {
      "time_step": 0.00199,
-     "time_steps": 500,
+     "time_steps": 626,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -1338,12 +1398,15 @@
    },
    "transient": {
     "time_step": 0.0004976,
-    "time_steps": 500,
+    "time_steps": 626,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 80.38469244640352,
     "period_s": 0.012440179461615155,
-    "flow_time_s": 0.2488035892323031
+    "flow_time_s": 0.3114976,
+    "bundle_flowthrough_s": 0.06220089730807578,
+    "flowthroughs": 5.0079277547585646,
+    "flowthroughs_averaged": 2.999956722099779
    },
    "settings": {
     "inlet": {
@@ -1351,7 +1414,7 @@
     },
     "run": {
      "time_step": 0.0004976,
-     "time_steps": 500,
+     "time_steps": 626,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -1399,12 +1462,15 @@
    },
    "transient": {
     "time_step": 0.009952,
-    "time_steps": 500,
+    "time_steps": 676,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 4.019234622320177,
     "period_s": 0.24880358923230306,
-    "flow_time_s": 4.976071784646061
+    "flow_time_s": 6.727552,
+    "bundle_flowthrough_s": 1.4928215353938186,
+    "flowthroughs": 4.506601653643225,
+    "flowthroughs_averaged": 2.4999639350831497
    },
    "settings": {
     "inlet": {
@@ -1412,7 +1478,7 @@
     },
     "run": {
      "time_step": 0.009952,
-     "time_steps": 500,
+     "time_steps": 676,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -1460,12 +1526,15 @@
    },
    "transient": {
     "time_step": 0.00199,
-    "time_steps": 500,
+    "time_steps": 676,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 20.09617311160088,
     "period_s": 0.04976071784646062,
-    "flow_time_s": 0.9952143569292125
+    "flow_time_s": 1.34524,
+    "bundle_flowthrough_s": 0.29856430707876375,
+    "flowthroughs": 4.505695986108328,
+    "flowthroughs_averaged": 2.4994615307553594
    },
    "settings": {
     "inlet": {
@@ -1473,7 +1542,7 @@
     },
     "run": {
      "time_step": 0.00199,
-     "time_steps": 500,
+     "time_steps": 676,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -1521,12 +1590,15 @@
    },
    "transient": {
     "time_step": 0.0004976,
-    "time_steps": 500,
+    "time_steps": 676,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 80.38469244640352,
     "period_s": 0.012440179461615155,
-    "flow_time_s": 0.2488035892323031
+    "flow_time_s": 0.33637759999999994,
+    "bundle_flowthrough_s": 0.07464107676969094,
+    "flowthroughs": 4.506601653643223,
+    "flowthroughs_averaged": 2.4999639350831493
    },
    "settings": {
     "inlet": {
@@ -1534,7 +1606,7 @@
     },
     "run": {
      "time_step": 0.0004976,
-     "time_steps": 500,
+     "time_steps": 676,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -1582,12 +1654,15 @@
    },
    "transient": {
     "time_step": 0.009952,
-    "time_steps": 500,
+    "time_steps": 776,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 4.019234622320177,
     "period_s": 0.24880358923230306,
-    "flow_time_s": 4.976071784646061
+    "flow_time_s": 7.722752000000001,
+    "bundle_flowthrough_s": 1.990428713858425,
+    "flowthroughs": 3.8799440272490484,
+    "flowthroughs_averaged": 1.874972951312362
    },
    "settings": {
     "inlet": {
@@ -1595,7 +1670,7 @@
     },
     "run": {
      "time_step": 0.009952,
-     "time_steps": 500,
+     "time_steps": 776,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -1643,12 +1718,15 @@
    },
    "transient": {
     "time_step": 0.00199,
-    "time_steps": 500,
+    "time_steps": 776,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 20.09617311160088,
     "period_s": 0.04976071784646062,
-    "flow_time_s": 0.9952143569292125
+    "flow_time_s": 1.54424,
+    "bundle_flowthrough_s": 0.398085742771685,
+    "flowthroughs": 3.8791642957323176,
+    "flowthroughs_averaged": 1.8745961480665194
    },
    "settings": {
     "inlet": {
@@ -1656,7 +1734,7 @@
     },
     "run": {
      "time_step": 0.00199,
-     "time_steps": 500,
+     "time_steps": 776,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -1704,12 +1782,15 @@
    },
    "transient": {
     "time_step": 0.0004976,
-    "time_steps": 500,
+    "time_steps": 776,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 80.38469244640352,
     "period_s": 0.012440179461615155,
-    "flow_time_s": 0.2488035892323031
+    "flow_time_s": 0.38613759999999997,
+    "bundle_flowthrough_s": 0.09952143569292125,
+    "flowthroughs": 3.8799440272490475,
+    "flowthroughs_averaged": 1.8749729513123619
    },
    "settings": {
     "inlet": {
@@ -1717,7 +1798,7 @@
     },
     "run": {
      "time_step": 0.0004976,
-     "time_steps": 500,
+     "time_steps": 776,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -1765,12 +1846,15 @@
    },
    "transient": {
     "time_step": 0.000199,
-    "time_steps": 500,
+    "time_steps": 1001,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 200.9617311160088,
     "period_s": 0.004976071784646062,
-    "flow_time_s": 0.09952143569292124
+    "flow_time_s": 0.19919900000000001,
+    "bundle_flowthrough_s": 0.062200897308075764,
+    "flowthroughs": 3.2025100701262277,
+    "flowthroughs_averaged": 1.199741534762573
    },
    "settings": {
     "inlet": {
@@ -1778,7 +1862,7 @@
     },
     "run": {
      "time_step": 0.000199,
-     "time_steps": 500,
+     "time_steps": 1001,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -1826,12 +1910,15 @@
    },
    "transient": {
     "time_step": 0.000199,
-    "time_steps": 500,
+    "time_steps": 826,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 200.9617311160088,
     "period_s": 0.004976071784646062,
-    "flow_time_s": 0.09952143569292124
+    "flow_time_s": 0.16437400000000002,
+    "bundle_flowthrough_s": 0.044784646061814565,
+    "flowthroughs": 3.6703203989403144,
+    "flowthroughs_averaged": 1.6663076871702396
    },
    "settings": {
     "inlet": {
@@ -1839,7 +1926,7 @@
     },
     "run": {
      "time_step": 0.000199,
-     "time_steps": 500,
+     "time_steps": 826,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -1887,12 +1974,15 @@
    },
    "transient": {
     "time_step": 0.000199,
-    "time_steps": 500,
+    "time_steps": 776,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 200.9617311160088,
     "period_s": 0.004976071784646062,
-    "flow_time_s": 0.09952143569292124
+    "flow_time_s": 0.154424,
+    "bundle_flowthrough_s": 0.0398085742771685,
+    "flowthroughs": 3.8791642957323176,
+    "flowthroughs_averaged": 1.8745961480665196
    },
    "settings": {
     "inlet": {
@@ -1900,7 +1990,7 @@
     },
     "run": {
      "time_step": 0.000199,
-     "time_steps": 500,
+     "time_steps": 776,
      "average_last": 375,
      "max_iter_per_step": 12
     }

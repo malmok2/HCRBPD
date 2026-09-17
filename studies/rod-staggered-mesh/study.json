@@ -3,7 +3,7 @@
  "kind": "mesh",
  "geometry": "rod-staggered",
  "title": "2단계 · rod-staggered 격자 민감도",
- "created": "2026-09-16",
+ "created": "2026-09-17",
  "phi": "dp_bundle",
  "notes": [
   "물 20 C, k-omega SST, y+ = 1, 비정상 (URANS).",
@@ -120,12 +120,15 @@
    },
    "transient": {
     "time_step": 0.00199,
-    "time_steps": 500,
+    "time_steps": 826,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 20.09617311160088,
     "period_s": 0.04976071784646062,
-    "flow_time_s": 0.9952143569292125
+    "flow_time_s": 1.64374,
+    "bundle_flowthrough_s": 0.4478464606181457,
+    "flowthroughs": 3.6703203989403135,
+    "flowthroughs_averaged": 1.6663076871702391
    },
    "settings": {
     "inlet": {
@@ -133,7 +136,7 @@
     },
     "run": {
      "time_step": 0.00199,
-     "time_steps": 500,
+     "time_steps": 826,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -181,12 +184,15 @@
    },
    "transient": {
     "time_step": 0.00199,
-    "time_steps": 500,
+    "time_steps": 826,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 20.09617311160088,
     "period_s": 0.04976071784646062,
-    "flow_time_s": 0.9952143569292125
+    "flow_time_s": 1.64374,
+    "bundle_flowthrough_s": 0.4478464606181457,
+    "flowthroughs": 3.6703203989403135,
+    "flowthroughs_averaged": 1.6663076871702391
    },
    "settings": {
     "inlet": {
@@ -194,7 +200,7 @@
     },
     "run": {
      "time_step": 0.00199,
-     "time_steps": 500,
+     "time_steps": 826,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -242,12 +248,15 @@
    },
    "transient": {
     "time_step": 0.00199,
-    "time_steps": 500,
+    "time_steps": 826,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 20.09617311160088,
     "period_s": 0.04976071784646062,
-    "flow_time_s": 0.9952143569292125
+    "flow_time_s": 1.64374,
+    "bundle_flowthrough_s": 0.4478464606181457,
+    "flowthroughs": 3.6703203989403135,
+    "flowthroughs_averaged": 1.6663076871702391
    },
    "settings": {
     "inlet": {
@@ -255,7 +264,7 @@
     },
     "run": {
      "time_step": 0.00199,
-     "time_steps": 500,
+     "time_steps": 826,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -303,12 +312,15 @@
    },
    "transient": {
     "time_step": 0.00199,
-    "time_steps": 500,
+    "time_steps": 826,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 20.09617311160088,
     "period_s": 0.04976071784646062,
-    "flow_time_s": 0.9952143569292125
+    "flow_time_s": 1.64374,
+    "bundle_flowthrough_s": 0.4478464606181457,
+    "flowthroughs": 3.6703203989403135,
+    "flowthroughs_averaged": 1.6663076871702391
    },
    "settings": {
     "inlet": {
@@ -316,7 +328,7 @@
     },
     "run": {
      "time_step": 0.00199,
-     "time_steps": 500,
+     "time_steps": 826,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -364,12 +376,15 @@
    },
    "transient": {
     "time_step": 0.00199,
-    "time_steps": 500,
+    "time_steps": 826,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 20.09617311160088,
     "period_s": 0.04976071784646062,
-    "flow_time_s": 0.9952143569292125
+    "flow_time_s": 1.64374,
+    "bundle_flowthrough_s": 0.4478464606181457,
+    "flowthroughs": 3.6703203989403135,
+    "flowthroughs_averaged": 1.6663076871702391
    },
    "settings": {
     "inlet": {
@@ -377,7 +392,7 @@
     },
     "run": {
      "time_step": 0.00199,
-     "time_steps": 500,
+     "time_steps": 826,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -425,12 +440,15 @@
    },
    "transient": {
     "time_step": 0.000199,
-    "time_steps": 500,
+    "time_steps": 1001,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 200.9617311160088,
     "period_s": 0.004976071784646062,
-    "flow_time_s": 0.09952143569292124
+    "flow_time_s": 0.19919900000000001,
+    "bundle_flowthrough_s": 0.062200897308075764,
+    "flowthroughs": 3.2025100701262277,
+    "flowthroughs_averaged": 1.199741534762573
    },
    "settings": {
     "inlet": {
@@ -438,7 +456,7 @@
     },
     "run": {
      "time_step": 0.000199,
-     "time_steps": 500,
+     "time_steps": 1001,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -486,12 +504,15 @@
    },
    "transient": {
     "time_step": 0.000199,
-    "time_steps": 500,
+    "time_steps": 1001,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 200.9617311160088,
     "period_s": 0.004976071784646062,
-    "flow_time_s": 0.09952143569292124
+    "flow_time_s": 0.19919900000000001,
+    "bundle_flowthrough_s": 0.062200897308075764,
+    "flowthroughs": 3.2025100701262277,
+    "flowthroughs_averaged": 1.199741534762573
    },
    "settings": {
     "inlet": {
@@ -499,7 +520,7 @@
     },
     "run": {
      "time_step": 0.000199,
-     "time_steps": 500,
+     "time_steps": 1001,
      "average_last": 375,
      "max_iter_per_step": 12
     }
@@ -547,12 +568,15 @@
    },
    "transient": {
     "time_step": 0.000199,
-    "time_steps": 500,
+    "time_steps": 1001,
     "average_last": 375,
     "max_iter_per_step": 12,
     "shedding_hz": 200.9617311160088,
     "period_s": 0.004976071784646062,
-    "flow_time_s": 0.09952143569292124
+    "flow_time_s": 0.19919900000000001,
+    "bundle_flowthrough_s": 0.062200897308075764,
+    "flowthroughs": 3.2025100701262277,
+    "flowthroughs_averaged": 1.199741534762573
    },
    "settings": {
     "inlet": {
@@ -560,7 +584,7 @@
     },
     "run": {
      "time_step": 0.000199,
-     "time_steps": 500,
+     "time_steps": 1001,
      "average_last": 375,
      "max_iter_per_step": 12
     }

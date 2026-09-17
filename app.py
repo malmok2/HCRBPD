@@ -470,6 +470,25 @@ class App(object):
         if not runner.queue:
             raise ValueError("every case of %s is already done - pass redo to "
                              "run them again" % s.name)
+        #  Adding cases to a study whose definition has moved since the
+        #  recorded ones ran produces one table holding two different runs,
+        #  and nothing in that table says so.  Clearing and starting over is
+        #  one answer, force is the other; continuing by accident is not.
+        drift = ST.definition_drift(s)
+        if drift and not body.get("force"):
+            #  every field that moved, not one example: which ones changed
+            #  is how the reader decides whether it matters
+            fields = []
+            for _cid, f, was, now in drift:
+                if f not in [x[0] for x in fields]:
+                    fields.append((f, was, now))
+            raise ValueError(
+                "%s has %d recorded case(s) that were run with different "
+                "controls from the ones now defined (%s). Running the rest "
+                "would put two different runs in one table. Clear the results "
+                "and start over, or pass force."
+                % (s.name, len({d[0] for d in drift}),
+                   "; ".join("%s was %r, now %r" % t for t in fields)))
         self.runner = runner
         self.runner.start()
         return self.runner.status()
@@ -705,10 +724,32 @@ class Handler(BaseHTTPRequestHandler):
                                    "params": s.params_for(cid),
                                    "settings": s.settings_for(cid)})
             if path == "/api/study_make":
+                #  a rebuild must not walk over a study that has already run,
+                #  and must not half-succeed: every definition is checked
+                #  before any of them is written
+                if self.app.study_busy():
+                    raise ValueError("stop the running study first")
+                built = list(ST.make_campaign(str(body.get("level") or "L3")))
+                force = bool(body.get("force"))
+                blocked = []
+                if not force:
+                    for st in built:
+                        try:
+                            old = ST.Study.load(st.name)
+                        except Exception:               # noqa: BLE001
+                            continue
+                        if old.results():
+                            blocked.append("%s (%d case(s) recorded)"
+                                           % (st.name, len(old.results())))
+                if blocked:
+                    raise ValueError(
+                        "these studies already have results and were not "
+                        "rebuilt: %s. Clear them first, or pass force."
+                        % ", ".join(blocked))
                 made = []
-                for s in ST.make_campaign(str(body.get("level") or "L3")):
-                    s.save()
-                    made.append({"name": s.name, "cases": len(s.cases)})
+                for st in built:
+                    st.save(force=True)
+                    made.append({"name": st.name, "cases": len(st.cases)})
                 return self._json({"ok": True, "made": made})
             if path == "/api/study_run":
                 return self._json({"ok": True,

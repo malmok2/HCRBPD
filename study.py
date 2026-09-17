@@ -164,23 +164,63 @@ def apply_mesh_rules(geometry, params, settings, y_plus=1.0, max_growth=1.2):
 SHEDDING = {
     "strouhal": 0.2,
     "steps_per_period": 25,     # 25 steps resolves the cycle for 2nd-order
-    "periods": 20,              # 5 to flush the start-up, 15 to average
-    "average_periods": 15,
+    "periods": 20,              # the shedding floor: never fewer than this
+    "average_periods": 15,      # of which this many are averaged
+    "flush_flowthroughs": 2.0,  # and the bundle is swept this many times first
     "max_iter_per_step": 12,
 }
 
 
-def transient_controls(st, cfg=None):
-    """Time step, step count and averaging window for one flow state."""
+def transient_controls(st, cfg=None, bundle_length=None):
+    """Time step, step count and averaging window for one flow state.
+
+    TWO clocks, and the first version of this only had one.
+
+    The time step comes from the shedding period, D / (St u_max): twenty-five
+    steps resolve the cycle.  The RUN LENGTH was taken from the same clock -
+    twenty periods, five of them nominally to "flush the start-up" - and that
+    is the wrong clock for FLUSHING.  A shedding period is set by one rod and
+    the gap velocity; the time the bundle takes to establish is set by its
+    whole length and the bulk velocity, and the ratio between the two moves
+    with the pitch and the Reynolds number rather than staying put.  Measured
+    over the 76 cases this campaign defines, five shedding periods came to
+    between 0.25 and 1.00 sweeps of the case's own bundle - every one of the
+    76 began averaging before the flow had crossed the bundle once, so the
+    last rows were still carrying the initial condition of the first, by
+    differing amounts across a matrix whose whole purpose is comparison.
+
+    The AVERAGING window stays on the shedding clock, and should: fifteen
+    periods is a statistical window over a periodic signal, and how many
+    bundle sweeps that happens to be does not change how well it averages.
+    It is the flush, not the average, that has to be measured against the
+    bundle.
+
+    So the run is long enough for BOTH: sweep the bundle `flush_flowthroughs`
+    times, then average over `average_periods` shedding periods, and never
+    fewer steps than the shedding floor.  The flushing length is the BUNDLE,
+    not the whole domain - the inlet box carries uniform flow and has nothing
+    to develop, and the outlet box is downstream of both measuring planes.
+
+    Costs a factor of about two in steps at the demanding end and nothing at
+    the easy end, and makes the amount of physics behind each number the same
+    across the matrix, which is what a sweep compares.
+    """
     c = dict(SHEDDING)
     c.update(cfg or {})
     f = c["strouhal"] * st["umax"] / st["D"]
     period = 1.0 / f if f > 0 else 1.0
     dt = period / c["steps_per_period"]
-    steps = int(round(c["periods"] * c["steps_per_period"]))
+    dt = float("%.4g" % dt)
     keep = int(round(c["average_periods"] * c["steps_per_period"]))
-    return {
-        "time_step": float("%.4g" % dt),
+    floor = int(round(c["periods"] * c["steps_per_period"]))
+    t_flow = None
+    steps = floor
+    if bundle_length and st.get("u_in"):
+        t_flow = bundle_length / float(st["u_in"])
+        steps = max(floor, int(math.ceil(
+            (c["flush_flowthroughs"] * t_flow + keep * dt) / dt)))
+    out = {
+        "time_step": dt,
         "time_steps": steps,
         "average_last": min(keep, steps),
         "max_iter_per_step": int(c["max_iter_per_step"]),
@@ -188,6 +228,12 @@ def transient_controls(st, cfg=None):
         "period_s": period,
         "flow_time_s": steps * dt,
     }
+    if t_flow:
+        out["bundle_flowthrough_s"] = t_flow
+        out["flowthroughs"] = steps * dt / t_flow
+        #  what the ANSWER is averaged over, which is the number that matters
+        out["flowthroughs_averaged"] = out["average_last"] * dt / t_flow
+    return out
 
 
 def velocity_for_Re(geometry, params, settings, Re_target):
@@ -266,7 +312,24 @@ class Study(object):
         return FC.merge_settings(s)
 
     # -- on disk ----------------------------------------------------------
-    def save(self):
+    def save(self, force=False):
+        """Write the definition.  Refuses to overwrite one that has results.
+
+        A definition and the results beside it are one object: every case in a
+        study is meant to have been run the same way, and that is the only
+        reason the cases can be compared with each other.  Rewriting the
+        definition under existing results - which `--make` and the tab's
+        rebuild both did, silently - leaves a folder whose study.json
+        describes a run that did not happen, and whose remaining cases would
+        be run differently from the ones already in it.  That is not a stale
+        file; it is a study that has quietly become two studies.
+        """
+        if not force and os.path.isfile(self.results_path) and self.results():
+            raise ValueError(
+                "%s already has %d recorded case(s); rewriting its definition "
+                "would describe a run that did not happen and would run the "
+                "rest differently. Clear the results first, or save with force."
+                % (self.name, len(self.results())))
         os.makedirs(self.dir, exist_ok=True)
         path = os.path.join(self.dir, "study.json")
         with open(path, "w", encoding="utf-8") as fh:
@@ -695,10 +758,13 @@ def _case(geometry, cid, label, params, settings, meta=None, ladder=None):
     if settings.get("inlet", {}).get("velocity") is not None:
         over["inlet"] = {"velocity": settings["inlet"]["velocity"]}
     if not settings["general"]["steady"]:
-        _, st = case_state(geometry, p, settings)
-        tc = transient_controls(st)
+        case, st = case_state(geometry, p, settings)
+        tc = transient_controls(st, bundle_length=case.l_bund * case.export_scale)
         over["run"] = {k: tc[k] for k in ("time_step", "time_steps",
                                           "average_last", "max_iter_per_step")}
+        #  the flushing figures are not settings Fluent takes; they are the
+        #  reason the step count is what it is, and they ride in c["transient"]
+        #  beside it rather than being recomputed by every reader
         c["transient"] = tc
     if over:
         c["settings"] = over
@@ -843,6 +909,52 @@ def make_sweep_study(geometry, level="L3", name=None):
 # =============================================================================
 #  RUNNING IT
 # =============================================================================
+def run_controls(study, cid):
+    """The solver controls one case would be run with, as recorded on a row."""
+    st = study.settings_for(cid)
+    out = {k: st["run"].get(k)
+           for k in ("time_step", "time_steps", "average_last",
+                     "max_iter_per_step", "iterations", "residual_criterion")}
+    out["steady"] = bool(st["general"]["steady"])
+    return out
+
+
+def definition_drift(study):
+    """Recorded cases whose run no longer matches the definition on disk.
+
+    A study is a study only because every case in it was run the same way;
+    that is the whole basis for putting them in one table.  A definition can
+    change under existing results - the rule that sets the step count was
+    wrong once and had to be corrected - and the next run would then quietly
+    append cases advanced differently from the ones already there.  Neither
+    half is wrong on its own.  The mixture is, and nothing in the table shows
+    it.
+
+    Returns [(id, field, recorded, defined)], empty when they agree or when
+    the recorded rows predate this check.
+    """
+    out = []
+    for r in study.results():
+        was = r.get("run_controls")
+        if not was or not r.get("ok"):
+            continue
+        try:
+            now = run_controls(study, r["id"])
+        except Exception:                                   # noqa: BLE001
+            continue
+        for k in sorted(now):
+            a, b = was.get(k), now.get(k)
+            if a is None or b is None:
+                continue
+            if isinstance(a, float) or isinstance(b, float):
+                if abs(float(a) - float(b)) <= 1e-9 * max(1.0, abs(float(b))):
+                    continue
+            elif a == b:
+                continue
+            out.append((r["id"], k, a, b))
+    return out
+
+
 class Runner(object):
     """One study, one case after another, through the app's own Job.
 
@@ -1244,6 +1356,27 @@ class Runner(object):
         #  1st-order implicit damps the very oscillation being measured, so
         #  the scheme belongs beside the number it produced.
         row["time_scheme"] = getattr(drv, "time_scheme", None)
+        #  what this case was actually advanced with, so a later run can tell
+        #  whether it is about to add cases to a study that no longer matches
+        row["run_controls"] = {k: settings["run"].get(k)
+                               for k in ("time_step", "time_steps",
+                                         "average_last", "max_iter_per_step",
+                                         "iterations", "residual_criterion")}
+        row["run_controls"]["steady"] = bool(settings["general"]["steady"])
+        #  how much of the bundle's own flow-through the run covered before it
+        #  began averaging.  Under one sweep the last rows were still carrying
+        #  the first rows' initial condition when the average opened.
+        tc = c.get("transient") or {}
+        for k in ("bundle_flowthrough_s", "flowthroughs",
+                  "flowthroughs_averaged"):
+            if tc.get(k) is not None:
+                row[k] = tc[k]
+        if tc.get("bundle_flowthrough_s"):
+            _dt = float(settings["run"]["time_step"])
+            row["flush_flowthroughs"] = (
+                (int(settings["run"]["time_steps"])
+                 - int(settings["run"]["average_last"])) * _dt
+                / tc["bundle_flowthrough_s"])
         names = list(drv.bundle_surfaces or [])
         made = []
         try:
@@ -1626,6 +1759,26 @@ def _warnings(study, rows, ko):
                     "measured on the time average for a transient run and "
                     "over the final stretch for a steady one."
                     % (len(drift), ", ".join(r["id"] for r in drift[:8]))))
+    #  Flushing.  A statistical average over a flow that has not crossed the
+    #  bundle yet is an average over the initial condition, and how far short
+    #  it falls differs from case to case, so it is not even a consistent bias.
+    short = [r for r in rows
+             if r.get("flush_flowthroughs") is not None
+             and r["flush_flowthroughs"] < 1.0]
+    if short:
+        worst = min(r["flush_flowthroughs"] for r in short)
+        out.append(("bad",
+                    "\ud3c9\uade0\uc744 \uc2dc\uc791\ud558\uae30 \uc804\uc5d0 \ub2e4\ubc1c\uc744 \ud55c \ubc88\ub3c4 \ud1b5\uacfc\ud558\uc9c0 \ubabb\ud55c \ucf00\uc774\uc2a4 "
+                    "%d\uac1c (\ucd5c\uc18c %.2f\ud68c). \ub4b7\uc904\uc774 \uc544\uc9c1 \uc55e\uc904\uc758 \ucd08\uae30\uc870\uac74\uc744 \uc9c0\ub098\uac00\ub294 "
+                    "\uc911\uc5d0 \ud3c9\uade0\uc744 \ub0c8\ub2e4\ub294 \ub73b\uc774\uace0, \ucf00\uc774\uc2a4\ub9c8\ub2e4 \uadf8 \uc815\ub3c4\uac00 \ub2ec\ub77c "
+                    "\uc77c\uad00\ub41c \ud3b8\ud5a5\ub3c4 \uc544\ub2d9\ub2c8\ub2e4."
+                    % (len(short), worst) if ko else
+                    "%d case(s) began averaging before the flow had swept the "
+                    "bundle once (worst %.2f sweeps). The last rows were "
+                    "averaging over the first rows' initial condition, by "
+                    "different amounts in different cases, so it is not even "
+                    "a consistent bias." % (len(short), worst)))
+
     #  Which spelling of the time mode a given Fluent accepted is not
     #  bookkeeping.  First-order implicit damps the shedding oscillation that
     #  the time step was sized to resolve and that the time average is taken
@@ -2618,8 +2771,16 @@ def main(argv=None):
 
     if "--make" in argv:
         level = opt("--level", "L3")
+        force = "--force" in argv
         for s in make_campaign(level):
-            path = s.save()
+            try:
+                path = s.save(force=force)
+            except ValueError as exc:
+                #  named and skipped, not silently overwritten and not fatal:
+                #  a campaign half of which has run is the normal state, and
+                #  the studies that have NOT run should still be rebuilt
+                print("skipped %s: %s" % (s.name, exc))
+                continue
             print("wrote %s  (%d cases)" % (path, len(s.cases)))
         return 0
     if "--list" in argv:
