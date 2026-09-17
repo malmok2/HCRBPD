@@ -1,0 +1,600 @@
+{
+ "name": "rod-inline-mesh",
+ "kind": "mesh",
+ "geometry": "rod-inline",
+ "title": "2단계 · rod-inline 격자 민감도",
+ "created": "2026-09-17",
+ "phi": "dp_bundle",
+ "notes": [
+  "물 20 C, k-omega SST, y+ = 1, 비정상 (URANS).",
+  "정상상태로 풀 수 없기 때문입니다. 엄밀 2차원 다발의 Re_max 1e4 이상 에서는 정상해가 존재하지 않고, 처음 시도에서 8개 케이스 전부 continuity 잔차 7.5e-2 에서 멈췄습니다.",
+  "시간 간격은 케이스마다 와류 방출 주기에서 유도합니다 (St = 0.2, 주기당 25 스텝, 20 주기, 마지막 15 주기를 평균).",
+  "결과는 마지막 순간값이 아니라 Δp 의 시간 평균입니다.",
+  "rod 외 모든 벽은 대칭면 - 상관식이 기술하는 무한 다발과 같게 하기 위함.",
+  "격자는 면내 방향으로 단계당 약 1.35배 세밀해지고, 반경 방향은 첫 셀을 y+ = 1에 고정한 채 성장비를 조여서 세밀해집니다.",
+  "판정은 Celik 등(2008) / ASME V&V 20 의 GCI 절차로 합니다.",
+  "case 파일을 함께 씁니다 - 사다리가 이상하게 나올 때 그 격자를 열어 유동장을 봐야 하기 때문입니다. 결과 기록만으로는 유동장을 되살릴 수 없습니다."
+ ],
+ "base": {
+  "params": {
+   "D": 10.0,
+   "nRows": 10,
+   "nCols": 4,
+   "lIn": 60.0,
+   "lOut": 120.0,
+   "H": 2.0,
+   "nZ": 2,
+   "halfRods": true,
+   "firstOffset": false,
+   "unit": "mm",
+   "nAz": 29,
+   "nRad": 12,
+   "firstLayer": 0.03,
+   "nxIn": 18,
+   "nxOut": 29
+  },
+  "settings": {
+   "general": {
+    "steady": false,
+    "energy": false
+   },
+   "turbulence": {
+    "viscous": "k-omega",
+    "k_omega_variant": "sst"
+   },
+   "material": {
+    "name": "water-liquid",
+    "density": 998.2,
+    "viscosity": 0.001003
+   },
+   "inlet": {
+    "spec": "components",
+    "velocity": 1.0,
+    "turb_spec": "Intensity and Viscosity Ratio",
+    "intensity": 5.0,
+    "visc_ratio": 10.0
+   },
+   "outlet": {
+    "gauge_pressure": 0.0,
+    "prevent_reverse_flow": true
+   },
+   "zones": {
+    "wall_rods": "wall",
+    "wall_side_y0": "symmetry",
+    "wall_side_ymax": "symmetry",
+    "wall_bottom": "symmetry",
+    "wall_top": "symmetry"
+   },
+   "methods": {
+    "flow_scheme": "Coupled",
+    "gradient": "least-square-cell-based",
+    "pressure": "second-order",
+    "momentum": "second-order-upwind",
+    "turb": "second-order-upwind",
+    "pseudo_time": true
+   },
+   "run": {
+    "init_method": "hybrid",
+    "iterations": 800,
+    "residual_criterion": 1e-05,
+    "monitor_every": 20,
+    "max_iter_per_step": 12,
+    "write_case": true
+   }
+  }
+ },
+ "cases": [
+  {
+   "id": "main-L1",
+   "label": "대표 조건 · representative · L1",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 14,
+    "nRad": 10,
+    "firstLayer": 0.03182,
+    "nxIn": 8,
+    "nxOut": 14,
+    "ST": 15.0,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 10,
+    "growth": 1.4242,
+    "clearance": 2.5,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 1.5,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 826,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 1.64374,
+    "bundle_flowthrough_s": 0.4478464606181457,
+    "flowthroughs": 3.6703203989403135,
+    "flowthroughs_averaged": 1.6663076871702391
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.33493621852668126
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 826,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "X": 1.5,
+    "Re_target": 10000.0,
+    "velocity": 0.33493621852668126
+   },
+   "ladder": "main"
+  },
+  {
+   "id": "main-L2",
+   "label": "대표 조건 · representative · L2",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 20,
+    "nRad": 12,
+    "firstLayer": 0.03182,
+    "nxIn": 12,
+    "nxOut": 20,
+    "ST": 15.0,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 12,
+    "growth": 1.3088,
+    "clearance": 2.5,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 1.5,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 826,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 1.64374,
+    "bundle_flowthrough_s": 0.4478464606181457,
+    "flowthroughs": 3.6703203989403135,
+    "flowthroughs_averaged": 1.6663076871702391
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.33493621852668126
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 826,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "X": 1.5,
+    "Re_target": 10000.0,
+    "velocity": 0.33493621852668126
+   },
+   "ladder": "main"
+  },
+  {
+   "id": "main-L3",
+   "label": "대표 조건 · representative · L3",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 14,
+    "firstLayer": 0.03182,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 15.0,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 14,
+    "growth": 1.2369,
+    "clearance": 2.5,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 1.5,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 826,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 1.64374,
+    "bundle_flowthrough_s": 0.4478464606181457,
+    "flowthroughs": 3.6703203989403135,
+    "flowthroughs_averaged": 1.6663076871702391
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.33493621852668126
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 826,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "X": 1.5,
+    "Re_target": 10000.0,
+    "velocity": 0.33493621852668126
+   },
+   "ladder": "main"
+  },
+  {
+   "id": "main-L4",
+   "label": "대표 조건 · representative · L4",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 42,
+    "nRad": 17,
+    "firstLayer": 0.03182,
+    "nxIn": 25,
+    "nxOut": 42,
+    "ST": 15.0,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 17,
+    "growth": 1.1695,
+    "clearance": 2.5,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 1.5,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 826,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 1.64374,
+    "bundle_flowthrough_s": 0.4478464606181457,
+    "flowthroughs": 3.6703203989403135,
+    "flowthroughs_averaged": 1.6663076871702391
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.33493621852668126
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 826,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "X": 1.5,
+    "Re_target": 10000.0,
+    "velocity": 0.33493621852668126
+   },
+   "ladder": "main"
+  },
+  {
+   "id": "main-L5",
+   "label": "대표 조건 · representative · L5",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 60,
+    "nRad": 21,
+    "firstLayer": 0.03182,
+    "nxIn": 36,
+    "nxOut": 60,
+    "ST": 15.0,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 21,
+    "growth": 1.1168,
+    "clearance": 2.5,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 1.5,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 826,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 1.64374,
+    "bundle_flowthrough_s": 0.4478464606181457,
+    "flowthroughs": 3.6703203989403135,
+    "flowthroughs_averaged": 1.6663076871702391
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.33493621852668126
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 826,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "X": 1.5,
+    "Re_target": 10000.0,
+    "velocity": 0.33493621852668126
+   },
+   "ladder": "main"
+  },
+  {
+   "id": "corner-L3",
+   "label": "가장 까다로운 조건 · the demanding corner · L3",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 19,
+    "firstLayer": 0.004244,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 12.5,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.004244,
+    "n_rad": 19,
+    "growth": 1.2565,
+    "clearance": 1.25,
+    "umax": 10.04808655580044,
+    "Re": 100000.0,
+    "XT": 1.25,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.000199,
+    "time_steps": 1001,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 200.9617311160088,
+    "period_s": 0.004976071784646062,
+    "flow_time_s": 0.19919900000000001,
+    "bundle_flowthrough_s": 0.062200897308075764,
+    "flowthroughs": 3.2025100701262277,
+    "flowthroughs_averaged": 1.199741534762573
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 2.0096173111600883
+    },
+    "run": {
+     "time_step": 0.000199,
+     "time_steps": 1001,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "X": 1.25,
+    "Re_target": 100000.0,
+    "velocity": 2.0096173111600883
+   },
+   "ladder": "corner"
+  },
+  {
+   "id": "corner-L4",
+   "label": "가장 까다로운 조건 · the demanding corner · L4",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 42,
+    "nRad": 25,
+    "firstLayer": 0.004244,
+    "nxIn": 25,
+    "nxOut": 42,
+    "ST": 12.5,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.004244,
+    "n_rad": 25,
+    "growth": 1.1705,
+    "clearance": 1.25,
+    "umax": 10.04808655580044,
+    "Re": 100000.0,
+    "XT": 1.25,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.000199,
+    "time_steps": 1001,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 200.9617311160088,
+    "period_s": 0.004976071784646062,
+    "flow_time_s": 0.19919900000000001,
+    "bundle_flowthrough_s": 0.062200897308075764,
+    "flowthroughs": 3.2025100701262277,
+    "flowthroughs_averaged": 1.199741534762573
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 2.0096173111600883
+    },
+    "run": {
+     "time_step": 0.000199,
+     "time_steps": 1001,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "X": 1.25,
+    "Re_target": 100000.0,
+    "velocity": 2.0096173111600883
+   },
+   "ladder": "corner"
+  },
+  {
+   "id": "corner-L5",
+   "label": "가장 까다로운 조건 · the demanding corner · L5",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 60,
+    "nRad": 32,
+    "firstLayer": 0.004244,
+    "nxIn": 36,
+    "nxOut": 60,
+    "ST": 12.5,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.004244,
+    "n_rad": 32,
+    "growth": 1.1184,
+    "clearance": 1.25,
+    "umax": 10.04808655580044,
+    "Re": 100000.0,
+    "XT": 1.25,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.000199,
+    "time_steps": 1001,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 200.9617311160088,
+    "period_s": 0.004976071784646062,
+    "flow_time_s": 0.19919900000000001,
+    "bundle_flowthrough_s": 0.062200897308075764,
+    "flowthroughs": 3.2025100701262277,
+    "flowthroughs_averaged": 1.199741534762573
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 2.0096173111600883
+    },
+    "run": {
+     "time_step": 0.000199,
+     "time_steps": 1001,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "X": 1.25,
+    "Re_target": 100000.0,
+    "velocity": 2.0096173111600883
+   },
+   "ladder": "corner"
+  }
+ ]
+}

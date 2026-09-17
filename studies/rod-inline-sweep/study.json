@@ -1,0 +1,2006 @@
+{
+ "name": "rod-inline-sweep",
+ "kind": "sweep",
+ "geometry": "rod-inline",
+ "title": "3단계 · rod-inline 압력강하 스윕",
+ "created": "2026-09-17",
+ "phi": "eu_row",
+ "notes": [
+  "물 20 C, k-omega SST, y+ = 1, 비정상 (URANS), rod 외 벽은 모두 대칭면.",
+  "시간 간격은 케이스마다 와류 방출 주기에서 유도하고, 결과는 Δp 의 시간 평균입니다.",
+  "격자 해상도는 2단계에서 고른 수준(L3)을 씁니다.",
+  "케이스 수가 많아 case 파일은 쓰지 않습니다. 결과 기록(잔차·Δp 이력, 격자 수, 측정된 압력강하)은 남으므로 파라메트릭 탭에서 다시 열 수 있지만, 유동장은 남지 않습니다.",
+  "X_T 와 X_L 을 독립적으로 바꿉니다. 정사각 피치만 훑으면 피치 항 두 개가 서로 구분되지 않아 상관식 적합 자체가 불가능해집니다.",
+  "Re 1e5 점은 Jakob 적용 범위 밖이며, 1단계에서 두 상관식이 크게 갈라지는 것으로 확인된 영역을 일부러 지나갑니다."
+ ],
+ "base": {
+  "params": {
+   "D": 10.0,
+   "nRows": 10,
+   "nCols": 4,
+   "lIn": 60.0,
+   "lOut": 120.0,
+   "H": 2.0,
+   "nZ": 2,
+   "halfRods": true,
+   "firstOffset": false,
+   "unit": "mm",
+   "nAz": 29,
+   "nRad": 12,
+   "firstLayer": 0.03,
+   "nxIn": 18,
+   "nxOut": 29
+  },
+  "settings": {
+   "general": {
+    "steady": false,
+    "energy": false
+   },
+   "turbulence": {
+    "viscous": "k-omega",
+    "k_omega_variant": "sst"
+   },
+   "material": {
+    "name": "water-liquid",
+    "density": 998.2,
+    "viscosity": 0.001003
+   },
+   "inlet": {
+    "spec": "components",
+    "velocity": 1.0,
+    "turb_spec": "Intensity and Viscosity Ratio",
+    "intensity": 5.0,
+    "visc_ratio": 10.0
+   },
+   "outlet": {
+    "gauge_pressure": 0.0,
+    "prevent_reverse_flow": true
+   },
+   "zones": {
+    "wall_rods": "wall",
+    "wall_side_y0": "symmetry",
+    "wall_side_ymax": "symmetry",
+    "wall_bottom": "symmetry",
+    "wall_top": "symmetry"
+   },
+   "methods": {
+    "flow_scheme": "Coupled",
+    "gradient": "least-square-cell-based",
+    "pressure": "second-order",
+    "momentum": "second-order-upwind",
+    "turb": "second-order-upwind",
+    "pseudo_time": true
+   },
+   "run": {
+    "init_method": "hybrid",
+    "iterations": 800,
+    "residual_criterion": 1e-05,
+    "monitor_every": 20,
+    "max_iter_per_step": 12,
+    "write_case": false
+   }
+  }
+ },
+ "cases": [
+  {
+   "id": "T125_L125_Re2e3",
+   "label": "X_T 1.25 · X_L 1.25 · Re 2e+03",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 6,
+    "firstLayer": 0.1301,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 12.5,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.1301,
+    "n_rad": 6,
+    "growth": 1.1869,
+    "clearance": 1.25,
+    "umax": 0.20096173111600882,
+    "Re": 2000.0000000000002,
+    "XT": 1.25,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.009952,
+    "time_steps": 1001,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 4.019234622320177,
+    "period_s": 0.24880358923230306,
+    "flow_time_s": 9.961952,
+    "bundle_flowthrough_s": 3.110044865403788,
+    "flowthroughs": 3.2031537907433387,
+    "flowthroughs_averaged": 1.199982688839912
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.04019234622320177
+    },
+    "run": {
+     "time_step": 0.009952,
+     "time_steps": 1001,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 1.25,
+    "XL": 1.25,
+    "Re_target": 2000.0,
+    "velocity": 0.04019234622320177
+   }
+  },
+  {
+   "id": "T125_L125_Re1e4",
+   "label": "X_T 1.25 · X_L 1.25 · Re 1e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 11,
+    "firstLayer": 0.03182,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 12.5,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 11,
+    "growth": 1.2357,
+    "clearance": 1.25,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 1.25,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 1001,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 1.99199,
+    "bundle_flowthrough_s": 0.6220089730807578,
+    "flowthroughs": 3.202510070126227,
+    "flowthroughs_averaged": 1.1997415347625726
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.20096173111600882
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 1001,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 1.25,
+    "XL": 1.25,
+    "Re_target": 10000.0,
+    "velocity": 0.20096173111600882
+   }
+  },
+  {
+   "id": "T125_L125_Re4e4",
+   "label": "X_T 1.25 · X_L 1.25 · Re 4e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 16,
+    "firstLayer": 0.009461,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 12.5,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.009461,
+    "n_rad": 16,
+    "growth": 1.2452,
+    "clearance": 1.25,
+    "umax": 4.019234622320176,
+    "Re": 40000.0,
+    "XT": 1.25,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.0004976,
+    "time_steps": 1001,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 80.38469244640352,
+    "period_s": 0.012440179461615155,
+    "flow_time_s": 0.4980976,
+    "bundle_flowthrough_s": 0.15550224327018944,
+    "flowthroughs": 3.203153790743338,
+    "flowthroughs_averaged": 1.1999826888399117
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.8038469244640353
+    },
+    "run": {
+     "time_step": 0.0004976,
+     "time_steps": 1001,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 1.25,
+    "XL": 1.25,
+    "Re_target": 40000.0,
+    "velocity": 0.8038469244640353
+   }
+  },
+  {
+   "id": "T125_L15_Re2e3",
+   "label": "X_T 1.25 · X_L 1.50 · Re 2e+03",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 6,
+    "firstLayer": 0.1301,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 12.5,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.1301,
+    "n_rad": 6,
+    "growth": 1.1869,
+    "clearance": 1.25,
+    "umax": 0.20096173111600882,
+    "Re": 2000.0000000000002,
+    "XT": 1.25,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.009952,
+    "time_steps": 1126,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 4.019234622320177,
+    "period_s": 0.24880358923230306,
+    "flow_time_s": 11.205952000000002,
+    "bundle_flowthrough_s": 3.7320538384845454,
+    "flowthroughs": 3.002623350297203,
+    "flowthroughs_averaged": 0.9999855740332602
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.04019234622320177
+    },
+    "run": {
+     "time_step": 0.009952,
+     "time_steps": 1126,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 1.25,
+    "XL": 1.5,
+    "Re_target": 2000.0,
+    "velocity": 0.04019234622320177
+   }
+  },
+  {
+   "id": "T125_L15_Re1e4",
+   "label": "X_T 1.25 · X_L 1.50 · Re 1e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 11,
+    "firstLayer": 0.03182,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 12.5,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 11,
+    "growth": 1.2357,
+    "clearance": 1.25,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 1.25,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 1126,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 2.24074,
+    "bundle_flowthrough_s": 0.7464107676969093,
+    "flowthroughs": 3.002019929205904,
+    "flowthroughs_averaged": 0.9997846123021438
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.20096173111600882
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 1126,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 1.25,
+    "XL": 1.5,
+    "Re_target": 10000.0,
+    "velocity": 0.20096173111600882
+   }
+  },
+  {
+   "id": "T125_L15_Re4e4",
+   "label": "X_T 1.25 · X_L 1.50 · Re 4e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 16,
+    "firstLayer": 0.009461,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 12.5,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.009461,
+    "n_rad": 16,
+    "growth": 1.2452,
+    "clearance": 1.25,
+    "umax": 4.019234622320176,
+    "Re": 40000.0,
+    "XT": 1.25,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.0004976,
+    "time_steps": 1126,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 80.38469244640352,
+    "period_s": 0.012440179461615155,
+    "flow_time_s": 0.5602976,
+    "bundle_flowthrough_s": 0.18660269192422732,
+    "flowthroughs": 3.0026233502972013,
+    "flowthroughs_averaged": 0.9999855740332598
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.8038469244640353
+    },
+    "run": {
+     "time_step": 0.0004976,
+     "time_steps": 1126,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 1.25,
+    "XL": 1.5,
+    "Re_target": 40000.0,
+    "velocity": 0.8038469244640353
+   }
+  },
+  {
+   "id": "T125_L2_Re2e3",
+   "label": "X_T 1.25 · X_L 2.00 · Re 2e+03",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 6,
+    "firstLayer": 0.1301,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 12.5,
+    "SL": 20.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.1301,
+    "n_rad": 6,
+    "growth": 1.1869,
+    "clearance": 1.25,
+    "umax": 0.20096173111600882,
+    "Re": 2000.0000000000002,
+    "XT": 1.25,
+    "XL": 2.0,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.009952,
+    "time_steps": 1376,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 4.019234622320177,
+    "period_s": 0.24880358923230306,
+    "flow_time_s": 13.693952000000001,
+    "bundle_flowthrough_s": 4.976071784646061,
+    "flowthroughs": 2.751960299739532,
+    "flowthroughs_averaged": 0.749989180524945
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.04019234622320177
+    },
+    "run": {
+     "time_step": 0.009952,
+     "time_steps": 1376,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 1.25,
+    "XL": 2.0,
+    "Re_target": 2000.0,
+    "velocity": 0.04019234622320177
+   }
+  },
+  {
+   "id": "T125_L2_Re1e4",
+   "label": "X_T 1.25 · X_L 2.00 · Re 1e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 11,
+    "firstLayer": 0.03182,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 12.5,
+    "SL": 20.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 11,
+    "growth": 1.2357,
+    "clearance": 1.25,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 1.25,
+    "XL": 2.0,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 1376,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 2.7382400000000002,
+    "bundle_flowthrough_s": 0.9952143569292125,
+    "flowthroughs": 2.7514072530555,
+    "flowthroughs_averaged": 0.7498384592266077
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.20096173111600882
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 1376,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 1.25,
+    "XL": 2.0,
+    "Re_target": 10000.0,
+    "velocity": 0.20096173111600882
+   }
+  },
+  {
+   "id": "T125_L2_Re4e4",
+   "label": "X_T 1.25 · X_L 2.00 · Re 4e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 16,
+    "firstLayer": 0.009461,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 12.5,
+    "SL": 20.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.009461,
+    "n_rad": 16,
+    "growth": 1.2452,
+    "clearance": 1.25,
+    "umax": 4.019234622320176,
+    "Re": 40000.0,
+    "XT": 1.25,
+    "XL": 2.0,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.0004976,
+    "time_steps": 1376,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 80.38469244640352,
+    "period_s": 0.012440179461615155,
+    "flow_time_s": 0.6846975999999999,
+    "bundle_flowthrough_s": 0.2488035892323031,
+    "flowthroughs": 2.7519602997395305,
+    "flowthroughs_averaged": 0.7499891805249448
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.8038469244640353
+    },
+    "run": {
+     "time_step": 0.0004976,
+     "time_steps": 1376,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 1.25,
+    "XL": 2.0,
+    "Re_target": 40000.0,
+    "velocity": 0.8038469244640353
+   }
+  },
+  {
+   "id": "T15_L125_Re2e3",
+   "label": "X_T 1.50 · X_L 1.25 · Re 2e+03",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 6,
+    "firstLayer": 0.1301,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 15.0,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.1301,
+    "n_rad": 6,
+    "growth": 1.1869,
+    "clearance": 1.25,
+    "umax": 0.20096173111600882,
+    "Re": 2000.0000000000002,
+    "XT": 1.5,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.009952,
+    "time_steps": 751,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 4.019234622320177,
+    "period_s": 0.24880358923230306,
+    "flow_time_s": 7.473952000000001,
+    "bundle_flowthrough_s": 1.8660269192422734,
+    "flowthroughs": 4.005275552527883,
+    "flowthroughs_averaged": 1.9999711480665197
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.06698724370533626
+    },
+    "run": {
+     "time_step": 0.009952,
+     "time_steps": 751,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 1.5,
+    "XL": 1.25,
+    "Re_target": 2000.0,
+    "velocity": 0.06698724370533626
+   }
+  },
+  {
+   "id": "T15_L125_Re1e4",
+   "label": "X_T 1.50 · X_L 1.25 · Re 1e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 11,
+    "firstLayer": 0.03182,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 15.0,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 11,
+    "growth": 1.2357,
+    "clearance": 1.25,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 1.5,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 751,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 1.49449,
+    "bundle_flowthrough_s": 0.37320538384845475,
+    "flowthroughs": 4.004470633807519,
+    "flowthroughs_averaged": 1.999569224604287
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.33493621852668126
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 751,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 1.5,
+    "XL": 1.25,
+    "Re_target": 10000.0,
+    "velocity": 0.33493621852668126
+   }
+  },
+  {
+   "id": "T15_L125_Re4e4",
+   "label": "X_T 1.50 · X_L 1.25 · Re 4e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 16,
+    "firstLayer": 0.009461,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 15.0,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.009461,
+    "n_rad": 16,
+    "growth": 1.2452,
+    "clearance": 1.25,
+    "umax": 4.019234622320176,
+    "Re": 40000.0,
+    "XT": 1.5,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.0004976,
+    "time_steps": 751,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 80.38469244640352,
+    "period_s": 0.012440179461615155,
+    "flow_time_s": 0.37369759999999996,
+    "bundle_flowthrough_s": 0.09330134596211369,
+    "flowthroughs": 4.005275552527882,
+    "flowthroughs_averaged": 1.999971148066519
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 1.339744874106725
+    },
+    "run": {
+     "time_step": 0.0004976,
+     "time_steps": 751,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 1.5,
+    "XL": 1.25,
+    "Re_target": 40000.0,
+    "velocity": 1.339744874106725
+   }
+  },
+  {
+   "id": "T15_L15_Re2e3",
+   "label": "X_T 1.50 · X_L 1.50 · Re 2e+03",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 8,
+    "firstLayer": 0.1301,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 15.0,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.1301,
+    "n_rad": 8,
+    "growth": 1.2413,
+    "clearance": 2.5,
+    "umax": 0.20096173111600882,
+    "Re": 2000.0000000000002,
+    "XT": 1.5,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.009952,
+    "time_steps": 826,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 4.019234622320177,
+    "period_s": 0.24880358923230306,
+    "flow_time_s": 8.220352,
+    "bundle_flowthrough_s": 2.239232303090728,
+    "flowthroughs": 3.671058151784323,
+    "flowthroughs_averaged": 1.6666426233887663
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.06698724370533626
+    },
+    "run": {
+     "time_step": 0.009952,
+     "time_steps": 826,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 1.5,
+    "XL": 1.5,
+    "Re_target": 2000.0,
+    "velocity": 0.06698724370533626
+   }
+  },
+  {
+   "id": "T15_L15_Re1e4",
+   "label": "X_T 1.50 · X_L 1.50 · Re 1e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 14,
+    "firstLayer": 0.03182,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 15.0,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 14,
+    "growth": 1.2369,
+    "clearance": 2.5,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 1.5,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 826,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 1.64374,
+    "bundle_flowthrough_s": 0.4478464606181457,
+    "flowthroughs": 3.6703203989403135,
+    "flowthroughs_averaged": 1.6663076871702391
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.33493621852668126
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 826,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 1.5,
+    "XL": 1.5,
+    "Re_target": 10000.0,
+    "velocity": 0.33493621852668126
+   }
+  },
+  {
+   "id": "T15_L15_Re4e4",
+   "label": "X_T 1.50 · X_L 1.50 · Re 4e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 19,
+    "firstLayer": 0.009461,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 15.0,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.009461,
+    "n_rad": 19,
+    "growth": 1.247,
+    "clearance": 2.5,
+    "umax": 4.019234622320176,
+    "Re": 40000.0,
+    "XT": 1.5,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.0004976,
+    "time_steps": 826,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 80.38469244640352,
+    "period_s": 0.012440179461615155,
+    "flow_time_s": 0.4110176,
+    "bundle_flowthrough_s": 0.11196161515453643,
+    "flowthroughs": 3.6710581517843215,
+    "flowthroughs_averaged": 1.666642623388766
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 1.339744874106725
+    },
+    "run": {
+     "time_step": 0.0004976,
+     "time_steps": 826,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 1.5,
+    "XL": 1.5,
+    "Re_target": 40000.0,
+    "velocity": 1.339744874106725
+   }
+  },
+  {
+   "id": "T15_L2_Re2e3",
+   "label": "X_T 1.50 · X_L 2.00 · Re 2e+03",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 8,
+    "firstLayer": 0.1301,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 15.0,
+    "SL": 20.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.1301,
+    "n_rad": 8,
+    "growth": 1.2413,
+    "clearance": 2.5,
+    "umax": 0.20096173111600882,
+    "Re": 2000.0000000000002,
+    "XT": 1.5,
+    "XL": 2.0,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.009952,
+    "time_steps": 976,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 4.019234622320177,
+    "period_s": 0.24880358923230306,
+    "flow_time_s": 9.713152000000001,
+    "bundle_flowthrough_s": 2.9856430707876376,
+    "flowthroughs": 3.253286400854872,
+    "flowthroughs_averaged": 1.2499819675415746
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.06698724370533626
+    },
+    "run": {
+     "time_step": 0.009952,
+     "time_steps": 976,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 1.5,
+    "XL": 2.0,
+    "Re_target": 2000.0,
+    "velocity": 0.06698724370533626
+   }
+  },
+  {
+   "id": "T15_L2_Re1e4",
+   "label": "X_T 1.50 · X_L 2.00 · Re 1e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 14,
+    "firstLayer": 0.03182,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 15.0,
+    "SL": 20.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 14,
+    "growth": 1.2369,
+    "clearance": 2.5,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 1.5,
+    "XL": 2.0,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 976,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 1.94224,
+    "bundle_flowthrough_s": 0.5971286141575276,
+    "flowthroughs": 3.252632605356307,
+    "flowthroughs_averaged": 1.2497307653776795
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.33493621852668126
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 976,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 1.5,
+    "XL": 2.0,
+    "Re_target": 10000.0,
+    "velocity": 0.33493621852668126
+   }
+  },
+  {
+   "id": "T15_L2_Re4e4",
+   "label": "X_T 1.50 · X_L 2.00 · Re 4e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 19,
+    "firstLayer": 0.009461,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 15.0,
+    "SL": 20.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.009461,
+    "n_rad": 19,
+    "growth": 1.247,
+    "clearance": 2.5,
+    "umax": 4.019234622320176,
+    "Re": 40000.0,
+    "XT": 1.5,
+    "XL": 2.0,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.0004976,
+    "time_steps": 976,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 80.38469244640352,
+    "period_s": 0.012440179461615155,
+    "flow_time_s": 0.48565759999999997,
+    "bundle_flowthrough_s": 0.1492821535393819,
+    "flowthroughs": 3.2532864008548708,
+    "flowthroughs_averaged": 1.2499819675415744
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 1.339744874106725
+    },
+    "run": {
+     "time_step": 0.0004976,
+     "time_steps": 976,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 1.5,
+    "XL": 2.0,
+    "Re_target": 40000.0,
+    "velocity": 1.339744874106725
+   }
+  },
+  {
+   "id": "T2_L125_Re2e3",
+   "label": "X_T 2.00 · X_L 1.25 · Re 2e+03",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 6,
+    "firstLayer": 0.1301,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 20.0,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.1301,
+    "n_rad": 6,
+    "growth": 1.1869,
+    "clearance": 1.25,
+    "umax": 0.20096173111600882,
+    "Re": 2000.0000000000002,
+    "XT": 2.0,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.009952,
+    "time_steps": 626,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 4.019234622320177,
+    "period_s": 0.24880358923230306,
+    "flow_time_s": 6.229952000000001,
+    "bundle_flowthrough_s": 1.2440179461615155,
+    "flowthroughs": 5.007927754758565,
+    "flowthroughs_averaged": 2.9999567220997796
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.10048086555800441
+    },
+    "run": {
+     "time_step": 0.009952,
+     "time_steps": 626,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 2.0,
+    "XL": 1.25,
+    "Re_target": 2000.0,
+    "velocity": 0.10048086555800441
+   }
+  },
+  {
+   "id": "T2_L125_Re1e4",
+   "label": "X_T 2.00 · X_L 1.25 · Re 1e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 11,
+    "firstLayer": 0.03182,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 20.0,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 11,
+    "growth": 1.2357,
+    "clearance": 1.25,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 2.0,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 626,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 1.24574,
+    "bundle_flowthrough_s": 0.2488035892323031,
+    "flowthroughs": 5.0069213384091364,
+    "flowthroughs_averaged": 2.999353836906431
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.502404327790022
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 626,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 2.0,
+    "XL": 1.25,
+    "Re_target": 10000.0,
+    "velocity": 0.502404327790022
+   }
+  },
+  {
+   "id": "T2_L125_Re4e4",
+   "label": "X_T 2.00 · X_L 1.25 · Re 4e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 16,
+    "firstLayer": 0.009461,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 20.0,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.009461,
+    "n_rad": 16,
+    "growth": 1.2452,
+    "clearance": 1.25,
+    "umax": 4.019234622320176,
+    "Re": 40000.0,
+    "XT": 2.0,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.0004976,
+    "time_steps": 626,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 80.38469244640352,
+    "period_s": 0.012440179461615155,
+    "flow_time_s": 0.3114976,
+    "bundle_flowthrough_s": 0.06220089730807578,
+    "flowthroughs": 5.0079277547585646,
+    "flowthroughs_averaged": 2.999956722099779
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 2.009617311160088
+    },
+    "run": {
+     "time_step": 0.0004976,
+     "time_steps": 626,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 2.0,
+    "XL": 1.25,
+    "Re_target": 40000.0,
+    "velocity": 2.009617311160088
+   }
+  },
+  {
+   "id": "T2_L15_Re2e3",
+   "label": "X_T 2.00 · X_L 1.50 · Re 2e+03",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 8,
+    "firstLayer": 0.1301,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 20.0,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.1301,
+    "n_rad": 8,
+    "growth": 1.2413,
+    "clearance": 2.5,
+    "umax": 0.20096173111600882,
+    "Re": 2000.0000000000002,
+    "XT": 2.0,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.009952,
+    "time_steps": 676,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 4.019234622320177,
+    "period_s": 0.24880358923230306,
+    "flow_time_s": 6.727552,
+    "bundle_flowthrough_s": 1.4928215353938186,
+    "flowthroughs": 4.506601653643225,
+    "flowthroughs_averaged": 2.4999639350831497
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.10048086555800441
+    },
+    "run": {
+     "time_step": 0.009952,
+     "time_steps": 676,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 2.0,
+    "XL": 1.5,
+    "Re_target": 2000.0,
+    "velocity": 0.10048086555800441
+   }
+  },
+  {
+   "id": "T2_L15_Re1e4",
+   "label": "X_T 2.00 · X_L 1.50 · Re 1e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 14,
+    "firstLayer": 0.03182,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 20.0,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 14,
+    "growth": 1.2369,
+    "clearance": 2.5,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 2.0,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 676,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 1.34524,
+    "bundle_flowthrough_s": 0.29856430707876375,
+    "flowthroughs": 4.505695986108328,
+    "flowthroughs_averaged": 2.4994615307553594
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.502404327790022
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 676,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 2.0,
+    "XL": 1.5,
+    "Re_target": 10000.0,
+    "velocity": 0.502404327790022
+   }
+  },
+  {
+   "id": "T2_L15_Re4e4",
+   "label": "X_T 2.00 · X_L 1.50 · Re 4e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 19,
+    "firstLayer": 0.009461,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 20.0,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.009461,
+    "n_rad": 19,
+    "growth": 1.247,
+    "clearance": 2.5,
+    "umax": 4.019234622320176,
+    "Re": 40000.0,
+    "XT": 2.0,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.0004976,
+    "time_steps": 676,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 80.38469244640352,
+    "period_s": 0.012440179461615155,
+    "flow_time_s": 0.33637759999999994,
+    "bundle_flowthrough_s": 0.07464107676969094,
+    "flowthroughs": 4.506601653643223,
+    "flowthroughs_averaged": 2.4999639350831493
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 2.009617311160088
+    },
+    "run": {
+     "time_step": 0.0004976,
+     "time_steps": 676,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 2.0,
+    "XL": 1.5,
+    "Re_target": 40000.0,
+    "velocity": 2.009617311160088
+   }
+  },
+  {
+   "id": "T2_L2_Re2e3",
+   "label": "X_T 2.00 · X_L 2.00 · Re 2e+03",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 11,
+    "firstLayer": 0.1301,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 20.0,
+    "SL": 20.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.1301,
+    "n_rad": 11,
+    "growth": 1.2318,
+    "clearance": 5.0,
+    "umax": 0.20096173111600882,
+    "Re": 2000.0000000000002,
+    "XT": 2.0,
+    "XL": 2.0,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.009952,
+    "time_steps": 776,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 4.019234622320177,
+    "period_s": 0.24880358923230306,
+    "flow_time_s": 7.722752000000001,
+    "bundle_flowthrough_s": 1.990428713858425,
+    "flowthroughs": 3.8799440272490484,
+    "flowthroughs_averaged": 1.874972951312362
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.10048086555800441
+    },
+    "run": {
+     "time_step": 0.009952,
+     "time_steps": 776,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 2.0,
+    "XL": 2.0,
+    "Re_target": 2000.0,
+    "velocity": 0.10048086555800441
+   }
+  },
+  {
+   "id": "T2_L2_Re1e4",
+   "label": "X_T 2.00 · X_L 2.00 · Re 1e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 17,
+    "firstLayer": 0.03182,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 20.0,
+    "SL": 20.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.03182,
+    "n_rad": 17,
+    "growth": 1.2399,
+    "clearance": 5.0,
+    "umax": 1.004808655580044,
+    "Re": 10000.0,
+    "XT": 2.0,
+    "XL": 2.0,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.00199,
+    "time_steps": 776,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 20.09617311160088,
+    "period_s": 0.04976071784646062,
+    "flow_time_s": 1.54424,
+    "bundle_flowthrough_s": 0.398085742771685,
+    "flowthroughs": 3.8791642957323176,
+    "flowthroughs_averaged": 1.8745961480665194
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 0.502404327790022
+    },
+    "run": {
+     "time_step": 0.00199,
+     "time_steps": 776,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 2.0,
+    "XL": 2.0,
+    "Re_target": 10000.0,
+    "velocity": 0.502404327790022
+   }
+  },
+  {
+   "id": "T2_L2_Re4e4",
+   "label": "X_T 2.00 · X_L 2.00 · Re 4e+04",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 22,
+    "firstLayer": 0.009461,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 20.0,
+    "SL": 20.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.009461,
+    "n_rad": 22,
+    "growth": 1.2487,
+    "clearance": 5.0,
+    "umax": 4.019234622320176,
+    "Re": 40000.0,
+    "XT": 2.0,
+    "XL": 2.0,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.0004976,
+    "time_steps": 776,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 80.38469244640352,
+    "period_s": 0.012440179461615155,
+    "flow_time_s": 0.38613759999999997,
+    "bundle_flowthrough_s": 0.09952143569292125,
+    "flowthroughs": 3.8799440272490475,
+    "flowthroughs_averaged": 1.8749729513123619
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 2.009617311160088
+    },
+    "run": {
+     "time_step": 0.0004976,
+     "time_steps": 776,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 2.0,
+    "XL": 2.0,
+    "Re_target": 40000.0,
+    "velocity": 2.009617311160088
+   }
+  },
+  {
+   "id": "T125_L125_Re1e5",
+   "label": "X_T 1.25 · X_L 1.25 · Re 1e+05",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 19,
+    "firstLayer": 0.004244,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 12.5,
+    "SL": 12.5
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.004244,
+    "n_rad": 19,
+    "growth": 1.2565,
+    "clearance": 1.25,
+    "umax": 10.04808655580044,
+    "Re": 100000.0,
+    "XT": 1.25,
+    "XL": 1.25,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.000199,
+    "time_steps": 1001,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 200.9617311160088,
+    "period_s": 0.004976071784646062,
+    "flow_time_s": 0.19919900000000001,
+    "bundle_flowthrough_s": 0.062200897308075764,
+    "flowthroughs": 3.2025100701262277,
+    "flowthroughs_averaged": 1.199741534762573
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 2.0096173111600883
+    },
+    "run": {
+     "time_step": 0.000199,
+     "time_steps": 1001,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 1.25,
+    "XL": 1.25,
+    "Re_target": 100000.0,
+    "velocity": 2.0096173111600883
+   }
+  },
+  {
+   "id": "T15_L15_Re1e5",
+   "label": "X_T 1.50 · X_L 1.50 · Re 1e+05",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 22,
+    "firstLayer": 0.004244,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 15.0,
+    "SL": 15.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.004244,
+    "n_rad": 22,
+    "growth": 1.2566,
+    "clearance": 2.5,
+    "umax": 10.04808655580044,
+    "Re": 100000.0,
+    "XT": 1.5,
+    "XL": 1.5,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.000199,
+    "time_steps": 826,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 200.9617311160088,
+    "period_s": 0.004976071784646062,
+    "flow_time_s": 0.16437400000000002,
+    "bundle_flowthrough_s": 0.044784646061814565,
+    "flowthroughs": 3.6703203989403144,
+    "flowthroughs_averaged": 1.6663076871702396
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 3.3493621852668127
+    },
+    "run": {
+     "time_step": 0.000199,
+     "time_steps": 826,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 1.5,
+    "XL": 1.5,
+    "Re_target": 100000.0,
+    "velocity": 3.3493621852668127
+   }
+  },
+  {
+   "id": "T2_L2_Re1e5",
+   "label": "X_T 2.00 · X_L 2.00 · Re 1e+05",
+   "params": {
+    "D": 10.0,
+    "nRows": 10,
+    "nCols": 4,
+    "lIn": 60.0,
+    "lOut": 120.0,
+    "H": 2.0,
+    "nZ": 2,
+    "halfRods": true,
+    "firstOffset": false,
+    "unit": "mm",
+    "nAz": 29,
+    "nRad": 25,
+    "firstLayer": 0.004244,
+    "nxIn": 17,
+    "nxOut": 29,
+    "ST": 20.0,
+    "SL": 20.0
+   },
+   "mesh_rule": {
+    "y_plus": 1.0,
+    "first_layer": 0.004244,
+    "n_rad": 25,
+    "growth": 1.2569,
+    "clearance": 5.0,
+    "umax": 10.04808655580044,
+    "Re": 100000.0,
+    "XT": 2.0,
+    "XL": 2.0,
+    "diagonal": false
+   },
+   "transient": {
+    "time_step": 0.000199,
+    "time_steps": 776,
+    "average_last": 375,
+    "max_iter_per_step": 12,
+    "shedding_hz": 200.9617311160088,
+    "period_s": 0.004976071784646062,
+    "flow_time_s": 0.154424,
+    "bundle_flowthrough_s": 0.0398085742771685,
+    "flowthroughs": 3.8791642957323176,
+    "flowthroughs_averaged": 1.8745961480665196
+   },
+   "settings": {
+    "inlet": {
+     "velocity": 5.02404327790022
+    },
+    "run": {
+     "time_step": 0.000199,
+     "time_steps": 776,
+     "average_last": 375,
+     "max_iter_per_step": 12
+    }
+   },
+   "meta": {
+    "XT": 2.0,
+    "XL": 2.0,
+    "Re_target": 100000.0,
+    "velocity": 5.02404327790022
+   }
+  }
+ ]
+}

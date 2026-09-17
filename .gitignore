@@ -7,6 +7,26 @@
 *.zip
 *.skill
 
+# solver runs: meshes, cases and data the app writes.  Everything in here is
+# reproducible from the geometry parameters plus the settings.
+runs/
+*.cas.h5
+*.dat.h5
+
+# Generated reports.  Every one of these is rebuilt by a button in seconds -
+# the stage-1 report from correlations.py alone, the others from results.json
+# beside them - and committing build output means the first person to press
+# that button has a dirty tree and a `git pull` that aborts.  Which is exactly
+# what happened.  The DATA stays in git: study.json is the definition and
+# results.json is the measurement.  The HTML is neither.
+studies/*/report.html
+studies/*/report_en.html
+studies/*/overview.html
+
+# the histories re-spelled as CSV.  Nothing in here that results.json does
+# not already carry, and the button regenerates the lot in a second.
+studies/*/history/
+
 # python
 __pycache__/
 *.pyc
