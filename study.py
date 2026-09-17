@@ -371,6 +371,35 @@ RES_KEEP = 400
 DP_KEEP = 2000
 
 
+def mean_drift(row):
+    """Has the TIME AVERAGE stopped moving?  None if it cannot be told.
+
+    Not the same question as how far the instantaneous Dp swings.  A settled
+    vortex street swings ten per cent of its own mean every period and will do
+    so for ever; a criterion built on that swing rejects converged answers,
+    which is what the first version of this did.  What has to stop moving is
+    the mean, so the averaging window is halved and the two half-means are
+    compared.
+
+    The measurement itself is fluent_case.mean_drift - one implementation, so
+    what the driver records and what a report recomputes cannot disagree.
+    Recomputed from dp_history when the recorded field is absent, so a case
+    that ran before this existed is judged by the same rule as one that ran
+    after rather than being re-run for a number already in its record.
+    """
+    import fluent_case as FC            # lazy: FC does not import this module
+    if row.get("dp_mean_drift") is not None:
+        return row["dp_mean_drift"]
+    hist = row.get("dp_history") or []
+    key = ("dp_bundle" if any(m.get("dp_bundle") is not None for m in hist)
+           else "dp")
+    vals = [m[key] for m in hist if m.get(key) is not None]
+    keep = row.get("dp_averaged_over") or 0
+    if keep and keep <= len(vals):
+        vals = vals[-keep:]
+    return FC.mean_drift(vals)
+
+
 def _thin(rows, keep):
     """Every nth row, ends included, so a history fits in a result file."""
     n = len(rows)
@@ -1024,6 +1053,10 @@ class Runner(object):
             return "it failed: %s" % (row.get("error") or "?")
         if row.get("mock"):
             return None                     # the mock is for testing the plumbing
+        #  before either branch: a run that measured nothing is no use however
+        #  well its residuals behaved
+        if row.get("dp_bundle") is None:
+            return "the bundle pressure drop could not be measured"
         if row.get("transient"):
             #  A transient run's inner iterations are not supposed to reach a
             #  steady criterion, so convergence is judged on the ANSWER: did
@@ -1037,15 +1070,22 @@ class Runner(object):
             if row.get("dp_averaged_over", 0) < 20:
                 return ("only %d samples in the averaging window"
                         % row.get("dp_averaged_over", 0))
-        elif row.get("converged") is False:
+            #  and NOT the residual criterion.  A transient run's inner
+            #  iterations are not meant to reach it - continuity in particular
+            #  floors out at the level the pressure-velocity coupling can hold
+            #  within one time step - so the answer is judged on the answer.
+            md = mean_drift(row)
+            if md is not None and md > 0.01:
+                return ("the time average is still moving by %.1f %% across "
+                        "the averaging window" % (100 * md))
+            return None
+        if row.get("converged") is False:
             return ("it did not converge - final residual %.2e%s against a "
                     "criterion of %.0e"
                     % (row.get("residual_worst") or 0.0,
                        " in " + row["residual_worst_eq"]
                        if row.get("residual_worst_eq") else "",
                        row.get("criterion") or 0.0))
-        if row.get("dp_bundle") is None:
-            return "the bundle pressure drop could not be measured"
         if (row.get("dp_drift") or 0.0) > 0.05:
             return ("the pressure drop was still moving by %.1f %% over the "
                     "final stretch" % (100 * row["dp_drift"]))
@@ -1186,6 +1226,7 @@ class Runner(object):
             row["dp_averaged_over"] = avg["n"]
             row["dp_samples"] = avg["of"]
             row["dp_spread"] = avg["spread"]
+            row["dp_mean_drift"] = avg.get("mean_drift")
             row["dp_average_of"] = avg["key"]
         if row.get("dp_bundle") is not None:
             row["eu_row"] = row["dp_bundle"] / (st["n_rows"] * st["q"])
@@ -1460,7 +1501,34 @@ def _warnings(study, rows, ko):
     if missing:
         out.append(("warn", "아직 실행되지 않은 케이스 %d개." % len(missing) if ko
                     else "%d case(s) have not been run yet." % len(missing)))
-    unconv = [r for r in rows if r.get("converged") is False]
+    #  A TRANSIENT run is not judged on the residual criterion and never was:
+    #  mesh_analysis keeps it in the extrapolation, and the criterion belongs
+    #  to a steady solver.  Continuity in particular floors out at whatever
+    #  the pressure-velocity coupling can hold inside one time step, so
+    #  "did not reach 1e-5" is a statement about the time step, not about the
+    #  answer.  This banner said those cases had been thrown out of the GCI.
+    #  They had not been, and they should not be; it was telling the reader
+    #  something untrue about the analysis directly below it.
+    unconv = [r for r in rows if r.get("converged") is False
+              and not r.get("transient")]
+    tr_floor = [r for r in rows if r.get("transient")
+                and r.get("converged") is False]
+    if tr_floor:
+        out.append(("warn",
+                    "비정상 해석 케이스 %d개는 정상상태 잔차 기준(%.0e)에 닿지 "
+                    "않았습니다. 시간 스텝 안에서 continuity 잔차는 더 내려가지 "
+                    "않는 바닥이 있으므로 이는 정상입니다 — 판정은 잔차가 아니라 "
+                    "Δp 시간평균이 멈췄는지로 하고, 이 케이스들은 아래 외삽에 "
+                    "그대로 들어갑니다."
+                    % (len(tr_floor), tr_floor[0].get("criterion") or 0.0)
+                    if ko else
+                    "%d transient case(s) did not reach the steady residual "
+                    "criterion (%.0e). That is expected - continuity floors "
+                    "out at what the pressure-velocity coupling can hold "
+                    "inside one time step - so they are judged on whether the "
+                    "Δp time average stopped moving, and they are included in "
+                    "the extrapolation below."
+                    % (len(tr_floor), tr_floor[0].get("criterion") or 0.0)))
     if unconv:
         eqs = sorted({r.get("residual_worst_eq") for r in unconv
                       if r.get("residual_worst_eq")})
@@ -1480,14 +1548,27 @@ def _warnings(study, rows, ko):
                     "the table so that they are visible."
                     % (len(unconv), ", ".join(r["id"] for r in unconv[:8]),
                        worst, ", ".join(eqs) or "?")))
-    drift = [r for r in rows if (r.get("dp_drift") or 0) > 0.01]
+    #  the same distinction again: on a transient run the thing that has to
+    #  have stopped moving is the MEAN, not the instantaneous value.  A
+    #  settled vortex street swings ten per cent every period and always will.
+    drift = []
+    for r in rows:
+        if r.get("transient"):
+            md = mean_drift(r)
+            if md is not None and md > 0.01:
+                drift.append(r)
+        elif (r.get("dp_drift") or 0) > 0.01:
+            drift.append(r)
     if drift:
-        out.append(("warn", "마지막 구간에서 Δp가 1 %% 이상 움직인 케이스 %d개 - "
-                            "잔차가 내려가도 답은 아직 움직이고 있었습니다."
-                    % len(drift) if ko else
-                    "%d case(s) had Dp still moving by more than 1 %% over the "
-                    "final stretch - residuals settling is not the answer "
-                    "settling." % len(drift)))
+        out.append(("warn", "Δp 가 아직 1 %% 이상 움직인 케이스 %d개 (%s) - "
+                            "비정상 해석은 시간평균 기준, 정상 해석은 마지막 "
+                            "구간 기준입니다."
+                    % (len(drift), ", ".join(r["id"] for r in drift[:8]))
+                    if ko else
+                    "%d case(s) still had Δp moving by more than 1 %% (%s) - "
+                    "measured on the time average for a transient run and "
+                    "over the final stretch for a steady one."
+                    % (len(drift), ", ".join(r["id"] for r in drift[:8]))))
     #  Which spelling of the time mode a given Fluent accepted is not
     #  bookkeeping.  First-order implicit damps the shedding oscillation that
     #  the time step was sized to resolve and that the time average is taken
@@ -2160,9 +2241,17 @@ def _ov_cards(study, rows, ko, t):
                                    _n(r["residual_worst"], "%.1e")))
         #  the number the verdict was actually made on, so the colour of the
         #  border is never something the reader has to take on trust
-        if r.get("transient") and r.get("dp_spread") is not None:
-            bits.append("%s %s" % (t("Δp 진폭", "Δp swing"),
-                                   "%.0f %%" % (100 * r["dp_spread"])))
+        if r.get("transient"):
+            #  the swing is context; the MEAN DRIFT is the criterion.  Showing
+            #  only the swing invited the reading that a ten-per-cent
+            #  oscillation was a ten-per-cent uncertainty, which it is not.
+            if r.get("dp_spread") is not None:
+                bits.append("%s %s" % (t("Δp 진폭", "Δp swing"),
+                                       "%.0f %%" % (100 * r["dp_spread"])))
+            md = mean_drift(r)
+            if md is not None:
+                bits.append("%s %s" % (t("평균 이동", "mean drift"),
+                                       "%.2f %%" % (100 * md)))
         elif r.get("dp_drift") is not None:
             bits.append("%s %s" % (t("Δp 이동", "Δp drift"),
                                    "%.1f %%" % (100 * r["dp_drift"])))
@@ -2172,7 +2261,11 @@ def _ov_cards(study, rows, ko, t):
                  % (t("잔차(최대)", "residual (worst)"),
                     svg_spark([{"points": _fracx(res), "color": col}],
                               ylog=True, yrange=ry, xrange=(0.0, 1.0),
-                              hline=r.get("criterion"),
+                              #  a steady criterion drawn across a transient
+                              #  panel would be a line the run was never asked
+                              #  to cross
+                              hline=(None if r.get("transient")
+                                     else r.get("criterion")),
                               note=t("이력 없음", "no history"))))
         dev, mean = _dp_deviation(r.get("dp_history") or [])
         h.append('<div class="ovplot"><span>%s</span>%s</div>'
@@ -2219,14 +2312,19 @@ def overview_body(study, lang="ko"):
         "패널 하나가 케이스 하나입니다. 모든 패널의 축은 <b>동일</b>하므로 "
         "옆칸과 바로 비교할 수 있습니다. 가로축은 반복 횟수가 아니라 그 런의 "
         "<b>진행률(0→1)</b>이라 길이가 다른 런도 모양으로 비교됩니다. "
-        "잔차 패널의 점선은 수렴 판정선, Δp 패널의 초록 띠는 ±1 % 입니다. "
+        "Δp 패널의 초록 띠는 ±1 % 입니다. 정상 해석 패널의 점선은 수렴 판정선이고, "
+        "비정상 해석에는 그 선이 없습니다 — 시간 스텝 안의 잔차는 정상상태 기준에 "
+        "닿도록 만든 것이 아니라서, 판정은 Δp 시간평균이 멈췄는지로 합니다. "
         "패널을 클릭하면 그 케이스가 해석 탭에 복원됩니다.",
         "One panel per case. Every panel is on the <b>same</b> axes, so a "
         "panel can be read against the one beside it. The abscissa is each "
         "run's <b>progress, 0 to 1</b>, not its iteration count, so runs of "
         "different length still compare by shape. The dashed line in a "
-        "residual panel is the convergence criterion; the green band in a Δp "
-        "panel is ±1 %. Clicking a panel puts that case back on the Run tab."))
+        "steady panel is its convergence criterion; a transient panel has no "
+        "such line, because residuals inside a time step were never meant to "
+        "reach a steady criterion - what is judged there is whether the Δp "
+        "time average stopped moving. The green band in a Δp panel is ±1 %. "
+        "Clicking a panel puts that case back on the Run tab."))
     h.append(_ov_cards(study, rows, ko, t))
 
     #  the same traces again, overlaid.  The wall says which case; the overlay

@@ -438,6 +438,27 @@ which ones went wrong. Clicking a panel replays that case. Nothing here is
 computed that the report does not already compute; it is the same record,
 arranged for the eye.
 
+**A transient run is judged on the answer, not on the residual criterion.**
+Continuity inside a time step floors out at whatever the pressure–velocity
+coupling can hold there; "it did not reach 1e-5" is then a statement about the
+time step, not about the solution. What has to have stopped moving is the Δp
+**time average** — and that is not the same as the instantaneous swing. A
+settled vortex street swings ten per cent of its own mean every period and will
+go on doing so for ever, so a criterion built on the swing rejects converged
+answers.
+
+Measuring the drift of the mean needs one piece of care: the two blocks being
+compared must hold a **whole number of shedding cycles**. Simply halving a
+375-sample window at 25 samples per period gives 7.48 periods a side and
+reports 0.8 % of drift that is not there — the same size as the 1 % the test is
+looking for — while *missing* a real 2 % climb whose phase error happens to
+cancel it. With whole cycles (the period is read off the trace by mean
+crossings) a settled run reads 0.03 % and an imposed x % climb reads back as
+x %. One implementation, in `fluent_case.mean_drift`, so what the driver
+records and what a report recomputes cannot disagree — and a report recomputes
+it from `dp_history` when the field is missing, so cases that ran before the
+test existed are judged by it without being re-run.
+
 **The shipped settings tree is a claim about a release, not about an
 installation.** `audit_choices()` was green on all five trees for
 `setup.general.solver.time = 'transient'` — the 2026 R1 tree lists `transient`

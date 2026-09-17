@@ -704,6 +704,63 @@ TIME_SCHEMES = {
 }
 
 
+def dominant_period(vals):
+    """Samples per cycle of the oscillation in `vals`, by mean crossings.
+
+    Crude on purpose.  It is not used to report a frequency - for that the Dp
+    trace is in the record and an FFT is a better tool - only to find a window
+    length that holds a whole number of cycles.
+    """
+    n = len(vals)
+    if n < 8:
+        return None
+    m = sum(vals) / n
+    ups = [i for i in range(1, n) if vals[i - 1] <= m < vals[i]]
+    if len(ups) < 3:
+        return None
+    p = (ups[-1] - ups[0]) / float(len(ups) - 1)
+    return p if 2.0 <= p <= n / 2.0 else None
+
+
+def mean_drift(vals):
+    """How much the MEAN of `vals` moved across the window, as a fraction.
+
+    Compare the average over a block at the start with the average over a
+    block at the end.  The blocks have to hold a WHOLE number of cycles or the
+    comparison measures phase instead of drift: on a settled 10 %% oscillation
+    sampled 25 to a period, simply halving a 375-sample window makes the two
+    halves 7.48 periods each and reports 0.8 %% of drift that is not there -
+    which is the same size as the 1 %% a convergence test is looking for.  With
+    whole cycles it reports 0.01 %%, and it still catches a 2 %% climb that the
+    naive split misses entirely (it reports 0.15 %% for that one, because the
+    phase error happens to cancel the real drift).
+
+    The difference is then scaled from the separation of the two blocks'
+    centres up to the whole window, so the number means "the answer moved this
+    much from one end of the averaging window to the other".
+    """
+    n = len(vals)
+    if n < 8:
+        return None
+    m = sum(vals) / n
+    if not m:
+        return None
+    p = dominant_period(vals)
+    blk = n // 2
+    if p:
+        cycles = int(n // (2 * p))
+        if cycles >= 1:
+            blk = max(2, int(round(cycles * p)))
+    if blk < 2 or blk > n // 2:
+        blk = n // 2
+    if blk < 2:
+        return None
+    a = sum(vals[:blk]) / blk
+    b = sum(vals[-blk:]) / blk
+    sep = n - blk                     # distance between the blocks' centres
+    return abs(b - a) / abs(m) * ((n - 1) / float(sep)) if sep else None
+
+
 def solver_time(settings):
     """The time MODE of this case: "steady" or "transient".
 
@@ -1039,8 +1096,15 @@ class BaseDriver(object):
         n = len(tail)
         mean = sum(tail) / n
         spread = (max(tail) - min(tail)) / abs(mean) if mean else None
+        #  SPREAD is the amplitude of the oscillation; MEAN DRIFT is whether
+        #  the thing being averaged has stopped moving.  On a shedding run
+        #  they are completely different questions and only the second one is
+        #  a convergence test: a perfectly settled wake still swings the
+        #  instantaneous Dp by ten per cent every period, for ever, and a
+        #  criterion built on the swing would reject a converged answer.
         return {"mean": mean, "n": n, "spread": spread, "key": key,
-                "of": len(rows), "last": rows[-1]}
+                "mean_drift": mean_drift(tail), "of": len(rows),
+                "last": rows[-1]}
 
     def monitor_interval(self):
         try:
