@@ -1,5 +1,20 @@
 # HCRBPD — helical coil / rod bundle pressure drop
 
+> ### 처음 오셨으면 → **[docs/](docs/)**
+>
+> | | |
+> |---|---|
+> | 프로그램을 켜고 한 번 돌려본다 | [docs/01-시작하기.md](docs/01-시작하기.md) |
+> | 격자를 직접 지정한다 | [docs/02-격자-직접-지정.md](docs/02-격자-직접-지정.md) |
+> | 해석 조건을 확인한다 | [docs/03-해석-설정.md](docs/03-해석-설정.md) |
+> | 결과를 분석에 넘긴다 | [docs/04-결과-분석-의뢰.md](docs/04-결과-분석-의뢰.md) |
+> | 무엇이 틀렸고 무엇을 배웠나 | [docs/05-지금까지-배운것.md](docs/05-지금까지-배운것.md) |
+> | 지금 어디까지 왔나 | [docs/06-현황과-미결.md](docs/06-현황과-미결.md) |
+>
+> **This file is the design record, not the manual.** It says why the program
+> is built the way it is — every decision, and every defect that forced one.
+> `docs/` says how to use it.
+
 Parametric CAD + block-structured hex mesh explorer for cross-flow pressure-drop
 studies. One self-contained HTML file: it draws the 3-D geometry, previews the
 mesh with quality colouring, estimates the pre-CFD velocity and pressure field
